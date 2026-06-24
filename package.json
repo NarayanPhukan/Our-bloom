@@ -1,0 +1,14 @@
+{
+  "name": "our-bloom",
+  "version": "1.0.0",
+  "description": "Our Bloom — A romantic journey timeline MERN application",
+  "private": true,
+  "scripts": {
+    "server": "cd server && node index.js",
+    "client": "cd client && npm run dev",
+    "dev": "npm run server & npm run client"
+  },
+  "keywords": ["mern", "timeline", "romantic"],
+  "author": "",
+  "license": "ISC"
+}

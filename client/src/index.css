@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.bg-lily-pattern {
+  background-color: #fbf9f8;
+  background-image: url('/images/lily-bg.png');
+  background-size: 400px;
+  background-repeat: repeat;
+  background-attachment: fixed;
+  /* Blend mode ensures the transparent watercolor blends nicely with the background */
+  background-blend-mode: multiply; 
+}
+
+.petal-shadow {
+  box-shadow: 0 20px 40px rgba(222, 191, 194, 0.15);
+}
+
+.glass-card {
+  background: rgba(251, 249, 248, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(222, 191, 194, 0.3);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(222, 191, 194, 0.3);
+}
+
+.polaroid-frame {
+  border: 8px solid #ffffff;
+  box-shadow: 0 10px 30px rgba(222, 191, 194, 0.15);
+}
+
+.petal {
+  position: absolute;
+  background: rgba(222, 191, 194, 0.4);
+  border-radius: 100% 0% 100% 0%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.timeline-line {
+  background: linear-gradient(to bottom, transparent, #debfc2 10%, #debfc2 90%, transparent);
+}
+
+/* Love note cards */
+.love-note-card {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+}
+
+.love-note-card:hover {
+  transform: translateY(-8px) rotate(-1deg);
+}
+
+/* Custom scrollbar for textarea */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #debfc2;
+  border-radius: 10px;
+}
+
+/* Selection styling */
+::selection {
+  background-color: #fadadd;
+  color: #765e61;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fbf9f8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #debfc2;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #70585b;
+}
+
+/* Toast animations */
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.toast-enter {
+  animation: slideInUp 0.4s ease-out forwards;
+}
+
+.toast-exit {
+  animation: slideOutDown 0.4s ease-in forwards;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  background: rgba(27, 28, 28, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+/* Gentle pulse for loading states */
+@keyframes gentlePulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.animate-gentle-pulse {
+  animation: gentlePulse 2s ease-in-out infinite;
+}
