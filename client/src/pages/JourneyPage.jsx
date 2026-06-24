@@ -41,7 +41,8 @@ export default function JourneyPage() {
           // Format the DB memories to match the visual props needed for the grid
           const formatted = data.slice(0, 4).map((mem, index) => {
             const isLocal = mem.imageUrl.startsWith('/uploads');
-            const imgSrc = isLocal ? `http://localhost:5000${mem.imageUrl}` : mem.imageUrl;
+            const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+            const imgSrc = isLocal ? `${baseUrl}${mem.imageUrl}` : mem.imageUrl;
             
             // Apply predefined classes to mimic the original bento aesthetic
             let className = 'h-64 hover:rotate-0';
@@ -177,7 +178,7 @@ export default function JourneyPage() {
 
           {/* Memories Preview Section */}
           <div className="md:col-span-12 mt-12">
-            <div className="flex justify-between items-end mb-8">
+            <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
               <div>
                 <h2 className="font-headline-md text-headline-md text-on-surface">
                   Cherished Memories

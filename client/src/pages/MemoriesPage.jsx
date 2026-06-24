@@ -166,7 +166,8 @@ export default function MemoriesPage() {
             {displayMemories.map((memory) => {
               const rotation = memory.rotation || 0;
               const isLocal = memory.imageUrl.startsWith('/uploads');
-              const imgSrc = isLocal ? `http://localhost:5000${memory.imageUrl}` : memory.imageUrl;
+              const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+              const imgSrc = isLocal ? `${baseUrl}${memory.imageUrl}` : memory.imageUrl;
               const aspect = memory.aspect || 'aspect-[4/5]';
 
               return (

@@ -88,7 +88,8 @@ export default function LoveNotesPage() {
           {notes.map((note) => {
             if (note.imageUrl) {
               const isLocal = note.imageUrl.startsWith('/uploads');
-              const imgSrc = isLocal ? `http://localhost:5000${note.imageUrl}` : note.imageUrl;
+              const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+              const imgSrc = isLocal ? `${baseUrl}${note.imageUrl}` : note.imageUrl;
               return (
                 <div key={note._id} className="love-note-card bg-surface-container-lowest p-4 pb-16 rounded-[4px] shadow-[0_10px_30px_rgba(0,0,0,0.05)] relative group">
                   <div className="w-full aspect-square overflow-hidden bg-surface-variant mb-6">
