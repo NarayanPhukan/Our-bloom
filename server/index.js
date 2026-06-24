@@ -27,17 +27,27 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.send('✿ Our Bloom API is running beautifully!');
+});
+
 // Connect to MongoDB and start server
 mongoose
   .connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ourbloom')
   .then(async () => {
     console.log('✿ Connected to MongoDB');
     await seedDatabase();
-    app.listen(PORT, () => {
-      console.log(`✿ Server running on http://localhost:${PORT}`);
-    });
+    
+    // Only listen if we are not in a serverless environment
+    if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+      app.listen(PORT, () => {
+        console.log(`✿ Server running on http://localhost:${PORT}`);
+      });
+    }
   })
   .catch((err) => {
-    console.error('MongoDB connection error:', err.message);
-    process.exit(1);
+    console.error('✿ Error connecting to MongoDB', err);
   });
+
+module.exports = app;
