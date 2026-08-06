@@ -19,6 +19,7 @@ export default function Header() {
     { to: '/', label: 'Journey' },
     { to: '/memories', label: 'Memories' },
     { to: '/love-notes', label: 'Love Notes' },
+    { to: '/map', label: 'Dream Map ✨' },
   ];
 
   return (

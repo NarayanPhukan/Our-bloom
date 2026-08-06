@@ -37,10 +37,18 @@ export default function Lightbox({ imageSrc, title, date, onClose }) {
           alt={title || "Memory"} 
           className="max-w-full max-h-[75vh] object-contain rounded-md"
         />
-        {(title || date) && (
-          <div className="mt-4 text-center w-full">
+        {(title || date || audioUrl) && (
+          <div className="mt-4 text-center w-full flex flex-col items-center">
             {title && <h3 className="font-headline-md text-2xl text-on-surface">{title}</h3>}
             {date && <p className="font-label-sm text-primary uppercase tracking-widest mt-2">{date}</p>}
+            {audioUrl && (
+              <audio 
+                controls 
+                autoPlay
+                className="mt-4 w-full max-w-sm outline-none"
+                src={audioUrl.startsWith('/uploads') ? (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000') + audioUrl : audioUrl} 
+              />
+            )}
           </div>
         )}
       </div>

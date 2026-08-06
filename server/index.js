@@ -22,6 +22,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/milestones', milestoneRoutes);
 app.use('/api/love-notes', loveNoteRoutes);
 app.use('/api/memories', require('./routes/memories'));
+app.use('/api/dream-locations', require('./routes/dreamLocations'));
 
 // Health check
 app.get('/api/health', (req, res) => {

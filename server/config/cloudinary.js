@@ -12,8 +12,11 @@ cloudinary.config({
 // Configure Multer storage for Cloudinary
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  folder: 'ourbloom', // The folder name in your Cloudinary account
-  allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+  params: {
+    folder: 'ourbloom', // The folder name in your Cloudinary account
+    allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp3', 'wav', 'webm', 'ogg'],
+    resource_type: 'auto',
+  }
 });
 
 const upload = multer({ storage: storage });

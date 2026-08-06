@@ -5,6 +5,7 @@ import PetalEffect from './components/PetalEffect';
 import JourneyPage from './pages/JourneyPage';
 import MemoriesPage from './pages/MemoriesPage';
 import LoveNotesPage from './pages/LoveNotesPage';
+import MapPage from './pages/MapPage';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="/" element={<JourneyPage />} />
             <Route path="/memories" element={<MemoriesPage />} />
             <Route path="/love-notes" element={<LoveNotesPage />} />
+            <Route path="/map" element={<MapPage />} />
           </Routes>
         </main>
 

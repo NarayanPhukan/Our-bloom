@@ -16,6 +16,10 @@ const memorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    audioUrl: {
+      type: String,
+      default: '',
+    },
     rotation: {
       type: Number,
       default: 0,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Polaroid from '../components/Polaroid';
 import Lightbox from '../components/Lightbox';
-import { getMemories } from '../api';
+import { getMemories, getDailyLoveNote } from '../api';
 
 const FALLBACK_MEMORIES = [
   {
@@ -35,9 +35,10 @@ export default function JourneyPage() {
   const [recentMemories, setRecentMemories] = useState([]);
   const [selectedMemory, setSelectedMemory] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [dailyNote, setDailyNote] = useState(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000 * 60);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -45,8 +46,11 @@ export default function JourneyPage() {
   const startTime = startDate.getTime();
   const diff = Math.max(0, now - startTime);
   
+  const totalHours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / 1000 / 60) % 60);
+  const seconds = Math.floor((diff / 1000) % 60);
 
   const currentDate = new Date(now);
   const monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
@@ -84,7 +88,18 @@ export default function JourneyPage() {
         console.error('Failed to fetch recent memories for preview', err);
       }
     };
+
+    const fetchDailyNote = async () => {
+      try {
+        const { data } = await getDailyLoveNote();
+        setDailyNote(data);
+      } catch (err) {
+        console.error('Failed to fetch daily note', err);
+      }
+    };
+
     fetchRecentMemories();
+    fetchDailyNote();
   }, []);
 
   const displayMemories = recentMemories.length > 0 ? recentMemories : FALLBACK_MEMORIES;
@@ -143,29 +158,84 @@ export default function JourneyPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[280px]">
           {/* Large Feature Card */}
-          <div className="md:col-span-8 md:row-span-2 glass-card rounded-[24px] p-8 flex flex-col justify-end relative overflow-hidden group">
+          <div className="md:col-span-8 md:row-span-2 rounded-[24px] relative overflow-hidden group shadow-lg border border-white/40 bg-surface">
+            {/* Base Image */}
             <img
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-40"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               src="/images/journey-bg.jpg"
               alt="Beautiful memory"
               loading="lazy"
             />
-            <div className="relative z-10">
-              <span className="font-label-sm text-primary uppercase tracking-wider">
-                The Beginning
+
+            {/* Floating Glassmorphic Text Panel */}
+            <div className="absolute inset-x-6 bottom-6 p-6 rounded-[20px] bg-white/50 backdrop-blur-md border border-white/60 shadow-glass flex flex-col justify-end">
+              <span className="font-label-sm text-primary uppercase tracking-wider font-bold">
+                Our Journey: The Story Continues
               </span>
-              <h3 className="font-headline-md text-headline-md mt-2 text-on-surface">
+              <h3 className="font-headline-md text-headline-md mt-1 text-on-surface">
                 Where it all started
               </h3>
-              <p className="mt-4 text-on-surface-variant max-w-md">
+              <p className="mt-2 text-on-surface-variant max-w-md font-medium leading-relaxed">
                 The first time our eyes met, I knew there was a story waiting to
                 be written. This month was only the first chapter of a masterpiece.
               </p>
             </div>
           </div>
 
-          {/* Small Grid Items */}
-          <div className="md:col-span-4 bg-tertiary-container rounded-[24px] p-8 flex flex-col justify-center items-center text-center space-y-4">
+          {/* Dynamic Timer Grid Item */}
+          <div className="md:col-span-4 md:row-span-2 bg-tertiary-container rounded-[24px] p-8 flex flex-col justify-center items-center text-center space-y-8">
+            <div className="w-16 h-16 rounded-full bg-white/50 flex items-center justify-center text-primary shrink-0">
+              <span className="material-symbols-outlined text-4xl">
+                favorite
+              </span>
+            </div>
+            
+            <div className="space-y-4 w-full">
+              <div className="font-headline-md text-headline-md text-on-surface">Time Together</div>
+              
+              <div className="flex gap-2 justify-center items-baseline text-primary">
+                <div className="flex flex-col items-center">
+                  <span className="font-display-lg text-4xl">{days}</span>
+                  <span className="font-label-sm uppercase text-on-surface-variant text-[10px]">Days</span>
+                </div>
+                <span className="font-display-lg text-2xl mb-4 opacity-50">:</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-display-lg text-4xl">{hours.toString().padStart(2, '0')}</span>
+                  <span className="font-label-sm uppercase text-on-surface-variant text-[10px]">Hrs</span>
+                </div>
+                <span className="font-display-lg text-2xl mb-4 opacity-50">:</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-display-lg text-4xl">{minutes.toString().padStart(2, '0')}</span>
+                  <span className="font-label-sm uppercase text-on-surface-variant text-[10px]">Min</span>
+                </div>
+                <span className="font-display-lg text-2xl mb-4 opacity-50">:</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-display-lg text-4xl">{seconds.toString().padStart(2, '0')}</span>
+                  <span className="font-label-sm uppercase text-on-surface-variant text-[10px]">Sec</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full h-[1px] bg-on-surface-variant/20 shrink-0"></div>
+
+            <div className="space-y-3 w-full">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant font-medium">15:32</span>
+                <span className="text-on-surface">I Proposed</span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-bold text-primary">
+                <span>15:50</span>
+                <span>She Said Yes</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant font-medium">15:52</span>
+                <span className="text-on-surface">"Love You Too"</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Metric Cards */}
+          <div className="md:col-span-6 bg-tertiary-container rounded-[24px] p-8 flex flex-col justify-center items-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-white/50 flex items-center justify-center text-primary">
               <span className="material-symbols-outlined text-4xl">
                 calendar_month
@@ -179,19 +249,41 @@ export default function JourneyPage() {
             </div>
           </div>
           
-          <div className="md:col-span-4 bg-primary-container/40 rounded-[24px] p-8 flex flex-col justify-center items-center text-center space-y-4">
+          <div className="md:col-span-6 bg-primary-container/40 rounded-[24px] p-8 flex flex-col justify-center items-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-white/50 flex items-center justify-center text-primary">
               <span className="material-symbols-outlined text-4xl">
                 favorite
               </span>
             </div>
             <div>
-              <div className="font-headline-md text-headline-md text-on-surface">{hours}+</div>
+              <div className="font-headline-md text-headline-md text-on-surface">{totalHours}+</div>
               <div className="font-label-sm uppercase tracking-widest text-on-primary-container mt-1">
                 Hours of hearing you sing
               </div>
             </div>
           </div>
+
+          {/* Daily AI Note Widget */}
+          {dailyNote && (
+            <div className="md:col-span-12 glass-panel rounded-[24px] p-8 md:p-12 border border-primary/20 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+                <span className="material-symbols-outlined text-[120px] text-primary">auto_awesome</span>
+              </div>
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-primary-container flex items-center justify-center text-primary shrink-0 z-10 shadow-glow-primary">
+                <span className="material-symbols-outlined text-4xl md:text-5xl">mark_email_unread</span>
+              </div>
+              <div className="text-center md:text-left z-10">
+                <span className="font-label-sm text-primary uppercase tracking-widest font-bold">Daily Love Note • {dailyNote.dateStr}</span>
+                <p className="font-headline-md text-xl md:text-2xl text-on-surface mt-2 leading-relaxed">
+                  "{dailyNote.content}"
+                </p>
+                <div className="mt-4 flex items-center justify-center md:justify-start gap-2">
+                  <div className="w-6 h-[1px] bg-primary/50"></div>
+                  <span className="font-label-sm text-on-surface-variant italic">From {dailyNote.author}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Memories Preview Section */}
           <div className="md:col-span-12 mt-12">

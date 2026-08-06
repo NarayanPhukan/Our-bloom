@@ -25,4 +25,11 @@ export const createMemory = (formData) => API.post('/memories', formData, {
 });
 export const deleteMemory = (id) => API.delete(`/memories/${id}`);
 
+// Dream Locations
+export const getDreamLocations = () => API.get('/dream-locations');
+export const createDreamLocation = (data) => API.post('/dream-locations', data);
+
+// Daily Note
+export const getDailyLoveNote = () => API.get('/love-notes/daily');
+
 export default API;

@@ -71,10 +71,18 @@ export default function MemoriesPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [selectedMemory, setSelectedMemory] = useState(null);
+  const [viewMode, setViewMode] = useState('gallery'); // 'gallery' | 'timeline'
 
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({ title: '', dateStr: '' });
   const [imageFile, setImageFile] = useState(null);
+  
+  // Audio Recording State
+  const [recording, setRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -99,6 +107,37 @@ export default function MemoriesPage() {
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+      };
+
+      mediaRecorderRef.current.start();
+      setRecording(true);
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      setToast({ message: 'Microphone permission denied', type: 'error' });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+    }
+  };
+
   const handleAddMemory = async (e) => {
     e.preventDefault();
     if (!imageFile) {
@@ -112,12 +151,16 @@ export default function MemoriesPage() {
       data.append('title', formData.title);
       data.append('dateStr', formData.dateStr);
       data.append('image', imageFile);
+      if (audioBlob) {
+        data.append('audio', audioBlob, 'voice-note.webm');
+      }
 
       const res = await createMemory(data);
       setMemories([res.data, ...memories]);
       setModalOpen(false);
       setFormData({ title: '', dateStr: '' });
       setImageFile(null);
+      setAudioBlob(null);
       setToast({ message: 'Memory bloomed successfully ♡', type: 'success' });
     } catch (err) {
       console.error(err);
@@ -167,8 +210,28 @@ export default function MemoriesPage() {
         </div>
       )}
 
-      {/* Memories Grid (4 per row) */}
+      {/* View Toggle */}
       {!loading && (
+        <div className="flex justify-center mb-12">
+          <div className="bg-surface-variant p-1 rounded-full flex gap-1 shadow-inner">
+            <button
+              onClick={() => setViewMode('gallery')}
+              className={`px-6 py-2 rounded-full font-label-sm uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-primary text-on-primary shadow-glow-primary' : 'text-on-surface-variant hover:text-primary'}`}
+            >
+              Gallery
+            </button>
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={`px-6 py-2 rounded-full font-label-sm uppercase tracking-widest transition-all ${viewMode === 'timeline' ? 'bg-primary text-on-primary shadow-glow-primary' : 'text-on-surface-variant hover:text-primary'}`}
+            >
+              Timeline
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Memories Gallery View */}
+      {!loading && viewMode === 'gallery' && (
         <section className="max-w-[1200px] mx-auto px-5 md:px-margin-desktop">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {displayMemories.map((memory) => {
@@ -179,7 +242,7 @@ export default function MemoriesPage() {
               const aspect = memory.aspect || 'aspect-[4/5]';
 
               return (
-                <div key={memory._id} className="break-inside-avoid cursor-pointer" onClick={() => setSelectedMemory({ src: imgSrc, title: memory.title, date: memory.dateStr })}>
+                <div key={memory._id} className="break-inside-avoid cursor-pointer" onClick={() => setSelectedMemory({ src: imgSrc, title: memory.title, date: memory.dateStr, audioUrl: memory.audioUrl })}>
                   <div
                     className={`polaroid-frame bg-white p-4 rounded-sm relative group hover:scale-[1.03] transition-transform duration-400 ease-out`}
                     style={{ transform: `rotate(${rotation}deg)` }}
@@ -212,6 +275,57 @@ export default function MemoriesPage() {
                       <p className="font-label-sm text-label-sm text-on-tertiary-container mt-1 uppercase">
                         {memory.dateStr}
                       </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Memories Timeline View */}
+      {!loading && viewMode === 'timeline' && (
+        <section className="max-w-4xl mx-auto px-5 md:px-margin-desktop relative pb-20">
+          {/* Central Line */}
+          <div className="absolute left-[20px] md:left-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-primary/10 via-primary/30 to-primary/10 -translate-x-1/2"></div>
+          
+          <div className="space-y-16">
+            {displayMemories.map((memory, index) => {
+              const rotation = memory.rotation || 0;
+              const isLocal = memory.imageUrl.startsWith('/uploads');
+              const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+              const imgSrc = isLocal ? `${baseUrl}${memory.imageUrl}` : memory.imageUrl;
+              const isEven = index % 2 === 0;
+
+              return (
+                <div key={memory._id} className={`relative flex flex-col md:flex-row items-start ${isEven ? 'md:flex-row-reverse' : ''}`}>
+                  {/* Timeline Dot */}
+                  <div className="absolute left-[20px] md:left-1/2 w-4 h-4 bg-primary rounded-full -translate-x-1/2 mt-8 md:mt-12 shadow-glow-primary z-10 border-4 border-surface"></div>
+                  
+                  {/* Content Container */}
+                  <div className={`w-full md:w-1/2 pl-12 md:pl-0 ${isEven ? 'md:pr-16 text-left md:text-right' : 'md:pl-16 text-left'}`}>
+                    <div className="inline-block cursor-pointer group" onClick={() => setSelectedMemory({ src: imgSrc, title: memory.title, date: memory.dateStr, audioUrl: memory.audioUrl })}>
+                      <div className="font-label-sm text-primary uppercase tracking-widest mb-2">{memory.dateStr}</div>
+                      <div
+                        className="polaroid-frame bg-white p-4 rounded-sm shadow-xl hover:scale-105 transition-transform duration-400 ease-out inline-block w-full max-w-sm"
+                        style={{ transform: `rotate(${isEven ? -rotation : rotation}deg)` }}
+                      >
+                        <div className="aspect-square bg-surface-container-low mb-4 overflow-hidden rounded-[4px]">
+                          <img
+                            className="w-full h-full object-cover"
+                            src={imgSrc}
+                            alt={memory.title}
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="text-center">
+                          <span className="font-headline-md text-xl text-primary">{memory.title}</span>
+                          {memory.audioUrl && (
+                            <span className="material-symbols-outlined text-primary ml-2 align-middle text-sm">mic</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -293,6 +407,36 @@ export default function MemoriesPage() {
                 }} 
               />
 
+              {/* Audio Record Area */}
+              <div className="bg-surface border border-outline-variant rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`material-symbols-outlined ${recording ? 'text-error animate-pulse' : 'text-primary'}`}>
+                    mic
+                  </span>
+                  <div>
+                    <h4 className="font-label-sm text-primary uppercase">Voice Note (Optional)</h4>
+                    <p className="text-xs text-on-surface-variant">
+                      {recording ? 'Recording in progress...' : audioBlob ? 'Voice note recorded!' : 'Add a sweet message'}
+                    </p>
+                  </div>
+                </div>
+                
+                {recording ? (
+                  <button type="button" onClick={stopRecording} className="bg-error/20 text-error px-4 py-2 rounded-full font-label-sm hover:bg-error/30 transition-colors">
+                    Stop
+                  </button>
+                ) : audioBlob ? (
+                  <button type="button" onClick={() => setAudioBlob(null)} className="bg-surface-variant text-on-surface-variant px-4 py-2 rounded-full font-label-sm hover:bg-outline-variant transition-colors">
+                    Clear
+                  </button>
+                ) : (
+                  <button type="button" onClick={startRecording} className="bg-primary/20 text-primary px-4 py-2 rounded-full font-label-sm hover:bg-primary/30 transition-colors">
+                    Record
+                  </button>
+                )}
+              </div>
+
+
               {/* Title */}
               <div>
                 <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Memory Title</label>
@@ -346,6 +490,7 @@ export default function MemoriesPage() {
           imageSrc={selectedMemory.src}
           title={selectedMemory.title}
           date={selectedMemory.date}
+          audioUrl={selectedMemory.audioUrl}
           onClose={() => setSelectedMemory(null)}
         />
       )}
