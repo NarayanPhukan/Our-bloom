@@ -34,7 +34,7 @@ async function generateAnniversaryMessage(anniversaryNumber) {
   }
 }
 
-async function sendAnniversaryEmail() {
+async function sendAnniversaryEmail(toEmail = 'tanayaburagohain2244@gmail.com') {
   try {
     const monthNum = getMonthAnniversaryNumber();
     if (monthNum <= 0) return; // Don't send if it's before or exactly on the start date somehow
@@ -44,7 +44,7 @@ async function sendAnniversaryEmail() {
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: 'tanayaburagohain2244@gmail.com',
+      to: toEmail,
       subject: `Happy ${ordinalMonth} Month Anniversary, My Love ❤️`,
       text: message,
     };
