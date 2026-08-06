@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Polaroid from '../components/Polaroid';
+import Lightbox from '../components/Lightbox';
 import { getMemories } from '../api';
 
 const FALLBACK_MEMORIES = [
@@ -32,6 +33,25 @@ const FALLBACK_MEMORIES = [
 
 export default function JourneyPage() {
   const [recentMemories, setRecentMemories] = useState([]);
+  const [selectedMemory, setSelectedMemory] = useState(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000 * 60);
+    return () => clearInterval(timer);
+  }, []);
+
+  const startDate = new Date('2026-05-29T15:50:00');
+  const startTime = startDate.getTime();
+  const diff = Math.max(0, now - startTime);
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+
+  const currentDate = new Date(now);
+  const monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
+  const adjustedMonthsDiff = currentDate.getDate() < startDate.getDate() ? monthsDiff - 1 : monthsDiff;
+  const monthText = adjustedMonthsDiff === 1 ? '1 Month' : `${adjustedMonthsDiff} Months`;
 
   useEffect(() => {
     const fetchRecentMemories = async () => {
@@ -75,17 +95,14 @@ export default function JourneyPage() {
       <section className="relative min-h-[921px] flex items-center justify-center overflow-hidden px-5 md:px-margin-desktop -mt-32">
         <div className="relative z-20 max-w-4xl text-center space-y-8 animate-fade-in mt-20">
           <div className="inline-block px-4 py-1.5 rounded-full bg-primary-container/30 text-primary font-label-sm uppercase tracking-widest mb-4">
-            Chapter One: The First Moon
+            Our Journey: The Story Continues
           </div>
           <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">
-            Happy 1 Month, <span className="text-primary italic">My Love.</span>
+            Happy {monthText}, <span className="text-primary italic">my beautiful Tiku Guxaini.</span>
           </h1>
           <p className="max-w-2xl mx-auto font-body-lg text-body-lg text-on-surface-variant/80 leading-relaxed">
-            This past month has been like watching a single lily bloom in slow
-            motion—delicate, intentional, and breathtakingly beautiful. Every
-            shared laugh and quiet moment has woven a tapestry of memories that
-            I will carry in my heart forever. Thank you for being the most
-            beautiful part of my everyday journey.
+            This past month has been like watching your favorite lily bloom in slow
+            motion—delicate and breathtakingly beautiful. Hearing you sing like a baby during our calls melts my heart, and you have completely healed my soul, making me finally believe that true love really exists. Thank you for being the most beautiful part of my everyday journey.
           </p>
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
             <Link
@@ -155,9 +172,9 @@ export default function JourneyPage() {
               </span>
             </div>
             <div>
-              <div className="font-headline-md text-headline-md text-on-surface">30</div>
-              <div className="font-label-sm uppercase tracking-widest text-on-tertiary-container">
-                Days of Joy
+              <div className="font-headline-md text-headline-md text-on-surface">{days}</div>
+              <div className="font-label-sm uppercase tracking-widest text-on-tertiary-container mt-1">
+                Days as Kuchupuchu & Tiku
               </div>
             </div>
           </div>
@@ -169,9 +186,9 @@ export default function JourneyPage() {
               </span>
             </div>
             <div>
-              <div className="font-headline-md text-headline-md text-on-surface">720+</div>
-              <div className="font-label-sm uppercase tracking-widest text-on-primary-container">
-                Hours of Love
+              <div className="font-headline-md text-headline-md text-on-surface">{hours}+</div>
+              <div className="font-label-sm uppercase tracking-widest text-on-primary-container mt-1">
+                Hours of hearing you sing
               </div>
             </div>
           </div>
@@ -201,6 +218,7 @@ export default function JourneyPage() {
                   className={mem.className}
                   src={mem.src}
                   alt={mem.alt}
+                  onClick={() => setSelectedMemory(mem)}
                 />
               ))}
             </div>
@@ -219,16 +237,23 @@ export default function JourneyPage() {
               A Note Just For You
             </h2>
             <p className="font-body-lg text-body-lg italic leading-relaxed text-on-surface">
-              "If I had a flower for every time I thought of you, I could walk in
+              "If I had a lily for every time I thought of you, I could walk in
               my garden forever. This month has been that garden, and I am so
               grateful to be walking through it with you. Here is to many more
-              months of blooming together."
+              months of blooming together, getting our tattoos in Thailand, and our dream honeymoon in Bali."
             </p>
             <div className="w-24 h-[1px] bg-outline-variant mx-auto"></div>
-            <p className="font-headline-md text-primary">— Forever Yours</p>
+            <p className="font-headline-md text-primary">— Forever Yours, Kuchupuchu</p>
           </div>
         </div>
       </section>
+      {selectedMemory && (
+        <Lightbox 
+          imageSrc={selectedMemory.src}
+          title={selectedMemory.alt}
+          onClose={() => setSelectedMemory(null)}
+        />
+      )}
     </>
   );
 }

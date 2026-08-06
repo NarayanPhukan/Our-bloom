@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getMemories, createMemory, deleteMemory } from '../api';
 import Toast from '../components/Toast';
+import Lightbox from '../components/Lightbox';
 
 const FALLBACK_MEMORIES = [
   {
@@ -69,12 +70,19 @@ export default function MemoriesPage() {
   const [memories, setMemories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [selectedMemory, setSelectedMemory] = useState(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({ title: '', dateStr: '' });
   const [imageFile, setImageFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+
+  const startDate = new Date('2026-05-29T15:50:00');
+  const currentDate = new Date();
+  const monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
+  const adjustedMonthsDiff = currentDate.getDate() < startDate.getDate() ? monthsDiff - 1 : monthsDiff;
+  const monthText = adjustedMonthsDiff === 1 ? 'ONE MONTH' : `${adjustedMonthsDiff} MONTHS`;
 
   useEffect(() => {
     fetchMemories();
@@ -171,7 +179,7 @@ export default function MemoriesPage() {
               const aspect = memory.aspect || 'aspect-[4/5]';
 
               return (
-                <div key={memory._id} className="break-inside-avoid">
+                <div key={memory._id} className="break-inside-avoid cursor-pointer" onClick={() => setSelectedMemory({ src: imgSrc, title: memory.title, date: memory.dateStr })}>
                   <div
                     className={`polaroid-frame bg-white p-4 rounded-sm relative group hover:scale-[1.03] transition-transform duration-400 ease-out`}
                     style={{ transform: `rotate(${rotation}deg)` }}
@@ -180,7 +188,7 @@ export default function MemoriesPage() {
                   >
                     {!memory.isDummy && (
                       <button
-                        onClick={() => handleDelete(memory._id)}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(memory._id); }}
                         className="absolute -top-4 -right-4 bg-error text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg"
                       >
                         <span className="material-symbols-outlined text-sm">close</span>
@@ -220,13 +228,13 @@ export default function MemoriesPage() {
             format_quote
           </span>
           <p className="font-headline-md text-2xl text-on-primary-container italic leading-relaxed">
-            "In the garden of my heart, every memory of you is a bloom that never
+            "In the garden of my heart, every memory of you is a lily that never
             fades."
           </p>
           <div className="mt-6 flex justify-center items-center space-x-2">
             <div className="h-[1px] w-12 bg-primary-fixed-dim"></div>
             <span className="font-label-sm text-primary tracking-widest">
-              ONE MONTH TOGETHER
+              {monthText} TOGETHER
             </span>
             <div className="h-[1px] w-12 bg-primary-fixed-dim"></div>
           </div>
@@ -329,6 +337,16 @@ export default function MemoriesPage() {
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Lightbox */}
+      {selectedMemory && (
+        <Lightbox 
+          imageSrc={selectedMemory.src}
+          title={selectedMemory.title}
+          date={selectedMemory.date}
+          onClose={() => setSelectedMemory(null)}
         />
       )}
     </>

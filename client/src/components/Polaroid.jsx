@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-export default function Polaroid({ src, alt, className = '' }) {
+export default function Polaroid({ src, alt, className = '', onClick }) {
   const frameRef = useRef(null);
   const [style, setStyle] = useState({});
 
@@ -30,10 +30,11 @@ export default function Polaroid({ src, alt, className = '' }) {
   return (
     <div
       ref={frameRef}
-      className={`polaroid-frame rounded-lg overflow-hidden bg-white p-4 transition-transform duration-200 ease-out ${className}`}
+      className={`polaroid-frame rounded-lg overflow-hidden bg-white p-4 transition-transform duration-200 ease-out ${onClick ? 'cursor-pointer' : ''} ${className}`}
       style={style}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onClick={onClick}
     >
       <img src={src} alt={alt} className="w-full h-full object-cover rounded-sm" loading="lazy" />
     </div>

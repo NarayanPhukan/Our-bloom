@@ -7,6 +7,7 @@ const path = require('path');
 const milestoneRoutes = require('./routes/milestones');
 const loveNoteRoutes = require('./routes/loveNotes');
 const seedDatabase = require('./seed');
+const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,6 +44,7 @@ mongoose
     if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
       app.listen(PORT, () => {
         console.log(`✿ Server running on http://localhost:${PORT}`);
+        initAnniversaryEmailJob();
       });
     }
   })
