@@ -17,6 +17,10 @@ const loveNoteSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    dateStr: {
+      type: String,
+      default: '',
+    },
     isDailyAi: {
       type: Boolean,
       default: false,
