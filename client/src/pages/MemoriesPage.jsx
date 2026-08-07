@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
 import { getMemories, createMemory, deleteMemory } from '../api';
 import Toast from '../components/Toast';
 import Lightbox from '../components/Lightbox';
@@ -94,6 +95,18 @@ export default function MemoriesPage() {
 
   useEffect(() => {
     fetchMemories();
+    
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    
+    socket.on('newMemory', (memory) => {
+      setMemories((prev) => [memory, ...prev.filter(m => m._id !== memory._id)]);
+    });
+
+    socket.on('deleteMemory', (id) => {
+      setMemories((prev) => prev.filter(m => m._id !== id));
+    });
+
+    return () => socket.disconnect();
   }, []);
 
   const fetchMemories = async () => {
@@ -183,6 +196,13 @@ export default function MemoriesPage() {
 
   const displayMemories = memories.length > 0 ? memories : FALLBACK_MEMORIES;
 
+  const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' }).toUpperCase();
+  const onThisDayMemories = memories.filter(m => {
+    if (m.isDummy) return false;
+    const parts = m.dateStr.split(',');
+    return parts[0].trim() === todayStr;
+  });
+
   return (
     <>
       {/* Hero Section */}
@@ -208,6 +228,57 @@ export default function MemoriesPage() {
             filter_vintage
           </span>
         </div>
+      )}
+
+      {/* On This Day Throwbacks */}
+      {!loading && onThisDayMemories.length > 0 && (
+        <section className="max-w-[1200px] mx-auto px-5 md:px-margin-desktop mb-16">
+          <div className="bg-primary/5 border border-primary/20 rounded-[32px] p-8 md:p-12 relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20"></div>
+            <div className="text-center mb-8 relative z-10">
+              <span className="inline-flex items-center justify-center bg-primary text-on-primary px-4 py-1.5 rounded-full text-xs font-bold tracking-widest mb-4 shadow-glow-primary">
+                <span className="material-symbols-outlined text-[16px] mr-2">history</span>
+                ON THIS DAY
+              </span>
+              <h2 className="font-headline-md text-3xl text-primary">Throwbacks to remember</h2>
+            </div>
+            <div className="flex flex-wrap justify-center gap-8 relative z-10">
+              {onThisDayMemories.map((memory) => {
+                const rotation = memory.rotation || 0;
+                const isLocal = memory.imageUrl.startsWith('/uploads');
+                const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+                const imgSrc = isLocal ? `${baseUrl}${memory.imageUrl}` : memory.imageUrl;
+                const aspect = memory.aspect || 'aspect-[4/5]';
+
+                return (
+                  <div key={memory._id} className="w-full sm:w-[300px] cursor-pointer" onClick={() => setSelectedMemory({ src: imgSrc, title: memory.title, date: memory.dateStr, audioUrl: memory.audioUrl })}>
+                    <div
+                      className={`polaroid-frame bg-white p-4 rounded-sm relative group hover:scale-[1.03] transition-transform duration-400 ease-out`}
+                      style={{ transform: `rotate(${rotation}deg)` }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = `scale(1.03) rotate(0deg)`; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = `rotate(${rotation}deg)`; }}
+                    >
+                      <div className={`${aspect} bg-surface-container-low mb-4 overflow-hidden rounded-[4px]`}>
+                        <img
+                          className="w-full h-full object-cover"
+                          src={imgSrc}
+                          alt={memory.title}
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="text-center">
+                        <span className="font-headline-md text-xl text-primary">{memory.title}</span>
+                        <p className="font-label-sm text-label-sm text-on-tertiary-container mt-1 uppercase">
+                          {memory.dateStr}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* View Toggle */}

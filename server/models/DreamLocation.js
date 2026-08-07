@@ -20,6 +20,15 @@ const dreamLocationSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ['Dreaming', 'Planning', 'Booked', 'Visited'],
+      default: 'Dreaming',
+    },
+    photoUrl: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

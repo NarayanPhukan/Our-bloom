@@ -88,6 +88,10 @@ router.post('/', upload.single('image'), async (req, res) => {
     });
 
     const savedNote = await newNote.save();
+
+    const io = req.app.get('io');
+    if (io) io.emit('newNote', savedNote);
+
     res.status(201).json(savedNote);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -102,6 +106,9 @@ router.delete('/:id', async (req, res) => {
     
     // Cloudinary destroy would go here
     
+    const io = req.app.get('io');
+    if (io) io.emit('deleteNote', req.params.id);
+
     res.json({ message: 'Note deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

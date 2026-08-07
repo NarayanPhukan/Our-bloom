@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { getLoveNotes, createLoveNote, deleteLoveNote } from '../api';
 import Toast from '../components/Toast';
 
@@ -13,6 +16,18 @@ export default function LoveNotesPage() {
 
   useEffect(() => {
     fetchNotes();
+    
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    
+    socket.on('newNote', (note) => {
+      setNotes((prev) => [note, ...prev.filter(n => n._id !== note._id)]);
+    });
+
+    socket.on('deleteNote', (id) => {
+      setNotes((prev) => prev.filter(n => n._id !== id));
+    });
+
+    return () => socket.disconnect();
   }, []);
 
   const fetchNotes = async () => {
@@ -96,9 +111,10 @@ export default function LoveNotesPage() {
                     <img className="w-full h-full object-cover" src={imgSrc} alt="Love note attached image" loading="lazy" />
                   </div>
                   {note.content && (
-                    <p className="font-headline-md text-on-surface-variant/80 text-center italic text-xl break-words">
-                      "{note.content}"
-                    </p>
+                    <div 
+                      className="font-headline-md text-on-surface-variant/80 text-center italic text-xl break-words"
+                      dangerouslySetInnerHTML={{ __html: note.content }}
+                    />
                   )}
                   <button onClick={() => handleDelete(note._id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/80 rounded-full p-2 text-error shadow-md hover:bg-surface-container-highest">
                     <span className="material-symbols-outlined text-[16px]">close</span>
@@ -128,9 +144,10 @@ export default function LoveNotesPage() {
                     </span>
                   )}
                 </div>
-                <p className="font-body-lg text-body-lg text-on-surface-variant italic mb-6 leading-relaxed whitespace-pre-wrap break-words">
-                  "{note.content}"
-                </p>
+                <div 
+                  className="font-body-lg text-body-lg text-on-surface-variant italic mb-6 leading-relaxed whitespace-pre-wrap break-words"
+                  dangerouslySetInnerHTML={{ __html: note.content }}
+                />
                 <div className="w-full h-[1px] bg-outline-variant/30 mb-4"></div>
                 <div className="flex justify-between items-center">
                   <div className="text-right font-headline-md text-primary/60 text-lg">
@@ -178,13 +195,13 @@ export default function LoveNotesPage() {
                 edit_note
               </span>
             </div>
-            <textarea
-              className="w-full bg-transparent border-none focus:ring-0 focus:outline-none font-headline-md text-headline-md text-primary italic placeholder:text-primary-fixed-dim h-48 custom-scrollbar resize-none"
-              placeholder="Type a note to keep..."
+            <ReactQuill 
+              theme="snow"
               value={draftContent}
-              onChange={(e) => setDraftContent(e.target.value)}
-              maxLength={500}
-            ></textarea>
+              onChange={setDraftContent}
+              placeholder="Type a beautiful note..."
+              className="bg-white/50 rounded-xl mb-4 h-48 pb-10"
+            />
             <div className="flex justify-between items-center mt-6">
               <span className="text-label-sm font-label-sm text-outline italic">
                 {submitting ? 'Planting your note...' : 'Saving to our garden...'}

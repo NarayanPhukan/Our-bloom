@@ -27,7 +27,17 @@ export const deleteMemory = (id) => API.delete(`/memories/${id}`);
 
 // Dream Locations
 export const getDreamLocations = () => API.get('/dream-locations');
-export const createDreamLocation = (data) => API.post('/dream-locations', data);
+export const createDreamLocation = (data) => API.post('/dream-locations', data, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const updateDreamLocation = (id, data) => API.put(`/dream-locations/${id}`, data, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const deleteDreamLocation = (id) => API.delete(`/dream-locations/${id}`);
+
+// Settings
+export const getSpotifySettings = () => API.get('/settings/spotify');
+export const updateSpotifySettings = (data) => API.put('/settings/spotify', data);
 
 // Daily Note
 export const getDailyLoveNote = () => API.get('/love-notes/daily');

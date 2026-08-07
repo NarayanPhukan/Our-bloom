@@ -3,13 +3,32 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const milestoneRoutes = require('./routes/milestones');
 const loveNoteRoutes = require('./routes/loveNotes');
+const settingsRoutes = require('./routes/settings');
 const seedDatabase = require('./seed');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'DELETE']
+  }
+});
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log('✿ Client connected via Socket.io');
+  socket.on('disconnect', () => {
+    console.log('✿ Client disconnected');
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -23,6 +42,7 @@ app.use('/api/milestones', milestoneRoutes);
 app.use('/api/love-notes', loveNoteRoutes);
 app.use('/api/memories', require('./routes/memories'));
 app.use('/api/dream-locations', require('./routes/dreamLocations'));
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -43,7 +63,7 @@ mongoose
     
     // Only listen if we are not in a serverless environment
     if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
-      app.listen(PORT, () => {
+      server.listen(PORT, () => {
         console.log(`✿ Server running on http://localhost:${PORT}`);
         initAnniversaryEmailJob();
       });

@@ -43,6 +43,10 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
     });
 
     const savedMemory = await newMemory.save();
+
+    const io = req.app.get('io');
+    if (io) io.emit('newMemory', savedMemory);
+
     res.status(201).json(savedMemory);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -58,6 +62,9 @@ router.delete('/:id', async (req, res) => {
     // Note: To delete the image from Cloudinary, you would need to use cloudinary.uploader.destroy(memory.imageUrl's public_id)
     // For now we just delete from DB.
     
+    const io = req.app.get('io');
+    if (io) io.emit('deleteMemory', req.params.id);
+
     res.json({ message: 'Memory deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
