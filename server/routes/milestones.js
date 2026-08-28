@@ -1,11 +1,11 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const Milestone = require('../models/Milestone');
 
-// GET all milestones (sorted by day)
+// GET all milestones for this couple (sorted by day)
 router.get('/', async (req, res) => {
   try {
-    const milestones = await Milestone.find().sort({ day: 1 });
+    const milestones = await Milestone.find({ coupleId: req.coupleId }).sort({ day: 1 });
     res.json(milestones);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
 // GET single milestone
 router.get('/:id', async (req, res) => {
   try {
-    const milestone = await Milestone.findById(req.params.id);
+    const milestone = await Milestone.findOne({ _id: req.params.id, coupleId: req.coupleId });
     if (!milestone) return res.status(404).json({ message: 'Milestone not found' });
     res.json(milestone);
   } catch (err) {
@@ -26,6 +26,7 @@ router.get('/:id', async (req, res) => {
 // POST create milestone
 router.post('/', async (req, res) => {
   const milestone = new Milestone({
+    coupleId: req.coupleId,
     day: req.body.day,
     label: req.body.label,
     title: req.body.title,
@@ -48,11 +49,11 @@ router.post('/', async (req, res) => {
 // PUT update milestone
 router.put('/:id', async (req, res) => {
   try {
-    const milestone = await Milestone.findById(req.params.id);
+    const milestone = await Milestone.findOne({ _id: req.params.id, coupleId: req.coupleId });
     if (!milestone) return res.status(404).json({ message: 'Milestone not found' });
 
     Object.keys(req.body).forEach((key) => {
-      if (req.body[key] !== undefined) {
+      if (req.body[key] !== undefined && key !== 'coupleId') {
         milestone[key] = req.body[key];
       }
     });
@@ -67,7 +68,7 @@ router.put('/:id', async (req, res) => {
 // DELETE milestone
 router.delete('/:id', async (req, res) => {
   try {
-    const milestone = await Milestone.findById(req.params.id);
+    const milestone = await Milestone.findOne({ _id: req.params.id, coupleId: req.coupleId });
     if (!milestone) return res.status(404).json({ message: 'Milestone not found' });
     await milestone.deleteOne();
     res.json({ message: 'Milestone deleted' });

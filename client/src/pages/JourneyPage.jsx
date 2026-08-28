@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import Polaroid from '../components/Polaroid';
 import Lightbox from '../components/Lightbox';
-import { getMemories, getDailyLoveNote } from '../api';
+import { getMemories, getDailyLoveNote, updateHeroImage } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const FALLBACK_MEMORIES = [
   {
@@ -32,17 +34,33 @@ const FALLBACK_MEMORIES = [
 ];
 
 export default function JourneyPage() {
+  const { couple, user } = useAuth();
+  const { slug } = useParams();
   const [recentMemories, setRecentMemories] = useState([]);
   const [selectedMemory, setSelectedMemory] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [dailyNote, setDailyNote] = useState(null);
+  const [heroImage, setHeroImage] = useState(couple?.heroImageUrl || '/images/journey-bg.jpg');
+  const [isUploadingHero, setIsUploadingHero] = useState(false);
+  const fileInputRef = useRef(null);
+  
+  useEffect(() => {
+    if (couple?.heroImageUrl) {
+      setHeroImage(couple.heroImageUrl);
+    }
+  }, [couple]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const startDate = new Date('2026-05-29T15:50:00');
+  // Dynamic couple data
+  const startDate = couple ? new Date(couple.startDate) : new Date();
+  if (couple && couple.startTime) {
+    const [h, m] = couple.startTime.split(':');
+    startDate.setHours(parseInt(h) || 0, parseInt(m) || 0, 0);
+  }
   const startTime = startDate.getTime();
   const diff = Math.max(0, now - startTime);
   
@@ -57,18 +75,25 @@ export default function JourneyPage() {
   const adjustedMonthsDiff = currentDate.getDate() < startDate.getDate() ? monthsDiff - 1 : monthsDiff;
   const monthText = adjustedMonthsDiff === 1 ? '1 Month' : `${adjustedMonthsDiff} Months`;
 
+  // Get partner info and nicknames
+  const partner = couple && user ? (
+    couple.user1?._id === user._id ? couple.user2 : couple.user1
+  ) : null;
+  const myNicknameForPartner = user?.nicknameForPartner || partner?.name || 'My Love';
+  const partnerNicknameForMe = partner?.nicknameForPartner || user?.name || '';
+
   useEffect(() => {
+    if (!slug) return;
+
     const fetchRecentMemories = async () => {
       try {
-        const { data } = await getMemories();
+        const { data } = await getMemories(slug);
         if (data && data.length > 0) {
-          // Format the DB memories to match the visual props needed for the grid
           const formatted = data.slice(0, 4).map((mem, index) => {
             const isLocal = mem.imageUrl.startsWith('/uploads');
             const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
             const imgSrc = isLocal ? `${baseUrl}${mem.imageUrl}` : mem.imageUrl;
             
-            // Apply predefined classes to mimic the original bento aesthetic
             let className = 'h-64 hover:rotate-0';
             if (index === 0) className += ' rotate-[-2deg]';
             if (index === 1) className += ' rotate-[3deg] mt-4';
@@ -91,7 +116,7 @@ export default function JourneyPage() {
 
     const fetchDailyNote = async () => {
       try {
-        const { data } = await getDailyLoveNote();
+        const { data } = await getDailyLoveNote(slug);
         setDailyNote(data);
       } catch (err) {
         console.error('Failed to fetch daily note', err);
@@ -100,7 +125,36 @@ export default function JourneyPage() {
 
     fetchRecentMemories();
     fetchDailyNote();
-  }, []);
+
+    // Socket listener for real-time hero image update
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      auth: { token: user ? localStorage.getItem('bloom_token') : null, coupleSlug: slug }
+    });
+    
+    socket.on('updateHeroImage', (newUrl) => {
+      setHeroImage(newUrl);
+    });
+
+    return () => socket.disconnect();
+  }, [slug]);
+
+  const handleHeroUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploadingHero(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const { data } = await updateHeroImage(slug, formData);
+      setHeroImage(data.heroImageUrl);
+    } catch (err) {
+      console.error('Failed to upload hero image', err);
+    } finally {
+      setIsUploadingHero(false);
+    }
+  };
 
   const displayMemories = recentMemories.length > 0 ? recentMemories : FALLBACK_MEMORIES;
 
@@ -113,21 +167,20 @@ export default function JourneyPage() {
             Our Journey: The Story Continues
           </div>
           <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">
-            Happy {monthText}, <span className="text-primary italic">my beautiful Tiku Guxaini.</span>
+            Happy {monthText}, <span className="text-primary italic">my beautiful {myNicknameForPartner}.</span>
           </h1>
           <p className="max-w-2xl mx-auto font-body-lg text-body-lg text-on-surface-variant/80 leading-relaxed">
-            This past month has been like watching your favorite lily bloom in slow
-            motion—delicate and breathtakingly beautiful. Hearing you sing like a baby during our calls melts my heart, and you have completely healed my soul, making me finally believe that true love really exists. Thank you for being the most beautiful part of my everyday journey.
+            {couple?.specialPhrase || `Every day with you is a new adventure. Thank you for being the most beautiful part of my everyday journey.`}
           </p>
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
             <Link
-              to="/memories"
+              to={`/c/${slug}/memories`}
               className="px-10 py-4 bg-primary text-on-primary rounded-full font-body-md hover:bg-secondary transition-all duration-300 shadow-xl shadow-primary/10"
             >
               Explore Our Memories
             </Link>
             <Link
-              to="/love-notes"
+              to={`/c/${slug}/love-notes`}
               className="px-10 py-4 border-2 border-secondary text-secondary rounded-full font-body-md hover:bg-secondary/5 transition-all duration-300 bg-transparent"
             >
               Read Love Notes
@@ -152,22 +205,39 @@ export default function JourneyPage() {
             Our Journey Together
           </h2>
           <p className="text-on-surface-variant italic">
-            Thirty days of choosing you.
+            {days} days of choosing you.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[280px]">
           {/* Large Feature Card */}
           <div className="md:col-span-8 md:row-span-2 rounded-[24px] relative overflow-hidden group shadow-lg border border-white/40 bg-surface">
-            {/* Base Image */}
             <img
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              src="/images/journey-bg.jpg"
+              src={heroImage}
               alt="Beautiful memory"
               loading="lazy"
             />
-
-            {/* Floating Glassmorphic Text Panel */}
+            {/* Edit Hero Image Button */}
+            <div className="absolute top-4 right-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingHero}
+                className="w-10 h-10 rounded-full bg-surface/80 backdrop-blur-md shadow-glass flex items-center justify-center text-primary hover:bg-surface hover:scale-105 transition-all cursor-pointer border border-white/50"
+                title="Change background picture"
+              >
+                <span className={`material-symbols-outlined text-[20px] ${isUploadingHero ? 'animate-spin' : ''}`}>
+                  {isUploadingHero ? 'sync' : 'photo_camera'}
+                </span>
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleHeroUpload} 
+                accept="image/*" 
+                className="hidden" 
+              />
+            </div>
             <div className="absolute inset-x-6 bottom-6 p-6 rounded-[20px] bg-white/50 backdrop-blur-md border border-white/60 shadow-glass flex flex-col justify-end">
               <span className="font-label-sm text-primary uppercase tracking-wider font-bold">
                 Our Journey: The Story Continues
@@ -177,7 +247,7 @@ export default function JourneyPage() {
               </h3>
               <p className="mt-2 text-on-surface-variant max-w-md font-medium leading-relaxed">
                 The first time our eyes met, I knew there was a story waiting to
-                be written. This month was only the first chapter of a masterpiece.
+                be written. This is only the first chapter of a masterpiece.
               </p>
             </div>
           </div>
@@ -219,17 +289,8 @@ export default function JourneyPage() {
             <div className="w-full h-[1px] bg-on-surface-variant/20 shrink-0"></div>
 
             <div className="space-y-3 w-full">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant font-medium">15:32</span>
-                <span className="text-on-surface">I Proposed</span>
-              </div>
-              <div className="flex justify-between items-center text-sm font-bold text-primary">
-                <span>15:50</span>
-                <span>She Said Yes</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant font-medium">15:52</span>
-                <span className="text-on-surface">"Love You Too"</span>
+              <div className="font-headline-md text-headline-md text-on-surface text-sm">
+                Since {startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </div>
             </div>
           </div>
@@ -244,7 +305,7 @@ export default function JourneyPage() {
             <div>
               <div className="font-headline-md text-headline-md text-on-surface">{days}</div>
               <div className="font-label-sm uppercase tracking-widest text-on-tertiary-container mt-1">
-                Days as Kuchupuchu & Tiku
+                Days as {partnerNicknameForMe || user?.name} & {myNicknameForPartner}
               </div>
             </div>
           </div>
@@ -258,7 +319,7 @@ export default function JourneyPage() {
             <div>
               <div className="font-headline-md text-headline-md text-on-surface">{totalHours}+</div>
               <div className="font-label-sm uppercase tracking-widest text-on-primary-container mt-1">
-                Hours of hearing you sing
+                Hours of loving you
               </div>
             </div>
           </div>
@@ -297,7 +358,7 @@ export default function JourneyPage() {
                 </p>
               </div>
               <Link
-                to="/memories"
+                to={`/c/${slug}/memories`}
                 className="text-primary font-body-md border-b border-primary hover:text-secondary hover:border-secondary transition-all"
               >
                 View All Gallery
@@ -329,13 +390,10 @@ export default function JourneyPage() {
               A Note Just For You
             </h2>
             <p className="font-body-lg text-body-lg italic leading-relaxed text-on-surface">
-              "If I had a lily for every time I thought of you, I could walk in
-              my garden forever. This month has been that garden, and I am so
-              grateful to be walking through it with you. Here is to many more
-              months of blooming together, getting our tattoos in Thailand, and our dream honeymoon in Bali."
+              "{couple?.specialPhrase || 'Every moment with you is a moment I treasure. Here is to forever growing together.'}"
             </p>
             <div className="w-24 h-[1px] bg-outline-variant mx-auto"></div>
-            <p className="font-headline-md text-primary">— Forever Yours, Kuchupuchu</p>
+            <p className="font-headline-md text-primary">— Forever Yours, {partnerNicknameForMe || user?.name}</p>
           </div>
         </div>
       </section>

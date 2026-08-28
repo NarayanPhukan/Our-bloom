@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { useParams } from 'react-router-dom';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { getLoveNotes, createLoveNote, deleteLoveNote } from '../api';
+import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 
 export default function LoveNotesPage() {
+  const { token } = useAuth();
+  const { slug } = useParams();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [draftContent, setDraftContent] = useState('');
@@ -15,9 +19,12 @@ export default function LoveNotesPage() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    if (!slug) return;
     fetchNotes();
     
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      auth: { token, coupleSlug: slug }
+    });
     
     socket.on('newNote', (note) => {
       setNotes((prev) => [note, ...prev.filter(n => n._id !== note._id)]);
@@ -28,11 +35,11 @@ export default function LoveNotesPage() {
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [slug, token]);
 
   const fetchNotes = async () => {
     try {
-      const { data } = await getLoveNotes();
+      const { data } = await getLoveNotes(slug);
       setNotes(data);
     } catch {
       setNotes([]);
@@ -54,7 +61,7 @@ export default function LoveNotesPage() {
         data.append('image', draftImage);
       }
 
-      const res = await createLoveNote(data);
+      const res = await createLoveNote(slug, data);
       setNotes([res.data, ...notes]);
       setDraftContent('');
       setDraftImage(null);
@@ -68,7 +75,7 @@ export default function LoveNotesPage() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteLoveNote(id);
+      await deleteLoveNote(slug, id);
       setNotes(notes.filter((n) => n._id !== id));
     } catch {
       setToast({ message: 'Could not delete', type: 'error' });

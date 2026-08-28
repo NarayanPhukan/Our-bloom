@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export default function Lightbox({ imageSrc, title, date, onClose }) {
+export default function Lightbox({ imageSrc, title, date, audioUrl, onClose }) {
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') onClose();

@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const loveNoteSchema = new mongoose.Schema(
   {
+    coupleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Couple',
+      required: true,
+      index: true,
+    },
     content: {
       type: String,
       required: true,

@@ -1,5 +1,5 @@
 const cloudinary = require('cloudinary').v2;
-const CloudinaryStorage = require('multer-storage-cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 
 // Configure Cloudinary with environment variables
@@ -13,9 +13,9 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'ourbloom', // The folder name in your Cloudinary account
-    allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp3', 'wav', 'webm', 'ogg'],
-    resource_type: 'auto',
+    folder: 'ourbloom',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp3', 'wav', 'webm', 'ogg'],
+    resource_type: 'auto'
   }
 });
 

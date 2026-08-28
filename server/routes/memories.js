@@ -1,19 +1,19 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const Memory = require('../models/Memory');
 const { upload } = require('../config/cloudinary');
 
-// GET /api/memories
+// GET /api/couples/:slug/memories
 router.get('/', async (req, res) => {
   try {
-    const memories = await Memory.find().sort({ createdAt: -1 });
+    const memories = await Memory.find({ coupleId: req.coupleId }).sort({ createdAt: -1 });
     res.json(memories);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/memories (multipart/form-data)
+// POST /api/couples/:slug/memories
 router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), async (req, res) => {
   try {
     const { title, dateStr, icon } = req.body;
@@ -22,7 +22,6 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
       return res.status(400).json({ error: 'Image file is required' });
     }
 
-    // req.files['image'][0].path contains the Cloudinary URL
     const imageUrl = req.files['image'][0].path;
     let audioUrl = '';
     
@@ -34,6 +33,7 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
     const rotation = Math.floor(Math.random() * 7) - 3;
 
     const newMemory = new Memory({
+      coupleId: req.coupleId,
       title: title || 'A Beautiful Moment',
       dateStr: dateStr || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase(),
       imageUrl,
@@ -45,7 +45,7 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
     const savedMemory = await newMemory.save();
 
     const io = req.app.get('io');
-    if (io) io.emit('newMemory', savedMemory);
+    if (io) io.to(req.coupleSlug).emit('newMemory', savedMemory);
 
     res.status(201).json(savedMemory);
   } catch (err) {
@@ -53,17 +53,14 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
   }
 });
 
-// DELETE /api/memories/:id
+// DELETE /api/couples/:slug/memories/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const memory = await Memory.findByIdAndDelete(req.params.id);
+    const memory = await Memory.findOneAndDelete({ _id: req.params.id, coupleId: req.coupleId });
     if (!memory) return res.status(404).json({ error: 'Memory not found' });
     
-    // Note: To delete the image from Cloudinary, you would need to use cloudinary.uploader.destroy(memory.imageUrl's public_id)
-    // For now we just delete from DB.
-    
     const io = req.app.get('io');
-    if (io) io.emit('deleteMemory', req.params.id);
+    if (io) io.to(req.coupleSlug).emit('deleteMemory', req.params.id);
 
     res.json({ message: 'Memory deleted' });
   } catch (err) {

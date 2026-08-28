@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const milestoneSchema = new mongoose.Schema(
   {
+    coupleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Couple',
+      required: true,
+      index: true,
+    },
     day: {
       type: Number,
       required: true,

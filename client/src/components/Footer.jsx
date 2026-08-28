@@ -1,12 +1,14 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 export default function Footer() {
+  const { slug } = useParams();
+
   return (
     <footer className="w-full py-20 px-5 md:px-margin-desktop border-t border-primary/10">
       <div className="flex flex-col md:flex-row justify-between items-center w-full max-w-container-max mx-auto space-y-8 md:space-y-0">
         <div className="flex flex-col items-center md:items-start">
           <Link
-            to="/"
+            to={`/c/${slug}`}
             className="font-headline-md text-headline-md text-primary mb-2 hover:opacity-80 transition-opacity"
           >
             Our Bloom
@@ -18,22 +20,22 @@ export default function Footer() {
 
         <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-12">
           <Link
-            to="/"
+            to={`/c/${slug}`}
             className="text-on-tertiary-container/80 hover:text-primary transition-colors duration-300 font-body-md"
           >
             Our Story
           </Link>
           <Link
-            to="/memories"
+            to={`/c/${slug}/memories`}
             className="text-on-tertiary-container/80 hover:text-primary transition-colors duration-300 font-body-md"
           >
             Gallery
           </Link>
           <Link
-            to="/love-notes"
+            to={`/c/${slug}/love-notes`}
             className="text-on-tertiary-container/80 hover:text-primary transition-colors duration-300 font-body-md"
           >
-            Privacy
+            Love Notes
           </Link>
         </div>
 

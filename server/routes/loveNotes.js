@@ -1,13 +1,17 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const LoveNote = require('../models/LoveNote');
 const { upload } = require('../config/cloudinary');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// GET /api/love-notes
+// The original couple's ID (Narayan & Tanaya) — set by migration
+// Used to gate the AI daily love note feature
+const ORIGINAL_COUPLE_SLUG = 'narayan-tanaya';
+
+// GET /api/couples/:slug/love-notes
 router.get('/', async (req, res) => {
   try {
-    const notes = await LoveNote.find().sort({ createdAt: -1 });
+    const notes = await LoveNote.find({ coupleId: req.coupleId }).sort({ createdAt: -1 });
     res.json(notes);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -16,16 +20,21 @@ router.get('/', async (req, res) => {
 
 let isGeneratingDailyNote = false;
 
-// GET /api/love-notes/daily
+// GET /api/couples/:slug/love-notes/daily
 router.get('/daily', async (req, res) => {
   try {
+    // AI daily love note is exclusive to the original couple
+    if (req.coupleSlug !== ORIGINAL_COUPLE_SLUG) {
+      return res.json(null);
+    }
+
     const todayStr = new Date().toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric'
     });
 
-    let dailyNote = await LoveNote.findOne({ isDailyAi: true, dateStr: todayStr });
+    let dailyNote = await LoveNote.findOne({ coupleId: req.coupleId, isDailyAi: true, dateStr: todayStr });
 
     if (!dailyNote && !isGeneratingDailyNote) {
       isGeneratingDailyNote = true;
@@ -38,6 +47,7 @@ router.get('/daily', async (req, res) => {
         const content = await result.response.text();
 
         dailyNote = new LoveNote({
+          coupleId: req.coupleId,
           content: content,
           author: 'Kuchupuchu ✨',
           dateStr: todayStr,
@@ -48,7 +58,6 @@ router.get('/daily', async (req, res) => {
         isGeneratingDailyNote = false;
       }
     } else if (!dailyNote && isGeneratingDailyNote) {
-      // If it's currently generating, just return a fallback temporarily to prevent duplicate generation
       return res.json({
         content: "My love for you grows stronger with every passing second...",
         author: 'Kuchupuchu ✨',
@@ -63,17 +72,16 @@ router.get('/daily', async (req, res) => {
   }
 });
 
-// POST /api/love-notes (multipart/form-data support for images)
+// POST /api/couples/:slug/love-notes
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     const { content } = req.body;
     let imageUrl = '';
 
     if (req.file) {
-      imageUrl = req.file.path; // Cloudinary URL
+      imageUrl = req.file.path;
     }
 
-    // Default formatting logic from before
     const dateStr = new Date().toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
@@ -81,6 +89,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     });
 
     const newNote = new LoveNote({
+      coupleId: req.coupleId,
       content: content || 'No content provided',
       dateStr,
       imageUrl,
@@ -90,7 +99,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     const savedNote = await newNote.save();
 
     const io = req.app.get('io');
-    if (io) io.emit('newNote', savedNote);
+    if (io) io.to(req.coupleSlug).emit('newNote', savedNote);
 
     res.status(201).json(savedNote);
   } catch (err) {
@@ -98,16 +107,14 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// DELETE /api/love-notes/:id
+// DELETE /api/couples/:slug/love-notes/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const note = await LoveNote.findByIdAndDelete(req.params.id);
+    const note = await LoveNote.findOneAndDelete({ _id: req.params.id, coupleId: req.coupleId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
     
-    // Cloudinary destroy would go here
-    
     const io = req.app.get('io');
-    if (io) io.emit('deleteNote', req.params.id);
+    if (io) io.to(req.coupleSlug).emit('deleteNote', req.params.id);
 
     res.json({ message: 'Note deleted' });
   } catch (err) {

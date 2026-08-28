@@ -4,42 +4,73 @@ const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
-// Milestones
-export const getMilestones = () => API.get('/milestones');
-export const getMilestone = (id) => API.get(`/milestones/${id}`);
-export const createMilestone = (data) => API.post('/milestones', data);
-export const updateMilestone = (id, data) => API.put(`/milestones/${id}`, data);
-export const deleteMilestone = (id) => API.delete(`/milestones/${id}`);
-
-// Love Notes
-export const getLoveNotes = () => API.get('/love-notes');
-export const createLoveNote = (data) => API.post('/love-notes', data);
-export const deleteLoveNote = (id) => API.delete(`/love-notes/${id}`);
-
-// Memories
-export const getMemories = () => API.get('/memories');
-export const createMemory = (formData) => API.post('/memories', formData, {
-  headers: {
-    'Content-Type': 'multipart/form-data',
-  },
+// Auth interceptor — attach JWT token to all requests
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('bloom_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
-export const deleteMemory = (id) => API.delete(`/memories/${id}`);
 
-// Dream Locations
-export const getDreamLocations = () => API.get('/dream-locations');
-export const createDreamLocation = (data) => API.post('/dream-locations', data, {
+// ===== Auth =====
+export const loginUser = (email, password) => API.post('/auth/login', { email, password });
+export const registerUser = (email, password, name) => API.post('/auth/register', { email, password, name });
+export const getMe = (token) => API.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+export const updateNickname = (nicknameForPartner, token) =>
+  API.put('/auth/me/nickname', { nicknameForPartner }, { headers: { Authorization: `Bearer ${token}` } });
+
+// ===== Couples =====
+export const createCouple = (data, token) =>
+  API.post('/couples', data, { headers: { Authorization: `Bearer ${token}` } });
+export const joinCouple = (inviteCode, token) =>
+  API.post('/couples/join', { inviteCode }, { headers: { Authorization: `Bearer ${token}` } });
+export const getCouple = (coupleId, token) =>
+  // We need to find the couple by ID first, then by slug
+  // The couples routes use slug, but for initial load we use the coupleId
+  // So we add a helper endpoint, or we get it from /auth/me which gives coupleId
+  // For now, we'll fetch all couples the user belongs to via a dedicated call
+  API.get(`/couples/by-id/${coupleId}`, { headers: { Authorization: `Bearer ${token}` } });
+export const getCoupleBySlug = (slug) => API.get(`/couples/${slug}`);
+export const updateCouple = (slug, data) => API.put(`/couples/${slug}`, data);
+
+// ===== Milestones (scoped by couple slug) =====
+export const getMilestones = (slug) => API.get(`/couples/${slug}/milestones`);
+export const getMilestone = (slug, id) => API.get(`/couples/${slug}/milestones/${id}`);
+export const createMilestone = (slug, data) => API.post(`/couples/${slug}/milestones`, data);
+export const updateMilestone = (slug, id, data) => API.put(`/couples/${slug}/milestones/${id}`, data);
+export const deleteMilestone = (slug, id) => API.delete(`/couples/${slug}/milestones/${id}`);
+
+// ===== Love Notes (scoped by couple slug) =====
+export const getLoveNotes = (slug) => API.get(`/couples/${slug}/love-notes`);
+export const createLoveNote = (slug, data) => API.post(`/couples/${slug}/love-notes`, data);
+export const deleteLoveNote = (slug, id) => API.delete(`/couples/${slug}/love-notes/${id}`);
+
+// ===== Memories (scoped by couple slug) =====
+export const getMemories = (slug) => API.get(`/couples/${slug}/memories`);
+export const createMemory = (slug, formData) => API.post(`/couples/${slug}/memories`, formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+});
+export const deleteMemory = (slug, id) => API.delete(`/couples/${slug}/memories/${id}`);
+
+// ===== Dream Locations (scoped by couple slug) =====
+export const getDreamLocations = (slug) => API.get(`/couples/${slug}/dream-locations`);
+export const createDreamLocation = (slug, data) => API.post(`/couples/${slug}/dream-locations`, data, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
-export const updateDreamLocation = (id, data) => API.put(`/dream-locations/${id}`, data, {
+export const updateDreamLocation = (slug, id, data) => API.put(`/couples/${slug}/dream-locations/${id}`, data, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
-export const deleteDreamLocation = (id) => API.delete(`/dream-locations/${id}`);
+export const deleteDreamLocation = (slug, id) => API.delete(`/couples/${slug}/dream-locations/${id}`);
 
-// Settings
-export const getSpotifySettings = () => API.get('/settings/spotify');
-export const updateSpotifySettings = (data) => API.put('/settings/spotify', data);
+// ===== Settings (scoped by couple slug) =====
+export const getSpotifySettings = (slug) => API.get(`/couples/${slug}/settings/spotify`);
+export const updateSpotifySettings = (slug, data) => API.put(`/couples/${slug}/settings/spotify`, data);
+export const updateHeroImage = (slug, formData) => API.post(`/couples/${slug}/hero-image`, formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 
-// Daily Note
-export const getDailyLoveNote = () => API.get('/love-notes/daily');
+// ===== Daily Note =====
+export const getDailyLoveNote = (slug) => API.get(`/couples/${slug}/love-notes/daily`);
 
 export default API;

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { useParams } from 'react-router-dom';
 import { getMemories, createMemory, deleteMemory } from '../api';
+import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import Lightbox from '../components/Lightbox';
 
@@ -68,6 +70,8 @@ const FALLBACK_MEMORIES = [
 ];
 
 export default function MemoriesPage() {
+  const { couple, user, token } = useAuth();
+  const { slug } = useParams();
   const [memories, setMemories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -87,16 +91,19 @@ export default function MemoriesPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  const startDate = new Date('2026-05-29T15:50:00');
+  const startDate = couple ? new Date(couple.startDate) : new Date();
   const currentDate = new Date();
   const monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
   const adjustedMonthsDiff = currentDate.getDate() < startDate.getDate() ? monthsDiff - 1 : monthsDiff;
   const monthText = adjustedMonthsDiff === 1 ? 'ONE MONTH' : `${adjustedMonthsDiff} MONTHS`;
 
   useEffect(() => {
+    if (!slug) return;
     fetchMemories();
     
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      auth: { token, coupleSlug: slug }
+    });
     
     socket.on('newMemory', (memory) => {
       setMemories((prev) => [memory, ...prev.filter(m => m._id !== memory._id)]);
@@ -107,11 +114,11 @@ export default function MemoriesPage() {
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [slug, token]);
 
   const fetchMemories = async () => {
     try {
-      const { data } = await getMemories();
+      const { data } = await getMemories(slug);
       setMemories(data);
     } catch (err) {
       console.error('Failed to fetch memories', err);
@@ -168,7 +175,7 @@ export default function MemoriesPage() {
         data.append('audio', audioBlob, 'voice-note.webm');
       }
 
-      const res = await createMemory(data);
+      const res = await createMemory(slug, data);
       setMemories([res.data, ...memories]);
       setModalOpen(false);
       setFormData({ title: '', dateStr: '' });
@@ -185,7 +192,7 @@ export default function MemoriesPage() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteMemory(id);
+      await deleteMemory(slug, id);
       setMemories(memories.filter((m) => m._id !== id));
       setToast({ message: 'Memory removed', type: 'success' });
     } catch (err) {

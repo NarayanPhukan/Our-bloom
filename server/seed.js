@@ -47,14 +47,26 @@ const defaultMilestones = [
   },
 ];
 
-async function seedDatabase() {
+/**
+ * Seed default milestones for a given couple.
+ * Called when a new couple is created via the migration script.
+ * For new couples created via the API, simpler default milestones are seeded
+ * from the couples route.
+ */
+async function seedDatabase(coupleId) {
   try {
-    const count = await Milestone.countDocuments();
+    if (!coupleId) {
+      console.log('✿ seedDatabase called without coupleId, skipping');
+      return;
+    }
+
+    const count = await Milestone.countDocuments({ coupleId });
     if (count === 0) {
-      await Milestone.insertMany(defaultMilestones);
+      const milestones = defaultMilestones.map((m) => ({ ...m, coupleId }));
+      await Milestone.insertMany(milestones);
       console.log('✿ Database seeded with default milestones');
     } else {
-      console.log(`✿ Database already has ${count} milestone(s), skipping seed`);
+      console.log(`✿ Database already has ${count} milestone(s) for this couple, skipping seed`);
     }
   } catch (err) {
     console.error('Seed error:', err.message);

@@ -1,36 +1,29 @@
 const express = require('express');
-const router = express.Router();
-const Settings = require('../models/Settings');
+const router = express.Router({ mergeParams: true });
 
-// GET /api/settings/spotify
+// GET /api/couples/:slug/settings/spotify
 router.get('/spotify', async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({ spotifyTrackId: '4O2N861eOnF9q8EtpH8IJu' });
-    }
-    res.json(settings);
+    res.json({ spotifyTrackId: req.couple.spotifyTrackId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT /api/settings/spotify
+// PUT /api/couples/:slug/settings/spotify
 router.put('/spotify', async (req, res) => {
   try {
     const { spotifyTrackId } = req.body;
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = new Settings();
-    }
-    settings.spotifyTrackId = spotifyTrackId;
-    await settings.save();
+    const couple = req.couple;
+
+    couple.spotifyTrackId = spotifyTrackId;
+    await couple.save();
     
     // Emit socket event for real-time updates
     const io = req.app.get('io');
-    if (io) io.emit('updateSpotify', settings.spotifyTrackId);
+    if (io) io.to(req.coupleSlug).emit('updateSpotify', couple.spotifyTrackId);
     
-    res.json(settings);
+    res.json({ spotifyTrackId: couple.spotifyTrackId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

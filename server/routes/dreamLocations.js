@@ -1,20 +1,19 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const DreamLocation = require('../models/DreamLocation');
-
 const { upload } = require('../config/cloudinary');
 
-// GET /api/dream-locations
+// GET /api/couples/:slug/dream-locations
 router.get('/', async (req, res) => {
   try {
-    const locations = await DreamLocation.find().sort({ createdAt: -1 });
+    const locations = await DreamLocation.find({ coupleId: req.coupleId }).sort({ createdAt: -1 });
     res.json(locations);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/dream-locations (multipart/form-data)
+// POST /api/couples/:slug/dream-locations
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     const { title, description, lat, lng, status } = req.body;
@@ -29,6 +28,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     }
 
     const newLocation = new DreamLocation({
+      coupleId: req.coupleId,
       title,
       description,
       lat,
@@ -40,7 +40,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     const savedLocation = await newLocation.save();
     
     const io = req.app.get('io');
-    if (io) io.emit('newLocation', savedLocation);
+    if (io) io.to(req.coupleSlug).emit('newLocation', savedLocation);
 
     res.status(201).json(savedLocation);
   } catch (err) {
@@ -48,11 +48,11 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// PUT /api/dream-locations/:id (multipart/form-data)
+// PUT /api/couples/:slug/dream-locations/:id
 router.put('/:id', upload.single('image'), async (req, res) => {
   try {
     const { title, description, status } = req.body;
-    const location = await DreamLocation.findById(req.params.id);
+    const location = await DreamLocation.findOne({ _id: req.params.id, coupleId: req.coupleId });
     
     if (!location) return res.status(404).json({ error: 'Location not found' });
     
@@ -66,7 +66,7 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     const updatedLocation = await location.save();
     
     const io = req.app.get('io');
-    if (io) io.emit('updateLocation', updatedLocation);
+    if (io) io.to(req.coupleSlug).emit('updateLocation', updatedLocation);
 
     res.json(updatedLocation);
   } catch (err) {
@@ -74,14 +74,14 @@ router.put('/:id', upload.single('image'), async (req, res) => {
   }
 });
 
-// DELETE /api/dream-locations/:id
+// DELETE /api/couples/:slug/dream-locations/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const location = await DreamLocation.findByIdAndDelete(req.params.id);
+    const location = await DreamLocation.findOneAndDelete({ _id: req.params.id, coupleId: req.coupleId });
     if (!location) return res.status(404).json({ error: 'Location not found' });
     
     const io = req.app.get('io');
-    if (io) io.emit('deleteLocation', req.params.id);
+    if (io) io.to(req.coupleSlug).emit('deleteLocation', req.params.id);
 
     res.json({ message: 'Location deleted' });
   } catch (err) {

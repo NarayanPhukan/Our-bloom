@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polyline } from 'react-leaflet';
 import { io } from 'socket.io-client';
+import { useParams } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
 import 'leaflet-geosearch/dist/geosearch.css';
 import { useMap } from 'react-leaflet';
 import { getDreamLocations, createDreamLocation, updateDreamLocation } from '../api';
+import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 
 // Fix for default marker icon in leaflet with webpack
@@ -72,6 +74,8 @@ function SearchField() {
 }
 
 export default function MapPage() {
+  const { token } = useAuth();
+  const { slug } = useParams();
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -83,9 +87,12 @@ export default function MapPage() {
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
+    if (!slug) return;
     fetchLocations();
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      auth: { token, coupleSlug: slug }
+    });
     
     socket.on('newLocation', (location) => {
       setLocations((prev) => [location, ...prev.filter(l => l._id !== location._id)]);
@@ -100,11 +107,11 @@ export default function MapPage() {
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [slug, token]);
 
   const fetchLocations = async () => {
     try {
-      const { data } = await getDreamLocations();
+      const { data } = await getDreamLocations(slug);
       setLocations(data);
     } catch (err) {
       setToast({ message: 'Failed to load locations', type: 'error' });
@@ -131,10 +138,10 @@ export default function MapPage() {
       }
 
       if (editId) {
-        await updateDreamLocation(editId, data);
+        await updateDreamLocation(slug, editId, data);
         setToast({ message: 'Dream location updated!', type: 'success' });
       } else {
-        await createDreamLocation(data);
+        await createDreamLocation(slug, data);
         setToast({ message: 'Dream location added!', type: 'success' });
       }
 
@@ -224,10 +231,10 @@ export default function MapPage() {
               className="h-full w-full z-0"
               style={{ backgroundColor: '#fbf9f8' }}
             >
-            {/* Using a beautiful watercolor/stamen style map if available, fallback to default */}
+            {/* Esri World Street Map (free, no API key, English labels globally) */}
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+              attribution='Tiles &copy; Esri'
             />
             <SearchField />
             <MapClickHandler setDraftLocation={setDraftLocation} setModalOpen={setModalOpen} />

@@ -1,25 +1,34 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { getSpotifySettings, updateSpotifySettings } from './api';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PetalEffect from './components/PetalEffect';
+import ProtectedRoute from './components/ProtectedRoute';
 import JourneyPage from './pages/JourneyPage';
 import MemoriesPage from './pages/MemoriesPage';
 import LoveNotesPage from './pages/LoveNotesPage';
 import MapPage from './pages/MapPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import SetupPage from './pages/SetupPage';
 
 const SpotifyPlayer = () => {
+  const { couple, token } = useAuth();
+  const { slug } = useParams();
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [trackId, setTrackId] = useState('4O2N861eOnF9q8EtpH8IJu');
   const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
+    if (!slug) return;
+
     const fetchSettings = async () => {
       try {
-        const { data } = await getSpotifySettings();
+        const { data } = await getSpotifySettings(slug);
         if (data && data.spotifyTrackId) setTrackId(data.spotifyTrackId);
       } catch (err) {
         console.error('Failed to fetch spotify settings', err);
@@ -27,13 +36,15 @@ const SpotifyPlayer = () => {
     };
     fetchSettings();
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      auth: { token, coupleSlug: slug }
+    });
     socket.on('updateSpotify', (newTrackId) => {
       setTrackId(newTrackId);
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [slug, token]);
 
   const handleSave = async () => {
     let newId = inputValue.trim();
@@ -45,7 +56,7 @@ const SpotifyPlayer = () => {
     }
     
     try {
-      await updateSpotifySettings({ spotifyTrackId: newId });
+      await updateSpotifySettings(slug, { spotifyTrackId: newId });
       setTrackId(newId);
       setIsEditing(false);
       setInputValue('');
@@ -114,25 +125,65 @@ const SpotifyPlayer = () => {
   );
 };
 
+function CoupleLayout() {
+  return (
+    <div className="bg-lily-pattern text-on-background min-h-screen flex flex-col relative overflow-x-hidden">
+      <Header />
+      <PetalEffect />
+      <SpotifyPlayer />
+      <main className="pt-32 pb-20 flex-1">
+        <Routes>
+          <Route index element={<JourneyPage />} />
+          <Route path="memories" element={<MemoriesPage />} />
+          <Route path="love-notes" element={<LoveNotesPage />} />
+          <Route path="map" element={<MapPage />} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+function AppRedirect() {
+  const { user, couple, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-lily-pattern">
+        <span className="material-symbols-outlined text-[48px] text-primary animate-spin">filter_vintage</span>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!couple) return <Navigate to="/setup" replace />;
+  return <Navigate to={`/c/${couple.slug}`} replace />;
+}
+
 function App() {
   return (
     <Router>
-      <div className="bg-lily-pattern text-on-background min-h-screen flex flex-col relative overflow-x-hidden">
-        <Header />
-        <PetalEffect />
-        <SpotifyPlayer />
+      <AuthProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        <main className="pt-32 pb-20 flex-1">
-          <Routes>
-            <Route path="/" element={<JourneyPage />} />
-            <Route path="/memories" element={<MemoriesPage />} />
-            <Route path="/love-notes" element={<LoveNotesPage />} />
-            <Route path="/map" element={<MapPage />} />
-          </Routes>
-        </main>
+          {/* Setup (authenticated but no couple) */}
+          <Route path="/setup" element={<SetupPage />} />
 
-        <Footer />
-      </div>
+          {/* Couple routes (authenticated + has couple) */}
+          <Route path="/c/:slug/*" element={
+            <ProtectedRoute>
+              <CoupleLayout />
+            </ProtectedRoute>
+          } />
+
+          {/* Root redirect */}
+          <Route path="/" element={<AppRedirect />} />
+          <Route path="*" element={<AppRedirect />} />
+        </Routes>
+      </AuthProvider>
     </Router>
   );
 }
