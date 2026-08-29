@@ -173,10 +173,10 @@ export default function Header() {
           <a
             href="/OurBloom.apk"
             download
-            className="hidden md:flex items-center text-on-surface-variant hover:text-primary transition-colors duration-300 p-1"
-            title="Download Android App"
+            className="hidden md:flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase"
           >
-            <span className="material-symbols-outlined text-[24px]">android</span>
+            <span className="material-symbols-outlined text-[18px]">android</span>
+            Download Our Bloom
           </a>
 
           {/* Logout (Desktop) */}
