@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Our Bloom</string>
+    <string name="title_activity_main">Our Bloom</string>
+    <string name="package_name">com.ourbloom.app</string>
+    <string name="custom_url_scheme">com.ourbloom.app</string>
+</resources>
