@@ -55,7 +55,7 @@ export default function Header() {
         {/* Logo */}
         <Link
           to={`/c/${slug}`}
-          className="font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300"
+          className="font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300 whitespace-nowrap"
         >
           Our Bloom
         </Link>
@@ -66,7 +66,7 @@ export default function Header() {
             <Link
               key={link.to}
               to={link.to}
-              className={`font-body-md text-body-md transition-all duration-300 ease-in-out ${
+              className={`font-body-md text-body-md transition-all duration-300 ease-in-out whitespace-nowrap ${
                 isActive(link)
                   ? 'text-primary border-b-2 border-primary pb-1'
                   : 'text-on-surface-variant hover:text-secondary'
@@ -137,7 +137,7 @@ export default function Header() {
                 setShowNicknameEdit(!showNicknameEdit);
                 setShowNotifications(false);
               }}
-              className="hidden md:flex text-primary hover:text-secondary transition-colors duration-300 items-center gap-1"
+              className="hidden md:flex text-primary hover:text-secondary transition-colors duration-300 items-center gap-1 whitespace-nowrap"
               title="Edit nickname for your partner"
             >
               <span
@@ -146,7 +146,7 @@ export default function Header() {
               >
                 favorite
               </span>
-              <span className="hidden md:inline text-xs font-label-sm">{partnerNicknameForMe}</span>
+              <span className="hidden lg:inline text-xs font-label-sm truncate max-w-[100px]">{partnerNicknameForMe}</span>
             </button>
 
             {showNicknameEdit && (
@@ -173,10 +173,10 @@ export default function Header() {
           <a
             href="/OurBloom.apk"
             download
-            className="hidden md:flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase"
+            className="hidden lg:flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase whitespace-nowrap"
           >
             <span className="material-symbols-outlined text-[18px]">android</span>
-            Download Our Bloom
+            <span className="hidden xl:inline">Get App</span>
           </a>
 
           {/* Logout (Desktop) */}
