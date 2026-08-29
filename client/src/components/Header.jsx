@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import logoImage from '../assets/logo.jpg';
 
 export default function Header() {
   const location = useLocation();
@@ -56,8 +57,9 @@ export default function Header() {
         <div className="flex-shrink-0">
           <Link
             to={`/c/${slug}`}
-            className="font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300 whitespace-nowrap"
+            className="flex items-center gap-2 font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300 whitespace-nowrap"
           >
+            <img src={logoImage} alt="Our Bloom Logo" className="w-8 h-8 rounded-full object-cover shadow-sm" />
             Our Bloom
           </Link>
         </div>

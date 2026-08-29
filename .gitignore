@@ -109,3 +109,7 @@ dist
 
 # User Uploads (from our backend)
 server/uploads/
+
+# Firebase credentials
+firebase-service-account.json
+*-service-account.json
