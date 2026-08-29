@@ -137,7 +137,7 @@ export default function Header() {
                 setShowNicknameEdit(!showNicknameEdit);
                 setShowNotifications(false);
               }}
-              className="text-primary hover:text-secondary transition-colors duration-300 flex items-center gap-1"
+              className="hidden md:flex text-primary hover:text-secondary transition-colors duration-300 items-center gap-1"
               title="Edit nickname for your partner"
             >
               <span
@@ -150,7 +150,7 @@ export default function Header() {
             </button>
 
             {showNicknameEdit && (
-              <div className="absolute right-0 top-full mt-2 bg-surface rounded-2xl shadow-xl border border-primary/10 p-4 w-72 z-50">
+              <div className="fixed md:absolute inset-x-4 md:inset-x-auto top-20 md:right-0 md:top-full md:mt-2 bg-surface rounded-2xl shadow-xl border border-primary/10 p-4 md:w-72 z-50">
                 <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">
                   Nickname for your partner
                 </label>
@@ -169,13 +169,23 @@ export default function Header() {
             )}
           </div>
 
-          {/* Logout */}
+          {/* Download App (Desktop) */}
+          <a
+            href="/OurBloom.apk"
+            download
+            className="hidden md:flex items-center text-on-surface-variant hover:text-primary transition-colors duration-300 p-1"
+            title="Download Android App"
+          >
+            <span className="material-symbols-outlined text-[24px]">android</span>
+          </a>
+
+          {/* Logout (Desktop) */}
           <button
             onClick={logout}
-            className="text-on-surface-variant hover:text-error transition-colors duration-300"
+            className="hidden md:flex text-on-surface-variant hover:text-error transition-colors duration-300 p-1"
             title="Logout"
           >
-            <span className="material-symbols-outlined text-[20px]">logout</span>
+            <span className="material-symbols-outlined text-[24px]">logout</span>
           </button>
 
           {/* Mobile Menu Toggle */}
@@ -208,6 +218,33 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
+            
+            <hr className="border-outline-variant/20 my-2" />
+            
+            <button 
+              onClick={() => { setShowNicknameEdit(!showNicknameEdit); setMobileOpen(false); }}
+              className="flex items-center gap-3 text-primary font-body-md py-2 text-left"
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+              Edit Partner's Nickname
+            </button>
+
+            <a 
+              href="/OurBloom.apk" 
+              download 
+              className="flex items-center gap-3 text-on-surface-variant hover:text-primary font-body-md py-2"
+            >
+              <span className="material-symbols-outlined">android</span>
+              Download Android App
+            </a>
+
+            <button 
+              onClick={logout}
+              className="flex items-center gap-3 text-error font-body-md py-2 text-left"
+            >
+              <span className="material-symbols-outlined">logout</span>
+              Logout
+            </button>
           </div>
         </div>
       )}
