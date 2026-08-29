@@ -168,7 +168,7 @@ export default function JourneyPage() {
             Our Journey: The Story Continues
           </div>
           <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">
-            Happy {monthText}, <span className="text-primary italic">my beautiful {myNicknameForPartner}.</span>
+            Happy {monthText}, <span className="text-primary italic">my beautiful {partnerNicknameForMe}.</span>
           </h1>
           <p className="max-w-2xl mx-auto font-body-lg text-body-lg text-on-surface-variant/80 leading-relaxed">
             {couple?.specialPhrase || `Every day with you is a new adventure. Thank you for being the most beautiful part of my everyday journey.`}
@@ -394,7 +394,7 @@ export default function JourneyPage() {
               "{couple?.specialPhrase || 'Every moment with you is a moment I treasure. Here is to forever growing together.'}"
             </p>
             <div className="w-24 h-[1px] bg-outline-variant mx-auto"></div>
-            <p className="font-headline-md text-primary">— Forever Yours, {partnerNicknameForMe || user?.name}</p>
+            <p className="font-headline-md text-primary">— Forever Yours, {myNicknameForPartner}</p>
           </div>
         </div>
       </section>

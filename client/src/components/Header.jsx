@@ -5,11 +5,16 @@ import { useAuth } from '../context/AuthContext';
 export default function Header() {
   const location = useLocation();
   const { slug } = useParams();
-  const { user, logout, updateNickname } = useAuth();
+  const { user, couple, logout, updateNickname } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showNicknameEdit, setShowNicknameEdit] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(user?.nicknameForPartner || '');
+
+  const partner = couple && user ? (
+    couple.user1?._id === user._id ? couple.user2 : couple.user1
+  ) : null;
+  const partnerNicknameForMe = partner?.nicknameForPartner || user?.name;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -84,7 +89,7 @@ export default function Header() {
               >
                 favorite
               </span>
-              <span className="hidden md:inline text-xs font-label-sm">{user?.name}</span>
+              <span className="hidden md:inline text-xs font-label-sm">{partnerNicknameForMe}</span>
             </button>
 
             {showNicknameEdit && (
