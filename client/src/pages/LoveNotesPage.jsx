@@ -22,7 +22,8 @@ export default function LoveNotesPage() {
     if (!slug) return;
     fetchNotes();
     
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+    const socketUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+    const socket = io(socketUrl, {
       auth: { token, coupleSlug: slug }
     });
     
