@@ -51,7 +51,7 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md shadow-[0_20px_40px_rgba(222,191,194,0.08)] transition-all duration-300">
-      <nav className={`flex justify-between items-center w-full px-6 md:px-8 lg:px-12 transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
+      <nav className={`flex justify-between items-center px-6 md:px-margin-desktop max-w-container-max mx-auto transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
         {/* Logo */}
         <Link
           to={`/c/${slug}`}
@@ -169,6 +169,15 @@ export default function Header() {
             )}
           </div>
 
+          {/* Logout (Desktop) */}
+          <button
+            onClick={logout}
+            className="hidden md:flex text-on-surface-variant hover:text-error transition-colors duration-300 p-1 mr-2"
+            title="Logout"
+          >
+            <span className="material-symbols-outlined text-[24px]">logout</span>
+          </button>
+
           {/* Download App (Desktop) */}
           <a
             href="/OurBloom.apk"
@@ -178,15 +187,6 @@ export default function Header() {
             <span className="material-symbols-outlined text-[18px]">android</span>
             <span className="hidden xl:inline">Get App</span>
           </a>
-
-          {/* Logout (Desktop) */}
-          <button
-            onClick={logout}
-            className="hidden md:flex text-on-surface-variant hover:text-error transition-colors duration-300 p-1"
-            title="Logout"
-          >
-            <span className="material-symbols-outlined text-[24px]">logout</span>
-          </button>
 
           {/* Mobile Menu Toggle */}
           <button
