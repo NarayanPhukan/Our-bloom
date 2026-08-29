@@ -51,17 +51,19 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md shadow-[0_20px_40px_rgba(222,191,194,0.08)] transition-all duration-300">
-      <nav className={`flex justify-between items-center px-6 md:px-margin-desktop max-w-container-max mx-auto transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
+      <nav className={`flex items-center px-6 md:px-margin-desktop max-w-container-max mx-auto transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
         {/* Logo */}
-        <Link
-          to={`/c/${slug}`}
-          className="font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300 whitespace-nowrap"
-        >
-          Our Bloom
-        </Link>
+        <div className="flex-1 flex justify-start">
+          <Link
+            to={`/c/${slug}`}
+            className="font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300 whitespace-nowrap"
+          >
+            Our Bloom
+          </Link>
+        </div>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex space-x-8 items-center">
+        <div className="hidden lg:flex justify-center space-x-8 items-center">
           {navLinks.map((link) => (
             <Link
               key={link.to}
@@ -78,7 +80,7 @@ export default function Header() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center space-x-3">
+        <div className="flex-1 flex justify-end items-center space-x-4">
           {/* Notifications */}
           <div className="relative">
             <button
