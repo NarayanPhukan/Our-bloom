@@ -70,7 +70,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/updates', express.static(path.join(__dirname, 'public/updates')));
 // Public routes (no auth)
 app.use('/api/auth', authRoutes);
 

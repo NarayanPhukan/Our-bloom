@@ -1,7 +1,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Native App Enhancements */
+body {
+  /* Prevent long-press context menus (like 'save image') */
+  -webkit-touch-callout: none;
+  /* Prevent text selection */
+  -webkit-user-select: none;
+  user-select: none;
+  /* Remove gray highlight on tap */
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent 'rubber band' overscrolling */
+  overscroll-behavior-y: none;
+}
 
+/* Allow text selection in inputs and textareas */
+input, textarea {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
 
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;

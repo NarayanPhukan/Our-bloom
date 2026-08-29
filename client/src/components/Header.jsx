@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { Capacitor } from '@capacitor/core';
 import logoImage from '../assets/logo.jpg';
 
 export default function Header() {
@@ -14,6 +15,7 @@ export default function Header() {
   const [nicknameInput, setNicknameInput] = useState(user?.nicknameForPartner || '');
   const [showNotifications, setShowNotifications] = useState(false);
   const { notifications, unreadCount, markAllAsRead } = useNotifications();
+  const isNative = Capacitor.isNativePlatform();
 
   const partner = couple && user ? (
     couple.user1?._id === user._id ? couple.user2 : couple.user1
@@ -183,14 +185,16 @@ export default function Header() {
           </button>
 
           {/* Download App (Desktop) */}
-          <a
-            href="/OurBloom.apk"
-            download
-            className="hidden lg:flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase whitespace-nowrap"
-          >
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            <span>Download</span>
-          </a>
+          {!isNative && (
+            <a
+              href="/OurBloom.apk"
+              download
+              className="hidden lg:flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              <span>Download</span>
+            </a>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button
@@ -233,14 +237,16 @@ export default function Header() {
               Edit Partner's Nickname
             </button>
 
-            <a 
-              href="/OurBloom.apk" 
-              download 
-              className="flex items-center gap-3 text-on-surface-variant hover:text-primary font-body-md py-2"
-            >
-              <span className="material-symbols-outlined">android</span>
-              Download Android App
-            </a>
+            {!isNative && (
+              <a 
+                href="/OurBloom.apk" 
+                download 
+                className="flex items-center gap-3 text-on-surface-variant hover:text-primary font-body-md py-2"
+              >
+                <span className="material-symbols-outlined">android</span>
+                Download Android App
+              </a>
+            )}
 
             <button 
               onClick={logout}
