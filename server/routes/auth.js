@@ -101,4 +101,22 @@ router.put('/me/nickname', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/auth/me/fcm-token
+router.put('/me/fcm-token', authMiddleware, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.fcmToken = fcmToken || null;
+    await user.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

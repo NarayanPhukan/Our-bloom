@@ -15,6 +15,7 @@ import MapPage from './pages/MapPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import SetupPage from './pages/SetupPage';
+import { initializeNotifications } from './utils/notificationScheduler';
 
 const SpotifyPlayer = () => {
   const { couple, token } = useAuth();
@@ -149,6 +150,12 @@ function CoupleLayout() {
 function AppRedirect() {
   const { user, couple, loading } = useAuth();
   
+  useEffect(() => {
+    if (user && couple) {
+      initializeNotifications(user, couple);
+    }
+  }, [user, couple]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-lily-pattern">

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "782460060772",
+    "project_id": "our-bloom",
+    "storage_bucket": "our-bloom.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:782460060772:android:2878626b679b22d74c0b71",
+        "android_client_info": {
+          "package_name": "com.ourbloom.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq3soA_xer-wTz7ondDXIma0u_FRU5Uqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

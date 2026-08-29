@@ -24,6 +24,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    fcmToken: {
+      type: String,
+      default: null,
+    },
     coupleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Couple',

@@ -108,6 +108,32 @@ router.post('/', upload.single('image'), async (req, res) => {
       });
     }
 
+    // Try to send push notification
+    try {
+      const Couple = require('../models/Couple');
+      const User = require('../models/User');
+      const { sendPushNotification } = require('../utils/firebase');
+      
+      const couple = await Couple.findById(req.coupleId);
+      if (couple) {
+        // Find partner ID
+        const partnerId = couple.user1.toString() === req.user.userId.toString() ? couple.user2 : couple.user1;
+        if (partnerId) {
+          const partner = await User.findById(partnerId);
+          if (partner && partner.fcmToken) {
+            await sendPushNotification(
+              partner.fcmToken,
+              "New Love Note 💌",
+              `Your partner just dropped a love note for you!`,
+              { type: 'note', id: savedNote._id.toString() }
+            );
+          }
+        }
+      }
+    } catch (pushErr) {
+      console.error('Failed to send push notification:', pushErr);
+    }
+
     res.status(201).json(savedNote);
   } catch (err) {
     res.status(400).json({ error: err.message });
