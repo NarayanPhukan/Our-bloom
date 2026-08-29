@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { getSpotifySettings, updateSpotifySettings } from './api';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PetalEffect from './components/PetalEffect';
@@ -165,25 +166,27 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+        <NotificationProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          {/* Setup (authenticated but no couple) */}
-          <Route path="/setup" element={<SetupPage />} />
+            {/* Setup (authenticated but no couple) */}
+            <Route path="/setup" element={<SetupPage />} />
 
-          {/* Couple routes (authenticated + has couple) */}
-          <Route path="/c/:slug/*" element={
-            <ProtectedRoute>
-              <CoupleLayout />
-            </ProtectedRoute>
-          } />
+            {/* Couple routes (authenticated + has couple) */}
+            <Route path="/c/:slug/*" element={
+              <ProtectedRoute>
+                <CoupleLayout />
+              </ProtectedRoute>
+            } />
 
-          {/* Root redirect */}
-          <Route path="/" element={<AppRedirect />} />
-          <Route path="*" element={<AppRedirect />} />
-        </Routes>
+            {/* Root redirect */}
+            <Route path="/" element={<AppRedirect />} />
+            <Route path="*" element={<AppRedirect />} />
+          </Routes>
+        </NotificationProvider>
       </AuthProvider>
     </Router>
   );

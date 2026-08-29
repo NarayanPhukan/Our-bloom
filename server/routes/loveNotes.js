@@ -99,7 +99,14 @@ router.post('/', upload.single('image'), async (req, res) => {
     const savedNote = await newNote.save();
 
     const io = req.app.get('io');
-    if (io) io.to(req.coupleSlug).emit('newNote', savedNote);
+    if (io) {
+      io.to(req.coupleSlug).emit('newNote', savedNote);
+      io.to(req.coupleSlug).emit('notification', {
+        type: 'note_added',
+        userId: req.user.userId,
+        title: 'a love note'
+      });
+    }
 
     res.status(201).json(savedNote);
   } catch (err) {

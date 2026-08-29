@@ -45,7 +45,14 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
     const savedMemory = await newMemory.save();
 
     const io = req.app.get('io');
-    if (io) io.to(req.coupleSlug).emit('newMemory', savedMemory);
+    if (io) {
+      io.to(req.coupleSlug).emit('newMemory', savedMemory);
+      io.to(req.coupleSlug).emit('notification', {
+        type: 'memory_added',
+        userId: req.user.userId,
+        title: savedMemory.title
+      });
+    }
 
     res.status(201).json(savedMemory);
   } catch (err) {

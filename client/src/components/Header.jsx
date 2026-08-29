@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function Header() {
   const location = useLocation();
@@ -10,6 +11,8 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showNicknameEdit, setShowNicknameEdit] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(user?.nicknameForPartner || '');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { notifications, unreadCount, markAllAsRead } = useNotifications();
 
   const partner = couple && user ? (
     couple.user1?._id === user._id ? couple.user2 : couple.user1
@@ -76,10 +79,64 @@ export default function Header() {
 
         {/* Actions */}
         <div className="flex items-center space-x-3">
+          {/* Notifications */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowNicknameEdit(false);
+                if (unreadCount > 0 && !showNotifications) {
+                  markAllAsRead();
+                }
+              }}
+              className="text-on-surface-variant hover:text-primary transition-colors duration-300 relative p-1"
+              title="Notifications"
+            >
+              <span className="material-symbols-outlined text-[24px]">notifications</span>
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-error rounded-full shadow-sm animate-pulse"></span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 top-full mt-2 bg-surface rounded-2xl shadow-xl border border-primary/10 w-80 z-50 overflow-hidden">
+                <div className="p-4 border-b border-outline-variant/30 bg-surface-container-lowest">
+                  <h3 className="font-label-sm text-primary uppercase tracking-wider font-bold">Recent Updates</h3>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((notif) => (
+                      <div key={notif.id} className="p-4 border-b border-outline-variant/10 hover:bg-surface-variant/20 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <span className="material-symbols-outlined text-primary mt-0.5">
+                            {notif.type === 'memory_added' ? 'photo_camera' : notif.type === 'note_added' ? 'mail' : 'favorite'}
+                          </span>
+                          <div>
+                            <p className="text-sm text-on-surface leading-tight mb-1">{notif.message}</p>
+                            <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+                              {new Date(notif.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-6 text-center text-on-surface-variant text-sm italic">
+                      No new updates yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Nickname edit */}
           <div className="relative">
             <button
-              onClick={() => setShowNicknameEdit(!showNicknameEdit)}
+              onClick={() => {
+                setShowNicknameEdit(!showNicknameEdit);
+                setShowNotifications(false);
+              }}
               className="text-primary hover:text-secondary transition-colors duration-300 flex items-center gap-1"
               title="Edit nickname for your partner"
             >
