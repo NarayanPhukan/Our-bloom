@@ -51,7 +51,7 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md shadow-[0_20px_40px_rgba(222,191,194,0.08)] transition-all duration-300">
-      <nav className={`flex justify-between items-center px-6 md:px-margin-desktop max-w-container-max mx-auto transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
+      <nav className={`flex justify-between items-center w-full px-6 md:px-8 lg:px-12 transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
         {/* Logo */}
         <Link
           to={`/c/${slug}`}
