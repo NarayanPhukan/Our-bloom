@@ -184,8 +184,8 @@ export default function Header() {
             download
             className="hidden lg:flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase whitespace-nowrap"
           >
-            <span className="material-symbols-outlined text-[18px]">android</span>
-            <span className="hidden xl:inline">Get App</span>
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            <span>Download</span>
           </a>
 
           {/* Mobile Menu Toggle */}
