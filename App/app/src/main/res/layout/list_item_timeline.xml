@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="16dp">
+
+    <!-- Timeline Line -->
+    <View
+        android:id="@+id/timeline_line"
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:background="@color/bloom_tertiary"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="11dp" />
+
+    <!-- Timeline Node -->
+    <View
+        android:id="@+id/timeline_node"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:background="@drawable/shape_timeline_node"
+        app:layout_constraintTop_toTopOf="@id/timeline_card"
+        app:layout_constraintBottom_toBottomOf="@id/timeline_card"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="7.5dp" />
+
+    <!-- Timeline Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/timeline_card"
+        style="@style/Widget.OurBloom.CardView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:id="@+id/tv_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AUGUST 24, 2023"
+                android:textAppearance="@style/TextAppearance.OurBloom.LabelCaps"
+                android:textColor="@color/bloom_primary" />
+
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="First Anniversary"
+                android:textAppearance="@style/TextAppearance.OurBloom.HeadlineMd"
+                android:textColor="@color/bloom_on_surface" />
+
+            <TextView
+                android:id="@+id/tv_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="We celebrated our first year together with a beautiful dinner by the lake."
+                android:textAppearance="@style/TextAppearance.OurBloom.BodyMd"
+                android:textColor="@color/bloom_on_surface_variant" />
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

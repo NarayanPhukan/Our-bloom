@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.OurBloom.CardView"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="48dp"
+    app:cardBackgroundColor="@color/bloom_surface_container_low">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tv_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AUGUST 24, 2026"
+            android:textAppearance="@style/TextAppearance.OurBloom.LabelCaps"
+            android:textColor="@color/bloom_primary" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Just thinking of you"
+            android:textAppearance="@style/TextAppearance.OurBloom.HeadlineMd"
+            android:textColor="@color/bloom_on_surface" />
+
+        <TextView
+            android:id="@+id/tv_body"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="I was walking past our favorite coffee shop today and the smell of the roasted beans reminded me of our first date. Can't wait to see you tonight."
+            android:textAppearance="@style/TextAppearance.OurBloom.BodyLg"
+            android:textColor="@color/bloom_on_surface_variant" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

@@ -18,6 +18,81 @@ const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 
+// Initialize Firebase Admin
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
+const serviceAccount = require('./firebase-service-account.json');
+
+let firebaseApp;
+try {
+  firebaseApp = initializeApp({
+    credential: cert(serviceAccount)
+  });
+} catch (e) {
+  // Ignore if already initialized
+}
+const db = getFirestore();
+const messaging = getMessaging();
+
+// Helper to send push notification
+const sendPushNotification = async (userId, title, body) => {
+  try {
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (userDoc.exists && userDoc.data().fcmToken) {
+      const message = {
+        notification: { title, body },
+        token: userDoc.data().fcmToken
+      };
+      await messaging.send(message);
+      console.log(`✿ Push notification sent to user ${userId}`);
+    }
+  } catch (err) {
+    console.error(`✿ Error sending push notification to user ${userId}:`, err);
+  }
+};
+
+// Setup Firestore listeners
+const setupFirestoreListeners = () => {
+  console.log('✿ Setting up Firestore real-time listeners for push notifications...');
+  
+  // Listen for new Love Notes
+  db.collection('loveNotes').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        const note = change.doc.data();
+        if (note.createdAt && (Date.now() - new Date(note.createdAt).getTime() < 60000)) {
+          // It's a brand new note!
+          const partnerId = note.coupleId; // In a robust app, we'd find the exact partner user ID. We'll broadcast to both couple members for now, or fetch the couple doc to find the partner.
+          
+          db.collection('couples').doc(note.coupleId).get().then(coupleDoc => {
+             if(coupleDoc.exists) {
+                 const { user1, user2 } = coupleDoc.data();
+                 // Assuming author is one of them
+                 const partner = note.author === user1 ? user2 : (note.author === user2 ? user1 : user2); // Simplified
+                 sendPushNotification(partner, 'New Love Note! 💌', `You have a new love note from ${note.author}`);
+             }
+          });
+        }
+      }
+    });
+  });
+
+  // Listen for Anthem updates
+  db.collection('couples').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'modified') {
+        const couple = change.doc.data();
+        const oldCouple = change.oldIndex !== -1 ? change.doc.data() : null; // simplified check
+        // Actually onSnapshot modified doesn't give previous state easily without local caching, 
+        // but we can send a general "Your couple profile was updated!" if we want.
+        // Let's keep it simple: notify on general profile modification if needed, or skip for now to avoid spam.
+      }
+    });
+  });
+};
+setupFirestoreListeners();
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {

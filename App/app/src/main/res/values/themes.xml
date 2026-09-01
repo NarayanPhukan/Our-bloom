@@ -1,0 +1,31 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.OurBloom" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/bloom_primary</item>
+        <item name="colorPrimaryVariant">@color/bloom_primary_container</item>
+        <item name="colorOnPrimary">@color/bloom_on_primary</item>
+        
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/bloom_secondary</item>
+        <item name="colorSecondaryVariant">@color/bloom_tertiary</item>
+        <item name="colorOnSecondary">@color/bloom_on_secondary</item>
+
+        <!-- Background & Surface -->
+        <item name="android:windowBackground">@color/bloom_background</item>
+        <item name="colorSurface">@color/bloom_surface</item>
+        <item name="colorOnSurface">@color/bloom_on_surface</item>
+        
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">@color/bloom_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        
+        <!-- Typography -->
+        <item name="android:fontFamily">@font/hanken_grotesk</item>
+        
+        <!-- Material Components styling -->
+        <item name="textInputStyle">@style/Widget.OurBloom.TextInputLayout</item>
+        <item name="materialButtonStyle">@style/Widget.OurBloom.Button</item>
+        <item name="materialCardViewStyle">@style/Widget.OurBloom.CardView</item>
+    </style>
+</resources>
