@@ -12,16 +12,6 @@ export default defineConfig({
         drop_console: true,
         drop_debugger: true
       }
-    },
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          leaflet: ['leaflet', 'react-leaflet', 'leaflet-geosearch'],
-          editor: ['react-quill-new'],
-          capacitor: ['@capacitor/core', '@capacitor/app', '@capacitor/haptics', '@capacitor/keyboard', '@capacitor/network', '@capacitor/status-bar']
-        }
-      }
     }
   }
 })
