@@ -22,21 +22,36 @@ const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
-const serviceAccount = require('./firebase-service-account.json');
+let serviceAccount;
+try {
+  serviceAccount = require('./firebase-service-account.json');
+} catch (e) {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  }
+}
 
 let firebaseApp;
-try {
-  firebaseApp = initializeApp({
-    credential: cert(serviceAccount)
-  });
-} catch (e) {
-  // Ignore if already initialized
+let db = null;
+let messaging = null;
+
+if (serviceAccount) {
+  try {
+    firebaseApp = initializeApp({
+      credential: cert(serviceAccount)
+    });
+    db = getFirestore();
+    messaging = getMessaging();
+  } catch (e) {
+    console.error('✿ Firebase initialization failed', e);
+  }
+} else {
+  console.warn('✿ Firebase credentials missing. Push notifications disabled.');
 }
-const db = getFirestore();
-const messaging = getMessaging();
 
 // Helper to send push notification
 const sendPushNotification = async (userId, title, body) => {
+  if (!db || !messaging) return;
   try {
     const userDoc = await db.collection('users').doc(userId).get();
     if (userDoc.exists && userDoc.data().fcmToken) {
@@ -54,6 +69,7 @@ const sendPushNotification = async (userId, title, body) => {
 
 // Setup Firestore listeners
 const setupFirestoreListeners = () => {
+  if (!db) return;
   console.log('✿ Setting up Firestore real-time listeners for push notifications...');
   
   // Listen for new Love Notes
