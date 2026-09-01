@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
 import { getMemories, createMemory, deleteMemory } from '../api';
-import { getMemories, createMemory, deleteMemory } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import Lightbox from '../components/Lightbox';
