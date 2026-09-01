@@ -10,6 +10,7 @@ import { useMap } from 'react-leaflet';
 import { getDreamLocations, createDreamLocation, updateDreamLocation } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
+import { tapFeedback, impactFeedback, successFeedback, errorFeedback } from '../utils/useHaptic';
 
 // Fix for default marker icon in leaflet with webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -42,6 +43,7 @@ function MapClickHandler({ setDraftLocation, setModalOpen }) {
     click(e) {
       setDraftLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
       setModalOpen(true);
+      tapFeedback();
     },
   });
   return null;
@@ -85,6 +87,7 @@ export default function MapPage() {
   const [toast, setToast] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [editId, setEditId] = useState(null);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -125,6 +128,7 @@ export default function MapPage() {
     e.preventDefault();
     if (!formData.title || !formData.description || !draftLocation) return;
     
+    impactFeedback();
     try {
       const data = new FormData();
       data.append('title', formData.title);
@@ -145,6 +149,7 @@ export default function MapPage() {
         await createDreamLocation(slug, data);
         setToast({ message: 'Dream location added!', type: 'success' });
       }
+      successFeedback();
 
       setModalOpen(false);
       setFormData({ title: '', description: '', status: 'Dreaming' });
@@ -153,11 +158,13 @@ export default function MapPage() {
       setEditId(null);
     } catch (err) {
       setToast({ message: 'Failed to save location', type: 'error' });
+      errorFeedback();
     }
   };
 
   const handleEditClick = (loc, e) => {
     e.stopPropagation();
+    tapFeedback();
     setEditId(loc._id);
     setFormData({ title: loc.title, description: loc.description, status: loc.status || 'Dreaming' });
     setDraftLocation({ lat: loc.lat, lng: loc.lng }); // dummy to pass validation
@@ -182,14 +189,24 @@ export default function MapPage() {
           </div>
         ) : (
           <>
-            <div className="absolute left-4 md:left-8 top-48 bottom-8 w-[calc(100%-2rem)] md:w-80 bg-surface/80 backdrop-blur-xl rounded-[32px] shadow-2xl border border-white/60 overflow-hidden flex flex-col z-[1000] pointer-events-auto">
-              <div className="p-5 bg-gradient-to-r from-primary/10 to-transparent border-b border-white/30">
+            <div className={`absolute md:left-8 md:top-48 md:bottom-8 md:w-80 bg-surface/80 backdrop-blur-xl shadow-2xl md:border md:border-white/60 overflow-hidden flex flex-col z-[1000] pointer-events-auto transition-all duration-300 ${isBottomSheetOpen ? 'bottom-0 left-0 right-0 h-[60vh] rounded-t-[32px] border-t border-white/60 md:rounded-[32px] md:h-auto' : 'bottom-0 left-0 right-0 h-16 rounded-t-[32px] border-t border-white/60 md:h-auto md:rounded-[32px]'}`}>
+              {/* Handle for mobile */}
+              <div 
+                className="md:hidden flex justify-center items-center h-16 cursor-pointer bg-gradient-to-b from-white/20 to-transparent flex-shrink-0"
+                onClick={() => { setIsBottomSheetOpen(!isBottomSheetOpen); tapFeedback(); }}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-1.5 bg-on-surface-variant/30 rounded-full"></div>
+                  {!isBottomSheetOpen && <span className="font-label-sm text-primary uppercase tracking-widest text-[10px]">View Dreams</span>}
+                </div>
+              </div>
+              <div className={`p-5 bg-gradient-to-r from-primary/10 to-transparent border-b border-white/30 ${!isBottomSheetOpen ? 'hidden md:block' : ''}`}>
                 <h2 className="font-headline-sm text-xl text-primary flex items-center gap-2">
                   <span className="material-symbols-outlined">list_alt</span>
                   Pinned Dreams
                 </h2>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar ${!isBottomSheetOpen ? 'hidden md:block' : ''}`}>
                 {locations.length === 0 ? (
                   <div className="text-center mt-12 space-y-3 opacity-70">
                     <span className="material-symbols-outlined text-5xl text-primary">location_off</span>
@@ -199,13 +216,19 @@ export default function MapPage() {
                   locations.map((loc) => (
                     <div 
                       key={loc._id} 
-                      onClick={() => mapInstance && mapInstance.flyTo([loc.lat, loc.lng], 6, { duration: 1.5 })}
+                      onClick={() => { 
+                        if (mapInstance) {
+                          mapInstance.flyTo([loc.lat, loc.lng], 6, { duration: 1.5 });
+                          tapFeedback();
+                          setIsBottomSheetOpen(false);
+                        }
+                      }}
                       className="bg-white/60 p-4 rounded-2xl hover:bg-white cursor-pointer transition-all duration-300 border border-white/50 shadow-sm hover:shadow-md transform hover:-translate-y-1 group"
                     >
                       <div className="flex items-start justify-between">
                         <h3 className="font-label-lg text-primary group-hover:text-secondary transition-colors">{loc.title}</h3>
                         <div className="flex items-center gap-2">
-                           <button onClick={(e) => handleEditClick(loc, e)} className="opacity-0 group-hover:opacity-100 p-1 text-primary hover:bg-primary/10 rounded-full transition-all">
+                           <button onClick={(e) => handleEditClick(loc, e)} className="opacity-0 group-hover:opacity-100 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-primary hover:bg-primary/10 rounded-full transition-all">
                              <span className="material-symbols-outlined text-[18px]">edit</span>
                            </button>
                            <span className="material-symbols-outlined text-error text-sm opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all">
@@ -275,8 +298,9 @@ export default function MapPage() {
                 setModalOpen(false);
                 setEditId(null);
                 setFormData({ title: '', description: '', status: 'Dreaming' });
+                tapFeedback();
               }}
-              className="absolute top-6 right-6 text-on-surface-variant hover:text-on-surface transition-colors"
+              className="absolute top-6 right-6 text-on-surface-variant hover:text-on-surface transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <span className="material-symbols-outlined">close</span>
             </button>

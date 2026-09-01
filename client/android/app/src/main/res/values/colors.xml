@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Our Bloom Brand Colors -->
+    <color name="colorPrimary">#70585b</color>
+    <color name="colorPrimaryDark">#574144</color>
+    <color name="colorAccent">#416743</color>
+    <color name="colorSurface">#fbf9f8</color>
+    <color name="colorPrimaryContainer">#fadadd</color>
+    <color name="colorOnPrimary">#ffffff</color>
+    <color name="splash_background">#fbf9f8</color>
+</resources>

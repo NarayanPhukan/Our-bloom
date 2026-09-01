@@ -1,5 +1,27 @@
 {
   "appId": "com.ourbloom.app",
   "appName": "Our Bloom",
-  "webDir": "dist"
+  "webDir": "dist",
+  "backgroundColor": "#fbf9f8",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "backgroundColor": "#fbf9f8",
+      "style": "DARK",
+      "overlaysWebView": false
+    },
+    "Keyboard": {
+      "resize": "body",
+      "resizeOnFullScreen": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_launcher",
+      "iconColor": "#70585b"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
 }

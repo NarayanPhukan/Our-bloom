@@ -2,9 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
 import { getMemories, createMemory, deleteMemory } from '../api';
+import { getMemories, createMemory, deleteMemory } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import Lightbox from '../components/Lightbox';
+import PullToRefresh from '../components/PullToRefresh';
+import { tapFeedback, impactFeedback, successFeedback, errorFeedback } from '../utils/useHaptic';
 
 const FALLBACK_MEMORIES = [
   {
@@ -128,6 +131,12 @@ export default function MemoriesPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      await fetchMemories();
+    } catch (e) {}
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -163,6 +172,7 @@ export default function MemoriesPage() {
     e.preventDefault();
     if (!imageFile) {
       setToast({ message: 'Please select an image', type: 'error' });
+      errorFeedback();
       return;
     }
 
@@ -183,9 +193,11 @@ export default function MemoriesPage() {
       setImageFile(null);
       setAudioBlob(null);
       setToast({ message: 'Memory bloomed successfully ♡', type: 'success' });
+      successFeedback();
     } catch (err) {
       console.error(err);
       setToast({ message: 'Failed to save memory', type: 'error' });
+      errorFeedback();
     } finally {
       setSubmitting(false);
     }
@@ -193,12 +205,14 @@ export default function MemoriesPage() {
 
   const handleDelete = async (id) => {
     try {
+      impactFeedback();
       await deleteMemory(slug, id);
       setMemories(memories.filter((m) => m._id !== id));
       setToast({ message: 'Memory removed', type: 'success' });
     } catch (err) {
       console.error(err);
       setToast({ message: 'Failed to remove memory', type: 'error' });
+      errorFeedback();
     }
   };
 
@@ -212,9 +226,10 @@ export default function MemoriesPage() {
   });
 
   return (
-    <>
-      {/* Hero Section */}
-      <section className="max-w-container-max mx-auto px-5 md:px-margin-desktop text-center mb-20 relative">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="page-transition">
+        {/* Hero Section */}
+        <section className="max-w-container-max mx-auto px-5 md:px-margin-desktop text-center mb-20 relative">
         <div className="absolute -top-10 -left-10 opacity-20 animate-float pointer-events-none hidden md:block">
           <span className="material-symbols-outlined text-[120px] text-primary">
             local_florist
@@ -294,14 +309,14 @@ export default function MemoriesPage() {
         <div className="flex justify-center mb-12">
           <div className="bg-surface-variant p-1 rounded-full flex gap-1 shadow-inner">
             <button
-              onClick={() => setViewMode('gallery')}
-              className={`px-6 py-2 rounded-full font-label-sm uppercase tracking-widest transition-all ${viewMode === 'gallery' ? 'bg-primary text-on-primary shadow-glow-primary' : 'text-on-surface-variant hover:text-primary'}`}
+              onClick={() => { setViewMode('gallery'); tapFeedback(); }}
+              className={`px-6 py-2 rounded-full font-label-sm uppercase tracking-widest transition-all min-h-[44px] ${viewMode === 'gallery' ? 'bg-primary text-on-primary shadow-glow-primary' : 'text-on-surface-variant hover:text-primary'}`}
             >
               Gallery
             </button>
             <button
-              onClick={() => setViewMode('timeline')}
-              className={`px-6 py-2 rounded-full font-label-sm uppercase tracking-widest transition-all ${viewMode === 'timeline' ? 'bg-primary text-on-primary shadow-glow-primary' : 'text-on-surface-variant hover:text-primary'}`}
+              onClick={() => { setViewMode('timeline'); tapFeedback(); }}
+              className={`px-6 py-2 rounded-full font-label-sm uppercase tracking-widest transition-all min-h-[44px] ${viewMode === 'timeline' ? 'bg-primary text-on-primary shadow-glow-primary' : 'text-on-surface-variant hover:text-primary'}`}
             >
               Timeline
             </button>
@@ -331,7 +346,7 @@ export default function MemoriesPage() {
                     {!memory.isDummy && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(memory._id); }}
-                        className="absolute -top-4 -right-4 bg-error text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg"
+                        className="absolute -top-4 -right-4 bg-error text-white w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg"
                       >
                         <span className="material-symbols-outlined text-sm">close</span>
                       </button>
@@ -449,8 +464,8 @@ export default function MemoriesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-surface/40 backdrop-blur-sm animate-fade-in">
           <div className="bg-surface-container-lowest p-8 rounded-[32px] shadow-2xl w-full max-w-md relative border border-primary/10">
             <button
-              onClick={() => setModalOpen(false)}
-              className="absolute top-6 right-6 text-on-surface-variant hover:text-error transition-colors"
+              onClick={() => { setModalOpen(false); tapFeedback(); }}
+              className="absolute top-6 right-6 text-on-surface-variant hover:text-error transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
@@ -573,6 +588,7 @@ export default function MemoriesPage() {
           onClose={() => setSelectedMemory(null)}
         />
       )}
-    </>
+      </div>
+    </PullToRefresh>
   );
 }

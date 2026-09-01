@@ -19,7 +19,8 @@ export default function Toast({ message, type = 'success', onClose }) {
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[200] ${exiting ? 'toast-exit' : 'toast-enter'}`}
+      className={`fixed left-1/2 transform -translate-x-1/2 z-[200] ${exiting ? 'toast-exit' : 'toast-enter'}`}
+      style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       <div
         className={`${bgColor} ${textColor} px-6 py-3 rounded-full font-body-md text-body-md flex items-center gap-2 petal-shadow`}

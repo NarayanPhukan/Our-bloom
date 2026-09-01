@@ -6,6 +6,8 @@ import 'react-quill-new/dist/quill.snow.css';
 import { getLoveNotes, createLoveNote, deleteLoveNote } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
+import PullToRefresh from '../components/PullToRefresh';
+import { tapFeedback, impactFeedback, successFeedback, errorFeedback } from '../utils/useHaptic';
 
 export default function LoveNotesPage() {
   const { token } = useAuth();
@@ -49,6 +51,12 @@ export default function LoveNotesPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      await fetchNotes();
+    } catch (e) {}
+  };
+
   const handleSubmit = async () => {
     if (!draftContent.trim() && !draftImage) return;
     setSubmitting(true);
@@ -67,8 +75,10 @@ export default function LoveNotesPage() {
       setDraftContent('');
       setDraftImage(null);
       setToast({ message: 'Your note has bloomed ♡', type: 'success' });
+      successFeedback();
     } catch {
       setToast({ message: 'Could not save — try again', type: 'error' });
+      errorFeedback();
     } finally {
       setSubmitting(false);
     }
@@ -76,10 +86,12 @@ export default function LoveNotesPage() {
 
   const handleDelete = async (id) => {
     try {
+      impactFeedback();
       await deleteLoveNote(slug, id);
       setNotes(notes.filter((n) => n._id !== id));
     } catch {
       setToast({ message: 'Could not delete', type: 'error' });
+      errorFeedback();
     }
   };
 
@@ -91,18 +103,19 @@ export default function LoveNotesPage() {
   };
 
   return (
-    <>
-      {/* Hero Section */}
-      <section className="max-w-container-max mx-auto px-5 md:px-margin-desktop text-center mb-20">
-        <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-primary mb-6 italic">
-          A Secret Garden of Whispers
-        </h1>
-        <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto opacity-80">
-          Every bloom tells a story. Here lie the delicate petals of our
-          journey—the notes, the thoughts, and the quiet moments that grew
-          between us this past month.
-        </p>
-      </section>
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="page-transition">
+        {/* Hero Section */}
+        <section className="max-w-container-max mx-auto px-5 md:px-margin-desktop text-center mb-20 relative pt-4">
+          <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-primary mb-6 italic">
+            A Secret Garden of Whispers
+          </h1>
+          <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto opacity-80">
+            Every bloom tells a story. Here lie the delicate petals of our
+            journey—the notes, the thoughts, and the quiet moments that grew
+            between us this past month.
+          </p>
+        </section>
 
       {/* Bento / Masonry Grid */}
       <section className="max-w-container-max mx-auto px-5 md:px-margin-desktop">
@@ -124,7 +137,7 @@ export default function LoveNotesPage() {
                       dangerouslySetInnerHTML={{ __html: note.content }}
                     />
                   )}
-                  <button onClick={() => handleDelete(note._id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/80 rounded-full p-2 text-error shadow-md hover:bg-surface-container-highest">
+                  <button onClick={() => handleDelete(note._id)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/80 rounded-full p-2 text-error shadow-md hover:bg-surface-container-highest min-w-[44px] min-h-[44px] flex items-center justify-center">
                     <span className="material-symbols-outlined text-[16px]">close</span>
                   </button>
                   <div className="absolute bottom-4 right-4 text-outline/50 font-label-sm uppercase tracking-widest text-[10px]">
@@ -163,7 +176,7 @@ export default function LoveNotesPage() {
                   </div>
                   <button
                     onClick={() => handleDelete(note._id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-on-surface-variant/30 hover:text-error"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-on-surface-variant/30 hover:text-error min-w-[44px] min-h-[44px] flex items-center justify-center"
                   >
                     <span className="material-symbols-outlined text-[16px]">
                       close
@@ -215,9 +228,9 @@ export default function LoveNotesPage() {
                 {submitting ? 'Planting your note...' : 'Saving to our garden...'}
               </span>
               <button
-                onClick={handleSubmit}
+                onClick={() => { handleSubmit(); tapFeedback(); }}
                 disabled={(!draftContent.trim() && !draftImage) || submitting}
-                className="bg-primary text-on-primary px-6 py-2 rounded-full font-label-sm uppercase tracking-widest hover:bg-secondary transition-all transform hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="bg-primary text-on-primary px-6 py-2 rounded-full font-label-sm uppercase tracking-widest hover:bg-secondary transition-all transform hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 min-h-[44px]"
               >
                 Bloom
               </button>
@@ -226,7 +239,7 @@ export default function LoveNotesPage() {
 
           {/* Note 6: Interactive Image Uploader */}
           <div 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { fileInputRef.current?.click(); tapFeedback(); }}
             className="love-note-card bg-surface-container-lowest p-4 pb-16 rounded-[4px] shadow-[0_10px_30px_rgba(0,0,0,0.05)] rotate-3 cursor-pointer hover:rotate-0 hover:scale-105 transition-all duration-300 group max-w-xs mx-auto w-full"
           >
             <div className="w-full aspect-square overflow-hidden bg-surface-variant mb-6 relative flex flex-col items-center justify-center border-2 border-dashed border-primary/20 group-hover:border-primary/50 transition-colors">
@@ -281,6 +294,7 @@ export default function LoveNotesPage() {
           onClose={() => setToast(null)}
         />
       )}
-    </>
+      </div>
+    </PullToRefresh>
   );
 }

@@ -5,6 +5,8 @@ import Polaroid from '../components/Polaroid';
 import Lightbox from '../components/Lightbox';
 import { getMemories, getDailyLoveNote, updateHeroImage } from '../api';
 import { useAuth } from '../context/AuthContext';
+import PullToRefresh from '../components/PullToRefresh';
+import { tapFeedback, successFeedback } from '../utils/useHaptic';
 
 const FALLBACK_MEMORIES = [
   {
@@ -139,10 +141,47 @@ export default function JourneyPage() {
     return () => socket.disconnect();
   }, [slug]);
 
+  const handleRefresh = async () => {
+    try {
+      const [{ data: memData }, { data: noteData }] = await Promise.all([
+        getMemories(slug),
+        getDailyLoveNote(slug)
+      ]);
+      
+      if (memData && memData.length > 0) {
+        const formatted = memData.slice(0, 4).map((mem, index) => {
+          const isLocal = mem.imageUrl.startsWith('/uploads');
+          const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+          const imgSrc = isLocal ? `${baseUrl}${mem.imageUrl}` : mem.imageUrl;
+          
+          let className = 'h-64 hover:rotate-0';
+          if (index === 0) className += ' rotate-[-2deg]';
+          if (index === 1) className += ' rotate-[3deg] mt-4';
+          if (index === 2) className += ' rotate-[-1deg]';
+          if (index === 3) className += ' rotate-[4deg] mt-2';
+
+          return {
+            _id: mem._id,
+            src: imgSrc,
+            alt: mem.title,
+            className
+          };
+        });
+        setRecentMemories(formatted);
+      }
+      if (noteData) {
+        setDailyNote(noteData);
+      }
+    } catch (err) {
+      console.error('Refresh failed', err);
+    }
+  };
+
   const handleHeroUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    tapFeedback();
     setIsUploadingHero(true);
     try {
       const formData = new FormData();
@@ -150,6 +189,7 @@ export default function JourneyPage() {
       
       const { data } = await updateHeroImage(slug, formData);
       setHeroImage(data.heroImageUrl);
+      successFeedback();
     } catch (err) {
       console.error('Failed to upload hero image', err);
     } finally {
@@ -160,9 +200,9 @@ export default function JourneyPage() {
   const displayMemories = recentMemories.length > 0 ? recentMemories : FALLBACK_MEMORIES;
 
   return (
-    <>
+    <PullToRefresh onRefresh={handleRefresh}>
       {/* Hero Section */}
-      <section className="relative min-h-[921px] flex items-center justify-center overflow-hidden px-5 md:px-margin-desktop -mt-32">
+      <section className="relative min-h-[921px] flex items-center justify-center overflow-hidden px-5 md:px-margin-desktop -mt-32 page-transition">
         <div className="relative z-20 max-w-4xl text-center space-y-8 animate-fade-in mt-20">
           <div className="inline-block px-4 py-1.5 rounded-full bg-primary-container/30 text-primary font-label-sm uppercase tracking-widest mb-4">
             Our Journey: The Story Continues
@@ -405,6 +445,6 @@ export default function JourneyPage() {
           onClose={() => setSelectedMemory(null)}
         />
       )}
-    </>
+    </PullToRefresh>
   );
 }

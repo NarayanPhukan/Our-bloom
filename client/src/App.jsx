@@ -1,21 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { io } from 'socket.io-client';
 import { getSpotifySettings, updateSpotifySettings } from './api';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { Capacitor } from '@capacitor/core';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PetalEffect from './components/PetalEffect';
 import ProtectedRoute from './components/ProtectedRoute';
-import JourneyPage from './pages/JourneyPage';
-import MemoriesPage from './pages/MemoriesPage';
-import LoveNotesPage from './pages/LoveNotesPage';
-import MapPage from './pages/MapPage';
+import OfflineBanner from './components/OfflineBanner';
+import UpdateBanner from './components/UpdateBanner';
+import AppVersionIndicator from './components/AppVersionIndicator';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import SetupPage from './pages/SetupPage';
 import { initializeNotifications } from './utils/notificationScheduler';
+
+// Lazy-load heavy pages for better performance
+const JourneyPage = lazy(() => import('./pages/JourneyPage'));
+const MemoriesPage = lazy(() => import('./pages/MemoriesPage'));
+const LoveNotesPage = lazy(() => import('./pages/LoveNotesPage'));
+const MapPage = lazy(() => import('./pages/MapPage'));
+
+// Themed loading spinner for lazy-loaded routes
+function PageLoader() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <span className="material-symbols-outlined text-[48px] text-primary animate-spin">filter_vintage</span>
+    </div>
+  );
+}
 
 const SpotifyPlayer = () => {
   const { couple, token } = useAuth();
@@ -69,11 +84,11 @@ const SpotifyPlayer = () => {
   };
 
   return (
-    <div className={`fixed bottom-6 left-6 z-[2000] transition-transform duration-500 ease-in-out ${isOpen ? 'translate-y-0' : 'translate-y-[calc(100%-60px)] hover:translate-y-[calc(100%-66px)]'}`}>
-      <div className={`backdrop-blur-xl rounded-[28px] overflow-hidden flex flex-col w-[320px] transition-all duration-500 border border-white/60 ${isOpen ? 'bg-surface/90 shadow-[0_20px_40px_rgba(222,191,194,0.3)]' : 'bg-surface/70 shadow-lg'} relative`}>
+    <div className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-6 md:right-auto md:w-[320px] z-[2000] transition-transform duration-500 ease-in-out ${isOpen ? 'translate-y-0' : 'translate-y-[calc(100%-60px)] hover:translate-y-[calc(100%-66px)]'}`}>
+      <div className={`backdrop-blur-xl rounded-[28px] overflow-hidden flex flex-col w-full max-w-[320px] transition-all duration-500 border border-white/60 ${isOpen ? 'bg-surface/90 shadow-[0_20px_40px_rgba(222,191,194,0.3)]' : 'bg-surface/70 shadow-lg'} relative`}>
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between p-4 px-5 bg-gradient-to-r from-primary/10 to-transparent hover:from-primary/20 hover:to-primary/5 transition-all cursor-pointer h-[60px]"
+          className="w-full flex items-center justify-between p-4 px-5 bg-gradient-to-r from-primary/10 to-transparent hover:from-primary/20 hover:to-primary/5 transition-all cursor-pointer h-[60px] min-h-[44px]"
         >
           <div className="flex items-center gap-3">
             <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${isOpen ? 'bg-primary text-on-primary shadow-glow-primary' : 'bg-primary/10 text-primary'}`}>
@@ -89,7 +104,7 @@ const SpotifyPlayer = () => {
         {isOpen && (
           <button 
              onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
-             className="absolute top-4 right-14 p-1 rounded-full hover:bg-primary/20 text-primary transition-colors flex items-center justify-center"
+             className="absolute top-4 right-14 p-2 rounded-full hover:bg-primary/20 text-primary transition-colors flex items-center justify-center min-w-[44px] min-h-[44px]"
           >
              <span className="material-symbols-outlined text-[18px]">settings</span>
           </button>
@@ -106,8 +121,8 @@ const SpotifyPlayer = () => {
                  onChange={(e) => setInputValue(e.target.value)}
               />
               <div className="flex gap-2 justify-end mt-auto">
-                 <button onClick={() => setIsEditing(false)} className="text-xs text-on-surface-variant font-bold px-3 py-2 hover:bg-outline-variant/20 rounded-full transition-colors">CANCEL</button>
-                 <button onClick={handleSave} className="text-xs bg-primary text-on-primary rounded-full px-4 py-2 font-bold shadow-glow-primary hover:bg-secondary transition-colors">SAVE</button>
+                 <button onClick={() => setIsEditing(false)} className="text-xs text-on-surface-variant font-bold px-3 py-2 hover:bg-outline-variant/20 rounded-full transition-colors min-h-[44px]">CANCEL</button>
+                 <button onClick={handleSave} className="text-xs bg-primary text-on-primary rounded-full px-4 py-2 font-bold shadow-glow-primary hover:bg-secondary transition-colors min-h-[44px]">SAVE</button>
               </div>
             </div>
           ) : (
@@ -135,12 +150,14 @@ function CoupleLayout() {
       <PetalEffect />
       <SpotifyPlayer />
       <main className="pt-32 pb-20 flex-1">
-        <Routes>
-          <Route index element={<JourneyPage />} />
-          <Route path="memories" element={<MemoriesPage />} />
-          <Route path="love-notes" element={<LoveNotesPage />} />
-          <Route path="map" element={<MapPage />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route index element={<JourneyPage />} />
+            <Route path="memories" element={<MemoriesPage />} />
+            <Route path="love-notes" element={<LoveNotesPage />} />
+            <Route path="map" element={<MapPage />} />
+          </Routes>
+        </Suspense>
       </main>
       <Footer />
     </div>
@@ -169,11 +186,78 @@ function AppRedirect() {
   return <Navigate to={`/c/${couple.slug}`} replace />;
 }
 
+function BackButtonHandler() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let backListener;
+    const setupBackButton = async () => {
+      try {
+        const { App: CapApp } = await import('@capacitor/app');
+        backListener = await CapApp.addListener('backButton', ({ canGoBack }) => {
+          if (canGoBack) {
+            navigate(-1);
+          } else {
+            CapApp.exitApp();
+          }
+        });
+      } catch (e) {
+        console.log('Back button handler not available:', e.message);
+      }
+    };
+
+    setupBackButton();
+    return () => { if (backListener) backListener.remove(); };
+  }, [navigate]);
+
+  return null;
+}
+
 function App() {
+  const [pendingUpdate, setPendingUpdate] = useState(null);
+
+  useEffect(() => {
+    // Listen for OTA update ready events from main.jsx
+    const handleUpdateReady = (e) => {
+      setPendingUpdate(e.detail);
+    };
+    window.addEventListener('ota-update-ready', handleUpdateReady);
+
+    // Check if there's a pending update from a previous session
+    try {
+      const pending = localStorage.getItem('bloom_ota_pending');
+      if (pending) {
+        setPendingUpdate(JSON.parse(pending));
+      }
+    } catch {}
+
+    return () => window.removeEventListener('ota-update-ready', handleUpdateReady);
+  }, []);
+
+  const handleApplyUpdate = async () => {
+    if (!pendingUpdate) return;
+    try {
+      const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
+      localStorage.setItem('bloom_ota_version', pendingUpdate.version);
+      localStorage.removeItem('bloom_ota_pending');
+      await CapacitorUpdater.set({ id: pendingUpdate.id });
+    } catch (err) {
+      console.error('Failed to apply update:', err);
+    }
+  };
+
   return (
     <Router>
       <AuthProvider>
         <NotificationProvider>
+          <OfflineBanner />
+          <BackButtonHandler />
+          <AppVersionIndicator />
+          {pendingUpdate && (
+            <UpdateBanner onUpdate={handleApplyUpdate} />
+          )}
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
