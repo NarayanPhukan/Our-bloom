@@ -15,7 +15,7 @@ import kotlinx.coroutines.tasks.await
 class FirestoreRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private val storage = FirebaseStorage.getInstance()
+    private val storage = FirebaseStorage.getInstance("gs://our-bloom.firebasestorage.app")
     
     // Get the current User document
     suspend fun getCurrentUser(): User? {

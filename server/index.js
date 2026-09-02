@@ -41,7 +41,7 @@ if (serviceAccount) {
   try {
     firebaseApp = initializeApp({
       credential: cert(serviceAccount),
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.appspot.com'
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app'
     });
     db = getFirestore();
     messaging = getMessaging();
