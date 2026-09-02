@@ -24,12 +24,32 @@
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp">
 
-                <ImageView
-                    android:id="@+id/iv_polaroid_image"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
-                    android:scaleType="centerCrop"
-                    android:background="#F0F0F0" />
+                    android:layout_height="wrap_content">
+                    
+                    <ImageView
+                        android:id="@+id/iv_polaroid_image"
+                        android:layout_width="match_parent"
+                        android:layout_height="250dp"
+                        android:scaleType="centerCrop"
+                        android:background="#F0F0F0" />
+                        
+                    <ImageButton
+                        android:id="@+id/btn_delete_memory"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@android:drawable/ic_menu_delete"
+                        android:background="@drawable/bg_delete_button"
+                        android:contentDescription="Delete memory"
+                        android:scaleType="centerInside"
+                        android:padding="6dp"
+                        android:elevation="4dp"
+                        app:tint="@android:color/white" />
+                </FrameLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
@@ -62,20 +82,5 @@
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
-
-    <!-- Delete button overlaid at top-right corner -->
-    <ImageButton
-        android:id="@+id/btn_delete_memory"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="4dp"
-        android:src="@android:drawable/ic_menu_close_clear_cancel"
-        android:background="@drawable/bg_delete_button"
-        android:contentDescription="Delete memory"
-        android:scaleType="centerInside"
-        android:padding="8dp"
-        app:tint="@android:color/white" />
 
 </FrameLayout>

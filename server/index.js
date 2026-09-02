@@ -72,42 +72,66 @@ const sendPushNotification = async (userId, title, body) => {
   }
 };
 
-// Setup Firestore listeners
+const coupleAnthems = new Map();
+
 const setupFirestoreListeners = () => {
   if (!db) return;
   console.log('✿ Setting up Firestore real-time listeners for push notifications...');
+
+  const notifyPartner = async (coupleId, authorUid, title, body) => {
+    try {
+      const coupleDoc = await db.collection('couples').doc(coupleId).get();
+      if (coupleDoc.exists) {
+        const { user1, user2 } = coupleDoc.data();
+        const partner = authorUid === user1 ? user2 : (authorUid === user2 ? user1 : user2);
+        if (partner) {
+          sendPushNotification(partner, title, body);
+        }
+      }
+    } catch (e) {
+      console.error('Error notifying partner', e);
+    }
+  };
   
-  // Listen for new Love Notes
   db.collection('loveNotes').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added') {
         const note = change.doc.data();
-        if (note.createdAt && (Date.now() - new Date(note.createdAt).getTime() < 60000)) {
-          // It's a brand new note!
-          const partnerId = note.coupleId; // In a robust app, we'd find the exact partner user ID. We'll broadcast to both couple members for now, or fetch the couple doc to find the partner.
-          
-          db.collection('couples').doc(note.coupleId).get().then(coupleDoc => {
-             if(coupleDoc.exists) {
-                 const { user1, user2 } = coupleDoc.data();
-                 // Assuming author is one of them
-                 const partner = note.author === user1 ? user2 : (note.author === user2 ? user1 : user2); // Simplified
-                 sendPushNotification(partner, 'New Love Note! 💌', `You have a new love note from ${note.author}`);
-             }
-          });
+        if (note.createdAt && (Date.now() - new Date(note.createdAt).getTime() < 120000)) {
+          notifyPartner(note.coupleId, note.author, 'New Love Note! 💌', 'Your partner left you a sweet note.');
         }
       }
     });
   });
 
-  // Listen for Anthem updates
+  db.collection('memories').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        const mem = change.doc.data();
+        if (mem.createdAt && (Date.now() - new Date(mem.createdAt).getTime() < 120000)) {
+          notifyPartner(mem.coupleId, mem.authorId || '', 'New Memory! 📸', 'Your partner just added a new memory to the gallery.');
+        }
+      }
+    });
+  });
+
   db.collection('couples').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
-      if (change.type === 'modified') {
+      if (change.type === 'added' || change.type === 'modified') {
+        const coupleId = change.doc.id;
         const couple = change.doc.data();
-        const oldCouple = change.oldIndex !== -1 ? change.doc.data() : null; // simplified check
-        // Actually onSnapshot modified doesn't give previous state easily without local caching, 
-        // but we can send a general "Your couple profile was updated!" if we want.
-        // Let's keep it simple: notify on general profile modification if needed, or skip for now to avoid spam.
+        const newTrack = couple.spotifyTrackId;
+        
+        if (coupleAnthems.has(coupleId)) {
+          const oldTrack = coupleAnthems.get(coupleId);
+          if (oldTrack !== newTrack && newTrack) {
+            sendPushNotification(couple.user1, 'Anthem Updated 🎵', 'Your couple anthem was just updated!');
+            if (couple.user2) {
+              sendPushNotification(couple.user2, 'Anthem Updated 🎵', 'Your couple anthem was just updated!');
+            }
+          }
+        }
+        coupleAnthems.set(coupleId, newTrack);
       }
     });
   });

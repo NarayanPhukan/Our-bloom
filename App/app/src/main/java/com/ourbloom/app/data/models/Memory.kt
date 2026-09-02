@@ -12,5 +12,6 @@ data class Memory(
     val dateStr: String = "",
     val isFavorite: Boolean = false,
     val audioUrl: String = "",
+    val authorId: String = "",
     val createdAt: String? = null
 )

@@ -52,6 +52,11 @@ class DashboardFragment : Fragment() {
         // Set up default header while loading
         tvHeaderTitle.text = "Happy Months,\nmy beautiful Partner."
 
+        // Enable nickname settings
+        val showDialog = { showNicknameDialog() }
+        tvHeaderTitle.setOnClickListener { showDialog() }
+        tvDaysAsNames.setOnClickListener { showDialog() }
+
         // Observers
         viewModel.memories.observe(viewLifecycleOwner) { memoryList ->
             galleryAdapter.submitList(memoryList)
@@ -249,5 +254,31 @@ class DashboardFragment : Fragment() {
         val leftName = partnerNicknameForMe ?: (myName?.takeIf { it.isNotBlank() } ?: "You")
         
         tvDaysAsNames?.text = "DAYS AS ${leftName.uppercase()} & ${myNicknameForPartner.uppercase()}"
+    }
+
+    private fun showNicknameDialog() {
+        val currentNick = viewModel.currentUser.value?.nicknameForPartner ?: ""
+        
+        val input = android.widget.EditText(requireContext()).apply {
+            setText(currentNick)
+            hint = "e.g., Kuchupuchu"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            setPadding(48, 32, 48, 32)
+            setBackgroundResource(android.R.color.transparent)
+        }
+        
+        val container = android.widget.FrameLayout(requireContext())
+        container.addView(input)
+
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Set Nickname")
+            .setMessage("What do you call your partner?")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                val newNick = input.text.toString().trim()
+                viewModel.updateNicknameForPartner(newNick)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }

@@ -72,12 +72,14 @@ class MemoriesViewModel : ViewModel() {
                         audioUrl = repository.uploadAudio(context, audioUri) ?: ""
                     }
                     _uploadStatus.value = "Saving memory..."
+                    val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
                     val newMemory = Memory(
                         coupleId = cid,
                         title = title,
                         dateStr = dateStr,
                         imageUrl = imageUrl,
                         audioUrl = audioUrl,
+                        authorId = currentUid,
                         createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
                     )
                     

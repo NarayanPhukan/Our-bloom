@@ -153,4 +153,19 @@ class DashboardViewModel : ViewModel() {
         super.onCleared()
         timerJob?.cancel()
     }
+    
+    fun updateNicknameForPartner(nickname: String) {
+        viewModelScope.launch {
+            val success = repository.updateNicknameForPartner(nickname)
+            if (success) {
+                // Refresh current user to update the UI
+                val updatedUser = repository.getCurrentUser()
+                if (updatedUser != null) {
+                    _currentUser.postValue(updatedUser)
+                }
+            } else {
+                _error.postValue("Failed to update nickname")
+            }
+        }
+    }
 }

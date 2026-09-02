@@ -41,6 +41,17 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun updateNicknameForPartner(nickname: String): Boolean {
+        val fbUser = auth.currentUser ?: return false
+        return try {
+            db.collection("users").document(fbUser.uid).update("nicknameForPartner", nickname).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating nickname", e)
+            false
+        }
+    }
+
     suspend fun getUser(userId: String): User? {
         return try {
             val doc = db.collection("users").document(userId).get().await()
