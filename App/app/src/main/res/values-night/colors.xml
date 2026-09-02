@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Serene Azure Bloom Material 3 Tokens (Dark Mode Equivalents) -->
+    <color name="bloom_primary">#b3c5ff</color>
+    <color name="bloom_on_primary">#002a78</color>
+    <color name="bloom_primary_container">#004ac6</color>
+    <color name="bloom_on_primary_container">#dbe1ff</color>
+    
+    <color name="bloom_secondary">#bbc7db</color>
+    <color name="bloom_on_secondary">#233240</color>
+    <color name="bloom_secondary_container">#394857</color>
+    <color name="bloom_on_secondary_container">#d5e4f8</color>
+    
+    <color name="bloom_tertiary">#a0c9ff</color>
+    <color name="bloom_on_tertiary">#00325f</color>
+    <color name="bloom_tertiary_container">#004b8b</color>
+    <color name="bloom_on_tertiary_container">#d3e4ff</color>
+    
+    <color name="bloom_background">#191c1e</color>
+    <color name="bloom_on_background">#e3e2e6</color>
+    
+    <color name="bloom_surface">#191c1e</color>
+    <color name="bloom_on_surface">#e3e2e6</color>
+    <color name="bloom_surface_variant">#434655</color>
+    <color name="bloom_on_surface_variant">#c3c6d7</color>
+    <color name="bloom_outline">#8d91a2</color>
+    <color name="bloom_outline_variant">#434655</color>
+    
+    <color name="bloom_surface_container">#1d2024</color>
+    <color name="bloom_surface_container_low">#191c1e</color>
+    
+    <!-- Navbar specific -->
+    <color name="bottom_nav_bg">#E6191C1E</color>
+    <color name="bottom_nav_stroke">#33434655</color>
+</resources>

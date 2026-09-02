@@ -104,6 +104,18 @@ export default function LoginPage() {
                 Plant Your Seed
               </Link>
             </p>
+            
+            <div className="mt-8 pt-6 border-t border-outline-variant/20">
+              <p className="text-label-sm uppercase tracking-widest text-on-surface-variant mb-4">Experience it Natively</p>
+              <a 
+                href="/OurBloom.apk" 
+                download
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary/10 text-secondary hover:bg-secondary/20 hover:scale-105 transition-all rounded-full font-label-sm uppercase tracking-wider w-full md:w-auto"
+              >
+                <span className="material-symbols-outlined text-[18px]">android</span>
+                Download Android App
+              </a>
+            </div>
           </div>
         </div>
       </div>

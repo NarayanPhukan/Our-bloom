@@ -34,4 +34,8 @@
     <color name="bloom_outline_variant">#c3c6d7</color>
     <color name="bloom_surface_container">#eceef0</color>
     <color name="bloom_surface_container_low">#f2f4f6</color>
+    
+    <!-- Navbar specific -->
+    <color name="bottom_nav_bg">#E6FFFFFF</color>
+    <color name="bottom_nav_stroke">#33737686</color>
 </resources>

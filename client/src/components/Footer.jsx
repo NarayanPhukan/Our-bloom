@@ -37,6 +37,14 @@ export default function Footer() {
           >
             Love Notes
           </Link>
+          <a
+            href="/OurBloom.apk"
+            download
+            className="flex items-center gap-2 text-secondary hover:text-primary transition-colors duration-300 font-body-md font-semibold"
+          >
+            <span className="material-symbols-outlined text-[18px]">android</span>
+            Get App
+          </a>
         </div>
 
         <div className="flex space-x-6">
