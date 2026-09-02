@@ -22,6 +22,7 @@ const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
+const { getStorage } = require('firebase-admin/storage');
 let serviceAccount;
 try {
   serviceAccount = require('./firebase-service-account.json');
@@ -34,19 +35,22 @@ try {
 let firebaseApp;
 let db = null;
 let messaging = null;
+let bucket = null;
 
 if (serviceAccount) {
   try {
     firebaseApp = initializeApp({
-      credential: cert(serviceAccount)
+      credential: cert(serviceAccount),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.appspot.com'
     });
     db = getFirestore();
     messaging = getMessaging();
+    bucket = getStorage().bucket();
   } catch (e) {
     console.error('✿ Firebase initialization failed', e);
   }
 } else {
-  console.warn('✿ Firebase credentials missing. Push notifications disabled.');
+  console.warn('✿ Firebase credentials missing. Push notifications and storage disabled.');
 }
 
 // Helper to send push notification
@@ -118,6 +122,7 @@ const io = new Server(server, {
   }
 });
 app.set('io', io);
+app.set('bucket', bucket);
 
 // Socket.io with JWT authentication and couple rooms
 io.on('connection', (socket) => {

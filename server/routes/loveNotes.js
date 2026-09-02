@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const LoveNote = require('../models/LoveNote');
-const { upload } = require('../config/cloudinary');
+const { upload } = require('../config/upload');
+const { uploadToFirebase } = require('../utils/firebaseStorage');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // The original couple's ID (Narayan & Tanaya) — set by migration

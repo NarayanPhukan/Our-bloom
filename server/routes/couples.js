@@ -5,7 +5,8 @@ const User = require('../models/User');
 const Milestone = require('../models/Milestone');
 const authMiddleware = require('../middleware/authMiddleware');
 const coupleMiddleware = require('../middleware/coupleMiddleware');
-const { upload } = require('../config/cloudinary');
+const { upload } = require('../config/upload');
+const { uploadToFirebase } = require('../utils/firebaseStorage');
 
 // Default milestones to seed for new couples
 const defaultMilestoneTemplates = [
@@ -187,8 +188,15 @@ router.post('/:slug/hero-image', authMiddleware, coupleMiddleware, upload.single
       return res.status(400).json({ error: 'Image file is required' });
     }
 
+    const bucket = req.app.get('bucket');
+    const heroImageUrl = await uploadToFirebase(bucket, req.file, 'couples');
+    
+    if (!heroImageUrl) {
+      return res.status(500).json({ error: 'Failed to upload image' });
+    }
+
     const couple = req.couple;
-    couple.heroImageUrl = req.file.path;
+    couple.heroImageUrl = heroImageUrl;
     await couple.save();
 
     // Broadcast to partner via socket.io

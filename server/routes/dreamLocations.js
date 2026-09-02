@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const DreamLocation = require('../models/DreamLocation');
-const { upload } = require('../config/cloudinary');
+const { upload } = require('../config/upload');
+const { uploadToFirebase } = require('../utils/firebaseStorage');
 
 // GET /api/couples/:slug/dream-locations
 router.get('/', async (req, res) => {
@@ -24,7 +25,8 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     let photoUrl = '';
     if (req.file) {
-      photoUrl = req.file.path;
+      const bucket = req.app.get('bucket');
+      photoUrl = await uploadToFirebase(bucket, req.file, 'locations') || '';
     }
 
     const newLocation = new DreamLocation({
@@ -60,7 +62,8 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     if (description) location.description = description;
     if (status) location.status = status;
     if (req.file) {
-      location.photoUrl = req.file.path;
+      const bucket = req.app.get('bucket');
+      location.photoUrl = await uploadToFirebase(bucket, req.file, 'locations') || location.photoUrl;
     }
 
     const updatedLocation = await location.save();

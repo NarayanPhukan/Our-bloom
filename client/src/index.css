@@ -25,13 +25,29 @@ input, textarea {
 }
 
 .bg-lily-pattern {
-  background-color: #fbf9f8;
+  background-color: var(--color-background);
   background-image: url('/images/lily-bg.png');
   background-size: 400px;
   background-repeat: repeat;
   background-attachment: fixed;
-  /* Blend mode ensures the transparent watercolor blends nicely with the background */
   background-blend-mode: multiply; 
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-lily-pattern {
+    /* In dark mode, we invert the blend mode so the light image shows up on dark background subtly */
+    background-blend-mode: soft-light;
+    opacity: 0.9;
+  }
+  
+  .glass-card, .glass-panel {
+    background: rgba(30, 29, 29, 0.6);
+    border: 1px solid rgba(222, 191, 194, 0.1);
+  }
+  
+  .polaroid-frame {
+    border: 8px solid #1e1d1d;
+  }
 }
 
 .petal-shadow {
@@ -181,10 +197,101 @@ html {
   animation: slideInFromRight 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-/* Safe Area Inset Variables for Native */
+/* Safe Area Inset Variables for Native & CSS Theme Variables */
 :root {
+  color-scheme: light dark;
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* Light Theme */
+  --color-primary-fixed-dim: #debfc2;
+  --color-surface-container-highest: #e4e2e2;
+  --color-tertiary-container: #e3e2da;
+  --color-secondary-fixed-dim: #a7d1a5;
+  --color-primary-fixed: #fbdbde;
+  --color-on-error-container: #93000a;
+  --color-surface-container-low: #f5f3f3;
+  --color-outline-variant: #d2c3c4;
+  --color-primary-container: #fadadd;
+  --color-surface-container-high: #eae8e7;
+  --color-inverse-on-surface: #f2f0f0;
+  --color-on-tertiary-container: #64645e;
+  --color-on-error: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-inverse-primary: #debfc2;
+  --color-on-secondary: #ffffff;
+  --color-tertiary-fixed: #e4e3db;
+  --color-error: #ba1a1a;
+  --color-tertiary-fixed-dim: #c8c7bf;
+  --color-on-primary: #ffffff;
+  --color-on-primary-fixed: #281719;
+  --color-inverse-surface: #303030;
+  --color-surface-bright: #fbf9f8;
+  --color-outline: #807475;
+  --color-on-primary-container: #765e61;
+  --color-on-primary-fixed-variant: #574144;
+  --color-surface-container: #efeded;
+  --color-on-tertiary-fixed: #1b1c17;
+  --color-background: #fbf9f8;
+  --color-on-tertiary: #ffffff;
+  --color-on-secondary-container: #476d49;
+  --color-on-tertiary-fixed-variant: #474742;
+  --color-tertiary: #5f5f59;
+  --color-primary: #70585b;
+  --color-surface-dim: #dbd9d9;
+  --color-surface-variant: #e4e2e2;
+  --color-on-surface: #1b1c1c;
+  --color-on-secondary-fixed-variant: #294f2d;
+  --color-on-background: #1b1c1c;
+  --color-on-surface-variant: #4f4445;
+  --color-secondary: #416743;
+  --color-secondary-container: #c2eec0;
+  --color-secondary-fixed: #c2eec0;
+  --color-on-secondary-fixed: #002107;
+  --color-surface: #fbf9f8;
+  --color-surface-tint: #70585b;
+  --color-error-container: #ffdad6;
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark Theme */
+    --color-primary: #debfc2;
+    --color-on-primary: #3f2a2e;
+    --color-primary-container: #574144;
+    --color-on-primary-container: #fbdbde;
+    --color-secondary: #a7d1a5;
+    --color-on-secondary: #133818;
+    --color-secondary-container: #294f2d;
+    --color-on-secondary-container: #c2eec0;
+    --color-tertiary: #c8c7bf;
+    --color-on-tertiary: #31312c;
+    --color-tertiary-container: #474742;
+    --color-on-tertiary-container: #e4e3db;
+    --color-error: #ffb4ab;
+    --color-on-error: #690005;
+    --color-error-container: #93000a;
+    --color-on-error-container: #ffdad6;
+    --color-background: #141313;
+    --color-on-background: #e4e2e2;
+    --color-surface: #141313;
+    --color-on-surface: #e4e2e2;
+    --color-surface-variant: #4f4445;
+    --color-on-surface-variant: #d2c3c4;
+    --color-outline: #9a8d8e;
+    --color-outline-variant: #4f4445;
+    --color-surface-container-lowest: #0f0e0e;
+    --color-surface-container-low: #1a1919;
+    --color-surface-container: #1e1d1d;
+    --color-surface-container-high: #282727;
+    --color-surface-container-highest: #333232;
+    --color-surface-bright: #3a3838;
+    --color-surface-dim: #141313;
+    --color-inverse-surface: #e4e2e2;
+    --color-inverse-on-surface: #303030;
+    --color-inverse-primary: #70585b;
+  }
+}
+

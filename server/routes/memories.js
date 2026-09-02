@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const Memory = require('../models/Memory');
-const { upload } = require('../config/cloudinary');
+const { upload } = require('../config/upload');
+const { uploadToFirebase } = require('../utils/firebaseStorage');
 
 // GET /api/couples/:slug/memories
 router.get('/', async (req, res) => {
@@ -17,16 +18,17 @@ router.get('/', async (req, res) => {
 router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), async (req, res) => {
   try {
     const { title, dateStr, icon } = req.body;
+    const bucket = req.app.get('bucket');
     
     if (!req.files || !req.files['image']) {
       return res.status(400).json({ error: 'Image file is required' });
     }
 
-    const imageUrl = req.files['image'][0].path;
+    let imageUrl = await uploadToFirebase(bucket, req.files['image'][0], 'memories');
     let audioUrl = '';
     
     if (req.files['audio']) {
-      audioUrl = req.files['audio'][0].path;
+      audioUrl = await uploadToFirebase(bucket, req.files['audio'][0], 'voice-notes') || '';
     }
 
     // Random rotation between -3 and 3 degrees for the masonry polaroid effect
