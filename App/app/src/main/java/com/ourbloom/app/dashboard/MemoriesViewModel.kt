@@ -99,4 +99,23 @@ class MemoriesViewModel : ViewModel() {
             }
         }
     }
+    fun deleteMemory(memoryId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val success = repository.deleteMemory(memoryId)
+                if (success) {
+                    _uploadStatus.value = "Memory deleted"
+                    loadMemories()
+                } else {
+                    _error.value = "Failed to delete memory"
+                }
+            } catch (e: Exception) {
+                _error.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+                _uploadStatus.value = null
+            }
+        }
+    }
 }

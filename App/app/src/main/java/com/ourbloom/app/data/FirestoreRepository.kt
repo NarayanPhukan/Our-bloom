@@ -241,4 +241,39 @@ class FirestoreRepository {
             false
         }
     }
+
+    suspend fun deleteMemory(memoryId: String): Boolean {
+        return try {
+            // Get the memory document first to find associated files
+            val doc = db.collection("memories").document(memoryId).get().await()
+            val imageUrl = doc.getString("imageUrl") ?: ""
+            val audioUrl = doc.getString("audioUrl") ?: ""
+
+            // Delete files from Storage if they are Firebase Storage URLs
+            try {
+                if (imageUrl.contains("firebasestorage")) {
+                    val imageRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl)
+                    imageRef.delete().await()
+                }
+            } catch (e: Exception) {
+                Log.w("FirestoreRepo", "Could not delete image file, continuing", e)
+            }
+
+            try {
+                if (audioUrl.isNotEmpty() && audioUrl.contains("firebasestorage")) {
+                    val audioRef = FirebaseStorage.getInstance().getReferenceFromUrl(audioUrl)
+                    audioRef.delete().await()
+                }
+            } catch (e: Exception) {
+                Log.w("FirestoreRepo", "Could not delete audio file, continuing", e)
+            }
+
+            // Delete the Firestore document
+            db.collection("memories").document(memoryId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting memory", e)
+            false
+        }
+    }
 }

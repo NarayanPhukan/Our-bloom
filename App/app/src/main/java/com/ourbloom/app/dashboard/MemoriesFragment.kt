@@ -76,9 +76,14 @@ class MemoriesFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_memories, container, false)
 
         val rvGallery = view.findViewById<RecyclerView>(R.id.rv_memories)
-        memoriesAdapter = MemoriesAdapter { memory ->
-            showLightbox(memory)
-        }
+        memoriesAdapter = MemoriesAdapter(
+            onItemClick = { memory ->
+                showLightbox(memory)
+            },
+            onDeleteClick = { memory ->
+                confirmAndDeleteMemory(memory)
+            }
+        )
         val progressBar = view.findViewById<ProgressBar>(R.id.progressBar)
         val tvError = view.findViewById<TextView>(R.id.tv_error)
         val fabAddMemory = view.findViewById<FloatingActionButton>(R.id.fab_add_memory)
@@ -268,5 +273,16 @@ class MemoriesFragment : Fragment() {
             audioRecorder = null
             isRecording = false
         }
+    }
+
+    private fun confirmAndDeleteMemory(memory: com.ourbloom.app.data.models.Memory) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Delete Memory")
+            .setMessage("Are you sure you want to delete \"${memory.title}\"? This will also remove the photo from storage.")
+            .setPositiveButton("Delete") { _, _ ->
+                viewModel.deleteMemory(memory.id)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }
