@@ -53,7 +53,7 @@ class MemoriesViewModel : ViewModel() {
         }
     }
 
-    fun addMemory(uri: Uri, title: String, dateStr: String, audioUri: Uri? = null) {
+    fun addMemory(context: android.content.Context, uri: Uri, title: String, dateStr: String, audioUri: Uri? = null) {
         val cid = coupleId
         if (cid == null) {
             _error.value = "Cannot upload: coupleId is null"
@@ -64,12 +64,12 @@ class MemoriesViewModel : ViewModel() {
             _isLoading.value = true
             _uploadStatus.value = "Uploading image..."
             try {
-                val imageUrl = repository.uploadImage(uri)
+                val imageUrl = repository.uploadImage(context, uri)
                 if (imageUrl != null) {
                     var audioUrl = ""
                     if (audioUri != null) {
                         _uploadStatus.value = "Uploading audio..."
-                        audioUrl = repository.uploadAudio(audioUri) ?: ""
+                        audioUrl = repository.uploadAudio(context, audioUri) ?: ""
                     }
                     _uploadStatus.value = "Saving memory..."
                     val newMemory = Memory(

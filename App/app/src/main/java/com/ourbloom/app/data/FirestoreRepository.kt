@@ -4,18 +4,27 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import com.google.firebase.storage.FirebaseStorage
 import android.net.Uri
+import android.content.Context
 import java.util.UUID
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.Milestone
 import com.ourbloom.app.data.models.User
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class FirestoreRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private val storage = FirebaseStorage.getInstance("gs://our-bloom.firebasestorage.app")
+    private val client = OkHttpClient()
+    private val baseUrl = "https://our-bloom.onrender.com"
     
     // Get the current User document
     suspend fun getCurrentUser(): User? {
@@ -208,26 +217,83 @@ class FirestoreRepository {
         return 0L
     }
 
-    suspend fun uploadImage(uri: Uri): String? {
-        return try {
-            val filename = UUID.randomUUID().toString()
-            val ref = storage.reference.child("uploads/$filename")
-            val uploadTask = ref.putFile(uri).await()
-            ref.downloadUrl.await().toString()
+    suspend fun uploadImage(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+        try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes() ?: return@withContext null
+            inputStream.close()
+
+            val ext = context.contentResolver.getType(uri)?.split("/")?.lastOrNull() ?: "jpg"
+            val filename = "${UUID.randomUUID()}.$ext"
+
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "file",
+                    filename,
+                    bytes.toRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url("$baseUrl/api/upload")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val json = JSONObject(responseBody)
+                    val urlPath = json.optString("url", "")
+                    if (urlPath.isNotEmpty()) {
+                        return@withContext baseUrl + urlPath
+                    }
+                }
+            }
+            null
         } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Error uploading image", e)
+            Log.e("FirestoreRepo", "Error uploading image to server", e)
             null
         }
     }
 
-    suspend fun uploadAudio(uri: Uri): String? {
-        return try {
-            val filename = UUID.randomUUID().toString() + ".3gp"
-            val ref = storage.reference.child("uploads/$filename")
-            val uploadTask = ref.putFile(uri).await()
-            ref.downloadUrl.await().toString()
+    suspend fun uploadAudio(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+        try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes() ?: return@withContext null
+            inputStream.close()
+
+            val filename = "${UUID.randomUUID()}.3gp"
+
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "file",
+                    filename,
+                    bytes.toRequestBody("audio/3gpp".toMediaTypeOrNull())
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url("$baseUrl/api/upload")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val json = JSONObject(responseBody)
+                    val urlPath = json.optString("url", "")
+                    if (urlPath.isNotEmpty()) {
+                        return@withContext baseUrl + urlPath
+                    }
+                }
+            }
+            null
         } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Error uploading audio", e)
+            Log.e("FirestoreRepo", "Error uploading audio to server", e)
             null
         }
     }
@@ -244,31 +310,8 @@ class FirestoreRepository {
 
     suspend fun deleteMemory(memoryId: String): Boolean {
         return try {
-            // Get the memory document first to find associated files
-            val doc = db.collection("memories").document(memoryId).get().await()
-            val imageUrl = doc.getString("imageUrl") ?: ""
-            val audioUrl = doc.getString("audioUrl") ?: ""
-
-            // Delete files from Storage if they are Firebase Storage URLs
-            try {
-                if (imageUrl.contains("firebasestorage")) {
-                    val imageRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl)
-                    imageRef.delete().await()
-                }
-            } catch (e: Exception) {
-                Log.w("FirestoreRepo", "Could not delete image file, continuing", e)
-            }
-
-            try {
-                if (audioUrl.isNotEmpty() && audioUrl.contains("firebasestorage")) {
-                    val audioRef = FirebaseStorage.getInstance().getReferenceFromUrl(audioUrl)
-                    audioRef.delete().await()
-                }
-            } catch (e: Exception) {
-                Log.w("FirestoreRepo", "Could not delete audio file, continuing", e)
-            }
-
-            // Delete the Firestore document
+            // Since we are no longer using Firebase Storage, we skip file deletion for now.
+            // (A full implementation would call a DELETE /api/upload endpoint on the server)
             db.collection("memories").document(memoryId).delete().await()
             true
         } catch (e: Exception) {

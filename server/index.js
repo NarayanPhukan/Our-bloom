@@ -14,6 +14,7 @@ const loveNoteRoutes = require('./routes/loveNotes');
 const memoryRoutes = require('./routes/memories');
 const dreamLocationRoutes = require('./routes/dreamLocations');
 const settingsRoutes = require('./routes/settings');
+const uploadRoutes = require('./routes/upload');
 const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
@@ -169,6 +170,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/updates', express.static(path.join(__dirname, 'public/updates')));
 // Public routes (no auth)
 app.use('/api/auth', authRoutes);
+
+// Generic upload endpoint
+app.use('/api/upload', uploadRoutes);
 
 // Couple management routes (auth required)
 app.use('/api/couples', coupleRoutes);

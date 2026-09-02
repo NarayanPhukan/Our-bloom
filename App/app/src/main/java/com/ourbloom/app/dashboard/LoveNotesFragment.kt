@@ -82,7 +82,7 @@ class LoveNotesFragment : Fragment() {
             .setPositiveButton("Bloom") { _, _ ->
                 val content = etContent.text.toString()
                 if (content.isNotBlank() || selectedImageUri != null) {
-                    viewModel.addLoveNote(content, selectedImageUri)
+                    viewModel.addLoveNote(requireContext(), content, selectedImageUri)
                 } else {
                     Toast.makeText(requireContext(), "Please write a note or select a photo", Toast.LENGTH_SHORT).show()
                 }

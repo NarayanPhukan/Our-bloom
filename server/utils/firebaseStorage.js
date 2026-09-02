@@ -1,37 +1,38 @@
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const fs = require('fs').promises;
 
 /**
- * Uploads a file buffer to Firebase Storage
- * @param {Object} bucket - Firebase Admin Storage bucket instance
+ * Saves a file buffer to the local disk and returns the relative URL
+ * (Maintained original function name to avoid breaking imports)
+ * @param {Object} bucket - Unused (maintained for backwards compatibility)
  * @param {Object} file - File object from multer (req.file)
  * @param {String} folder - Folder name in storage (e.g. 'memories', 'couples')
- * @returns {Promise<String|null>} - Public URL of the uploaded file, or null if no file
+ * @returns {Promise<String|null>} - Local URL path of the uploaded file, or null if no file
  */
 const uploadToFirebase = async (bucket, file, folder) => {
-  if (!file || !bucket) return null;
+  if (!file) return null;
 
   try {
     const ext = path.extname(file.originalname);
-    const filename = `${folder}/${uuidv4()}${ext}`;
-    const fileRef = bucket.file(filename);
-    const downloadToken = uuidv4();
+    const filename = `${uuidv4()}${ext}`; // We ignore 'folder' for now to keep it simple, or we can use it
+    const uploadDir = path.join(__dirname, '..', 'uploads');
+    
+    // Ensure the uploads directory exists
+    try {
+      await fs.access(uploadDir);
+    } catch {
+      await fs.mkdir(uploadDir, { recursive: true });
+    }
 
-    await fileRef.save(file.buffer, {
-      metadata: {
-        contentType: file.mimetype,
-        metadata: {
-          firebaseStorageDownloadTokens: downloadToken
-        }
-      },
-    });
+    const filePath = path.join(uploadDir, filename);
+    await fs.writeFile(filePath, file.buffer);
 
-    // Return the public URL using Firebase's standard download URL format
-    const encodedFilename = encodeURIComponent(filename);
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedFilename}?alt=media&token=${downloadToken}`;
+    // Return the relative URL which will be served by express.static
+    return `/uploads/${filename}`;
   } catch (error) {
-    console.error('✿ Error uploading to Firebase Storage:', error);
-    throw new Error('Failed to upload file to Firebase Storage');
+    console.error('✿ Error saving file locally:', error);
+    throw new Error('Failed to save file');
   }
 };
 

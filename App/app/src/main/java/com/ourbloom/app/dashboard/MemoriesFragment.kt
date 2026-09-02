@@ -229,7 +229,7 @@ class MemoriesFragment : Fragment() {
                 val finalTitle = if (title.isNotEmpty()) title else "New Memory"
                 val finalDate = if (dateStr.isNotEmpty()) dateStr else
                     SimpleDateFormat("MMMM d, yyyy", Locale.US).format(Date()).uppercase()
-                viewModel.addMemory(imageUri, finalTitle, finalDate, audioFileUri)
+                viewModel.addMemory(requireContext(), imageUri, finalTitle, finalDate, audioFileUri)
                 audioFileUri = null // reset
             }
             .setNegativeButton("Cancel") { _, _ ->

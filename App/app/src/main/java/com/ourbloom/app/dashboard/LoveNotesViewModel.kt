@@ -46,7 +46,7 @@ class LoveNotesViewModel : ViewModel() {
         }
     }
 
-    fun addLoveNote(content: String, imageUri: Uri?) {
+    fun addLoveNote(context: android.content.Context, content: String, imageUri: Uri?) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -54,7 +54,7 @@ class LoveNotesViewModel : ViewModel() {
                 if (user != null && !user.coupleId.isNullOrEmpty()) {
                     var uploadedImageUrl = ""
                     if (imageUri != null) {
-                        val result = repository.uploadImage(imageUri)
+                        val result = repository.uploadImage(context, imageUri)
                         if (result != null) {
                             uploadedImageUrl = result
                         } else {
