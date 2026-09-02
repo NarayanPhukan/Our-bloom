@@ -12,7 +12,7 @@ class PingServerWorker(appContext: Context, workerParams: WorkerParameters) :
 
     override suspend fun doWork(): Result {
         return try {
-            val url = URL("https://ourbloom.com/api/health") // Fallback, update if needed
+            val url = URL("https://our-bloom.onrender.com/api/health")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connectTimeout = 5000

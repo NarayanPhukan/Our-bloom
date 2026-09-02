@@ -12,6 +12,7 @@ import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.ourbloom.app.R
+import com.ourbloom.app.widget.LoveTimerWidgetProvider
 
 class DashboardFragment : Fragment() {
 
@@ -56,6 +57,22 @@ class DashboardFragment : Fragment() {
         val showDialog = { showNicknameDialog() }
         tvHeaderTitle.setOnClickListener { showDialog() }
         tvDaysAsNames.setOnClickListener { showDialog() }
+
+        // Home screen widget 1-tap add button
+        val btnAddWidget = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_add_home_widget)
+        btnAddWidget?.setOnClickListener {
+            val context = requireContext()
+            val pinned = LoveTimerWidgetProvider.requestPinWidget(context)
+            if (!pinned) {
+                android.app.AlertDialog.Builder(context)
+                    .setTitle("Add Home Screen Widget")
+                    .setMessage("Long-press anywhere on your phone's home screen wallpaper, tap 'Widgets', choose 'OurBloom', and drag the Love Counter to your home screen! ❤️")
+                    .setPositiveButton("Got it!", null)
+                    .show()
+            } else {
+                Toast.makeText(context, "Adding widget to home screen...", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         // Observers
         viewModel.memories.observe(viewLifecycleOwner) { memoryList ->
@@ -254,6 +271,19 @@ class DashboardFragment : Fragment() {
         val leftName = partnerNicknameForMe ?: (myName?.takeIf { it.isNotBlank() } ?: "You")
         
         tvDaysAsNames?.text = "DAYS AS ${leftName.uppercase()} & ${myNicknameForPartner.uppercase()}"
+
+        // Sync data to home screen widget
+        context?.let { ctx ->
+            LoveTimerWidgetProvider.saveWidgetData(
+                ctx.applicationContext,
+                couple.startDate,
+                couple.startTime,
+                myNicknameForPartner,
+                myName,
+                partnerUser?.name,
+                leftName
+            )
+        }
     }
 
     private fun showNicknameDialog() {
