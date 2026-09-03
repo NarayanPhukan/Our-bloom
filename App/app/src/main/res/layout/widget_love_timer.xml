@@ -59,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="0"
-                android:textColor="#60A5FA"
+                android:textColor="@android:color/white"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -68,7 +68,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="DAYS"
-                android:textColor="#94A3B8"
+                android:textColor="#CBD5E1"
                 android:textSize="8sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -90,7 +90,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="00"
-                android:textColor="#60A5FA"
+                android:textColor="@android:color/white"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -99,7 +99,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="HRS"
-                android:textColor="#94A3B8"
+                android:textColor="#CBD5E1"
                 android:textSize="8sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -131,7 +131,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="00"
-                android:textColor="#60A5FA"
+                android:textColor="@android:color/white"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -140,7 +140,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="MIN"
-                android:textColor="#94A3B8"
+                android:textColor="#CBD5E1"
                 android:textSize="8sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -162,7 +162,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="00"
-                android:textColor="#60A5FA"
+                android:textColor="@android:color/white"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -171,7 +171,7 @@
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
                 android:text="SEC"
-                android:textColor="#94A3B8"
+                android:textColor="#CBD5E1"
                 android:textSize="8sp"
                 android:textStyle="bold" />
         </LinearLayout>

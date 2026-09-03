@@ -115,5 +115,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         appUpdateHelper.resumeUpdates()
         WorkManager.getInstance(this).cancelUniqueWork("InactivityReminderWork")
+        com.ourbloom.app.widget.WidgetLiveUpdateService.start(this)
     }
 }

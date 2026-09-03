@@ -51,6 +51,7 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
         const val PREFS_NAME = "our_bloom_widget_prefs"
         const val KEY_START_DATE = "start_date"
         const val KEY_START_TIME = "start_time"
+        const val KEY_START_TIMESTAMP = "start_timestamp"
         const val KEY_MY_NICKNAME = "my_nickname"
         const val KEY_PARTNER_NICKNAME = "partner_nickname"
         const val KEY_MY_NAME = "my_name"
@@ -79,32 +80,36 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
             val title = if (singleLine.length > 15) "$leftName &\n$rightName ❤️" else singleLine
             views.setTextViewText(R.id.tv_widget_title, title)
 
-            if (!startDateStr.isNullOrEmpty()) {
+            var startTimestamp = prefs.getLong(KEY_START_TIMESTAMP, 0L)
+            if (startTimestamp == 0L && !startDateStr.isNullOrEmpty()) {
                 try {
                     val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                    val startDate = format.parse("$startDateStr $startTimeStr") ?: Date()
-                    val diff = Math.max(0L, Date().time - startDate.time)
-
-                    val days = diff / (1000 * 60 * 60 * 24)
-                    val hours = (diff / (1000 * 60 * 60)) % 24
-                    val minutes = (diff / (1000 * 60)) % 60
-                    val seconds = (diff / 1000) % 60
-                    val totalHours = diff / (1000 * 60 * 60)
-
-                    views.setTextViewText(R.id.tv_widget_days, days.toString())
-                    views.setTextViewText(R.id.tv_widget_hours, String.format(Locale.getDefault(), "%02d", hours))
-                    views.setTextViewText(R.id.tv_widget_mins, String.format(Locale.getDefault(), "%02d", minutes))
-                    views.setTextViewText(R.id.tv_widget_secs, String.format(Locale.getDefault(), "%02d", seconds))
-
-                    val subtitle = "✨ ${String.format(Locale.getDefault(), "%,d", totalHours)} hours of love"
-                    views.setTextViewText(R.id.tv_widget_subtitle, subtitle)
+                    startTimestamp = format.parse("$startDateStr $startTimeStr")?.time ?: 0L
+                    if (startTimestamp > 0L) {
+                        prefs.edit().putLong(KEY_START_TIMESTAMP, startTimestamp).apply()
+                    }
                 } catch (e: Exception) {
-                    views.setTextViewText(R.id.tv_widget_days, "0")
-                    views.setTextViewText(R.id.tv_widget_hours, "00")
-                    views.setTextViewText(R.id.tv_widget_mins, "00")
-                    views.setTextViewText(R.id.tv_widget_secs, "00")
-                    views.setTextViewText(R.id.tv_widget_subtitle, "Loving you every second ✨")
+                    // Ignore parsing error
                 }
+            }
+
+            if (startTimestamp > 0L) {
+                val now = System.currentTimeMillis()
+                val diff = Math.max(0L, now - startTimestamp)
+
+                val days = diff / (1000 * 60 * 60 * 24)
+                val hours = (diff / (1000 * 60 * 60)) % 24
+                val minutes = (diff / (1000 * 60)) % 60
+                val seconds = (diff / 1000) % 60
+                val totalHours = diff / (1000 * 60 * 60)
+
+                views.setTextViewText(R.id.tv_widget_days, days.toString())
+                views.setTextViewText(R.id.tv_widget_hours, String.format(Locale.getDefault(), "%02d", hours))
+                views.setTextViewText(R.id.tv_widget_mins, String.format(Locale.getDefault(), "%02d", minutes))
+                views.setTextViewText(R.id.tv_widget_secs, String.format(Locale.getDefault(), "%02d", seconds))
+
+                val subtitle = "✨ ${String.format(Locale.getDefault(), "%,d", totalHours)} hours of love"
+                views.setTextViewText(R.id.tv_widget_subtitle, subtitle)
             } else {
                 views.setTextViewText(R.id.tv_widget_days, "0")
                 views.setTextViewText(R.id.tv_widget_hours, "00")
@@ -138,9 +143,22 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
             myNickname: String? = null
         ) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            var parsedTime = 0L
+            if (!startDate.isNullOrEmpty()) {
+                try {
+                    val sDate = startDate.take(10)
+                    val sTime = startTime ?: "00:00"
+                    val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                    parsedTime = format.parse("$sDate $sTime")?.time ?: 0L
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }
+
             prefs.edit().apply {
                 putString(KEY_START_DATE, startDate)
                 putString(KEY_START_TIME, startTime)
+                putLong(KEY_START_TIMESTAMP, parsedTime)
                 putString(KEY_PARTNER_NICKNAME, partnerNickname)
                 putString(KEY_MY_NAME, myName)
                 putString(KEY_PARTNER_NAME, partnerName)
