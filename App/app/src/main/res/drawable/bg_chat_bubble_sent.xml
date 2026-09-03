@@ -2,8 +2,8 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
-        android:startColor="#8B1D3D"
-        android:endColor="#69142C"
+        android:startColor="@color/chat_bubble_sent_start"
+        android:endColor="@color/chat_bubble_sent_end"
         android:angle="135" />
     <corners
         android:topLeftRadius="16dp"

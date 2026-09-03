@@ -3,12 +3,34 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="start"
-    android:paddingStart="12dp"
+    android:gravity="start|bottom"
+    android:paddingStart="8dp"
     android:paddingEnd="64dp"
     android:paddingTop="4dp"
     android:paddingBottom="4dp"
-    android:orientation="vertical">
+    android:orientation="horizontal">
+
+    <!-- Partner Avatar -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="4dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#E85D75"
+        app:strokeWidth="1dp"
+        app:cardBackgroundColor="@color/chat_avatar_bg">
+
+        <ImageView
+            android:id="@+id/iv_chat_partner_avatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_favorite"
+            app:tint="#E85D75"
+            android:padding="5dp" />
+    </com.google.android.material.card.MaterialCardView>
 
     <LinearLayout
         android:layout_width="wrap_content"
@@ -24,7 +46,7 @@
             android:id="@+id/tv_chat_sender"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#E85D75"
+            android:textColor="@color/chat_bubble_received_sender"
             android:textSize="12sp"
             android:textStyle="bold"
             android:layout_marginBottom="4dp" />
@@ -41,7 +63,7 @@
             android:id="@+id/tv_chat_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#EAEAEA"
+            android:textColor="@color/chat_bubble_received_text"
             android:textSize="15sp"
             android:fontFamily="sans-serif"
             android:lineSpacingExtra="2dp" />
@@ -52,7 +74,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginTop="4dp"
-            android:textColor="#80FFFFFF"
+            android:textColor="@color/chat_bubble_received_time"
             android:textSize="10sp" />
 
     </LinearLayout>

@@ -32,4 +32,50 @@
     <!-- Navbar specific -->
     <color name="bottom_nav_bg">#E6191C1E</color>
     <color name="bottom_nav_stroke">#33434655</color>
+    
+    <!-- Chat & Bottom Sheet Tokens (Dark Mode) -->
+    <color name="chat_bg">#0E0B10</color>
+    <color name="chat_header_bg">#161218</color>
+    <color name="chat_header_text">#FFFFFF</color>
+    <color name="chat_header_subtitle">#80FFFFFF</color>
+    <color name="chat_header_icon">#FFB6C1</color>
+    
+    <color name="chat_input_bar_bg">#161218</color>
+    <color name="chat_input_bg">#1F1A22</color>
+    <color name="chat_input_stroke">#26FFFFFF</color>
+    <color name="chat_input_text">#FFFFFF</color>
+    <color name="chat_input_hint">#66FFFFFF</color>
+    <color name="chat_attach_icon">#FFB6C1</color>
+    
+    <color name="chat_bubble_sent_start">#8B1D3D</color>
+    <color name="chat_bubble_sent_end">#69142C</color>
+    <color name="chat_bubble_sent_text">#FFFFFF</color>
+    <color name="chat_bubble_sent_time">#99FFFFFF</color>
+    
+    <color name="chat_bubble_received_bg">#241E24</color>
+    <color name="chat_bubble_received_stroke">#1AFFFFFF</color>
+    <color name="chat_bubble_received_text">#EAEAEA</color>
+    <color name="chat_bubble_received_sender">#E85D75</color>
+    <color name="chat_bubble_received_time">#80FFFFFF</color>
+    <color name="chat_avatar_bg">#2A1B28</color>
+    
+    <color name="chat_empty_title">#B3FFFFFF</color>
+    <color name="chat_empty_subtitle">#66FFFFFF</color>
+    
+    <!-- Bottom Sheet & Cards Tokens (Dark Mode) -->
+    <color name="sheet_bg">#161218</color>
+    <color name="sheet_handle">#40FFFFFF</color>
+    <color name="sheet_title">#FFFFFF</color>
+    <color name="sheet_subtitle">#A0FFFFFF</color>
+    <color name="sheet_card_bg">#211A23</color>
+    <color name="sheet_card_stroke">#382C3C</color>
+    <color name="sheet_card_title">#FFFFFF</color>
+    <color name="sheet_card_subtitle">#80FFFFFF</color>
+    <color name="sheet_input_bg">#161218</color>
+    <color name="sheet_input_stroke">#40FFFFFF</color>
+    <color name="sheet_input_text">#FFFFFF</color>
+    <color name="sheet_input_hint">#50FFFFFF</color>
+    <color name="sheet_button_secondary_bg">#2E2430</color>
+    <color name="sheet_button_secondary_text">#FFFFFF</color>
+    <color name="sheet_button_secondary_stroke">#40FFFFFF</color>
 </resources>

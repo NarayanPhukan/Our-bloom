@@ -22,6 +22,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
@@ -48,6 +49,7 @@ class ChatFragment : Fragment() {
     private lateinit var btnAttach: ImageButton
     private lateinit var btnSettings: ImageButton
     private lateinit var tvPartnerName: TextView
+    private lateinit var ivPartnerAvatar: ImageView
     private lateinit var layoutEmpty: View
 
     private var messagesListener: ListenerRegistration? = null
@@ -124,6 +126,41 @@ class ChatFragment : Fragment() {
         }
     }
 
+    // Profile photo launcher
+    private val pickProfileImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            uploadProfilePicture(uri)
+        }
+    }
+
+    private fun uploadProfilePicture(uri: Uri) {
+        Toast.makeText(requireContext(), "Uploading profile picture...", Toast.LENGTH_SHORT).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val uploadedUrl = repository.uploadImage(requireContext(), uri)
+            if (!uploadedUrl.isNullOrBlank()) {
+                val success = repository.updateAvatarUrl(uploadedUrl)
+                if (success) {
+                    currentUser = currentUser?.copy(avatarUrl = uploadedUrl)
+                    Toast.makeText(requireContext(), "Profile picture updated! ✨", Toast.LENGTH_SHORT).show()
+                    val ivSheetAvatar = settingsDialog?.findViewById<ImageView>(R.id.iv_chat_settings_avatar)
+                    if (ivSheetAvatar != null) {
+                        Glide.with(this@ChatFragment)
+                            .load(uploadedUrl)
+                            .circleCrop()
+                            .into(ivSheetAvatar)
+                        ivSheetAvatar.imageTintList = null
+                    }
+                } else {
+                    Toast.makeText(requireContext(), "Failed to save profile picture", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -144,6 +181,7 @@ class ChatFragment : Fragment() {
         btnAttach = view.findViewById(R.id.btn_attach_photo)
         btnSettings = view.findViewById(R.id.btn_chat_settings)
         tvPartnerName = view.findViewById(R.id.tv_chat_partner_name)
+        ivPartnerAvatar = view.findViewById(R.id.iv_partner_avatar)
         layoutEmpty = view.findViewById(R.id.layout_chat_empty)
 
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -187,6 +225,19 @@ class ChatFragment : Fragment() {
                     if (partnerId.isNotBlank()) {
                         partnerUser = repository.getUser(partnerId)
                     }
+
+                    // Load partner's avatar
+                    val partnerAvatarUrl = partnerUser?.avatarUrl
+                    if (!partnerAvatarUrl.isNullOrBlank()) {
+                        Glide.with(this@ChatFragment)
+                            .load(partnerAvatarUrl)
+                            .circleCrop()
+                            .placeholder(R.drawable.ic_favorite)
+                            .into(ivPartnerAvatar)
+                        ivPartnerAvatar.imageTintList = null
+                        ivPartnerAvatar.setPadding(0, 0, 0, 0)
+                    }
+                    chatAdapter.partnerAvatarUrl = partnerAvatarUrl
 
                     // Partner's nickname for header
                     val partnerDisplayName = user.nicknameForPartner?.takeIf { it.isNotBlank() }
@@ -295,6 +346,22 @@ class ChatFragment : Fragment() {
         val tvBackupStatus = sheetView.findViewById<TextView>(R.id.tv_last_backup_status)
         val btnBackupNow = sheetView.findViewById<MaterialButton>(R.id.btn_backup_now)
         val btnRestore = sheetView.findViewById<MaterialButton>(R.id.btn_restore_backup)
+        val ivSettingsAvatar = sheetView.findViewById<ImageView>(R.id.iv_chat_settings_avatar)
+        val tvSettingsName = sheetView.findViewById<TextView>(R.id.tv_chat_settings_user_name)
+        val btnChangeAvatar = sheetView.findViewById<MaterialButton>(R.id.btn_change_profile_photo)
+
+        tvSettingsName?.text = currentUser?.name?.takeIf { it.isNotBlank() } ?: "Your Profile"
+        if (!currentUser?.avatarUrl.isNullOrBlank()) {
+            Glide.with(this)
+                .load(currentUser!!.avatarUrl)
+                .circleCrop()
+                .placeholder(R.drawable.ic_person_rounded)
+                .into(ivSettingsAvatar)
+            ivSettingsAvatar?.imageTintList = null
+        }
+        btnChangeAvatar?.setOnClickListener {
+            pickProfileImageLauncher.launch("image/*")
+        }
 
         val connectedEmail = driveHelper.getConnectedAccountEmail()
         if (!connectedEmail.isNullOrBlank()) {

@@ -194,21 +194,21 @@ class MemoriesFragment : Fragment() {
 
         val recordButton = Button(context).apply {
             text = "Hold to Record Voice Note"
-            setBackgroundColor(resources.getColor(R.color.bloom_primary, null))
-            setTextColor(resources.getColor(android.R.color.white, null))
+            setBackgroundColor(ContextCompat.getColor(context, R.color.bloom_primary))
+            setTextColor(ContextCompat.getColor(context, android.R.color.white))
             
             setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startRecording()
                         text = "Recording..."
-                        setBackgroundColor(resources.getColor(android.R.color.holo_red_light, null))
+                        setBackgroundColor(ContextCompat.getColor(v.context, android.R.color.holo_red_light))
                         true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         stopRecording()
                         text = "Voice Note Attached!"
-                        setBackgroundColor(resources.getColor(android.R.color.holo_green_dark, null))
+                        setBackgroundColor(ContextCompat.getColor(v.context, android.R.color.holo_green_dark))
                         true
                     }
                     else -> false

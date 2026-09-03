@@ -55,6 +55,17 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun updateAvatarUrl(avatarUrl: String): Boolean {
+        val fbUser = auth.currentUser ?: return false
+        return try {
+            db.collection("users").document(fbUser.uid).update("avatarUrl", avatarUrl).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating avatar URL", e)
+            false
+        }
+    }
+
     suspend fun sendHeartbeat(coupleId: String, senderName: String, coupleSlug: String? = null): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {

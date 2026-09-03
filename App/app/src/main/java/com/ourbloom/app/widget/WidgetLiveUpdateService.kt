@@ -91,7 +91,7 @@ class WidgetLiveUpdateService : Service() {
 
         if (allWidgetIds.isEmpty()) {
             try {
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopForegroundCompat()
             } catch (e: Throwable) {
                 // Ignore
             }
@@ -168,7 +168,7 @@ class WidgetLiveUpdateService : Service() {
                     val thisWidget = ComponentName(applicationContext, LoveTimerWidgetProvider::class.java)
                     val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
                     if (allWidgetIds.isEmpty()) {
-                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopForegroundCompat()
                         stopSelf()
                         break
                     }
@@ -178,6 +178,15 @@ class WidgetLiveUpdateService : Service() {
                 }
                 delay(1000L)
             }
+        }
+    }
+
+    private fun stopForegroundCompat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
         }
     }
 

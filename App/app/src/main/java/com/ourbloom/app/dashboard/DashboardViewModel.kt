@@ -1,5 +1,7 @@
 package com.ourbloom.app.dashboard
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -165,6 +167,33 @@ class DashboardViewModel : ViewModel() {
                 }
             } else {
                 _error.postValue("Failed to update nickname")
+            }
+        }
+    }
+
+    private val _avatarUploadStatus = MutableLiveData<String?>()
+    val avatarUploadStatus: LiveData<String?> = _avatarUploadStatus
+
+    fun updateAvatar(context: Context, uri: Uri, onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            _avatarUploadStatus.value = "Uploading profile picture..."
+            val uploadedUrl = repository.uploadImage(context, uri)
+            if (uploadedUrl != null) {
+                val success = repository.updateAvatarUrl(uploadedUrl)
+                if (success) {
+                    val updatedUser = repository.getCurrentUser()
+                    if (updatedUser != null) {
+                        _currentUser.postValue(updatedUser)
+                    }
+                    _avatarUploadStatus.value = null
+                    onComplete(true, uploadedUrl)
+                } else {
+                    _avatarUploadStatus.value = null
+                    onComplete(false, "Failed to save profile picture in database")
+                }
+            } else {
+                _avatarUploadStatus.value = null
+                onComplete(false, "Failed to upload image to server")
             }
         }
     }

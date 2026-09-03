@@ -1,6 +1,7 @@
 package com.ourbloom.app.dashboard
 
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -10,13 +11,19 @@ import android.os.VibratorManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentChange
@@ -32,6 +39,15 @@ class DashboardFragment : Fragment() {
     private var heartbeatListener: ListenerRegistration? = null
     private var cooldownTimer: CountDownTimer? = null
     private val sessionStartTime = System.currentTimeMillis()
+    private var profileBottomSheetDialog: BottomSheetDialog? = null
+
+    private val pickProfileImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            uploadProfilePicture(uri)
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -216,11 +232,30 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // Update the special note author with the user's nickname
+        // Update profile avatar and nickname
+        val btnProfileAvatar = view.findViewById<FrameLayout>(R.id.btn_profile_avatar)
+        btnProfileAvatar?.setOnClickListener {
+            showProfileBottomSheet()
+        }
+
         viewModel.currentUser.observe(viewLifecycleOwner) { user ->
             val tvSpecialNoteAuthor = view.findViewById<TextView>(R.id.tv_special_note_author)
             val nickname = user?.nicknameForPartner?.takeIf { it.isNotBlank() } ?: "Your Love"
             tvSpecialNoteAuthor?.text = "— Forever Yours, $nickname"
+
+            val ivDashboardAvatar = view.findViewById<ImageView>(R.id.iv_dashboard_avatar)
+            if (ivDashboardAvatar != null) {
+                if (!user?.avatarUrl.isNullOrBlank()) {
+                    Glide.with(this)
+                        .load(user.avatarUrl)
+                        .circleCrop()
+                        .placeholder(R.drawable.ic_person_rounded)
+                        .into(ivDashboardAvatar)
+                    ivDashboardAvatar.imageTintList = null
+                } else {
+                    ivDashboardAvatar.setImageResource(R.drawable.ic_person_rounded)
+                }
+            }
         }
 
         // Anthem FAB
@@ -430,5 +465,82 @@ class DashboardFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun uploadProfilePicture(uri: Uri) {
+        val progressBar = profileBottomSheetDialog?.findViewById<ProgressBar>(R.id.pb_avatar_upload)
+        val btnChange = profileBottomSheetDialog?.findViewById<MaterialButton>(R.id.btn_change_avatar)
+
+        progressBar?.visibility = View.VISIBLE
+        btnChange?.isEnabled = false
+        Toast.makeText(requireContext(), "Uploading profile picture...", Toast.LENGTH_SHORT).show()
+
+        viewModel.updateAvatar(requireContext(), uri) { success, result ->
+            progressBar?.visibility = View.GONE
+            btnChange?.isEnabled = true
+            if (success && result != null) {
+                Toast.makeText(requireContext(), "Profile picture updated! ✨", Toast.LENGTH_SHORT).show()
+                val ivSheetAvatar = profileBottomSheetDialog?.findViewById<ImageView>(R.id.iv_sheet_avatar)
+                if (ivSheetAvatar != null) {
+                    Glide.with(this)
+                        .load(result)
+                        .circleCrop()
+                        .into(ivSheetAvatar)
+                    ivSheetAvatar.imageTintList = null
+                }
+            } else {
+                Toast.makeText(requireContext(), result ?: "Failed to upload", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showProfileBottomSheet() {
+        val dialog = BottomSheetDialog(requireContext())
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_profile, null)
+        dialog.setContentView(sheetView)
+        dialog.setOnShowListener {
+            val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.setBackgroundResource(android.R.color.transparent)
+        }
+        profileBottomSheetDialog = dialog
+
+        val user = viewModel.currentUser.value
+        val ivSheetAvatar = sheetView.findViewById<ImageView>(R.id.iv_sheet_avatar)
+        val tvSheetName = sheetView.findViewById<TextView>(R.id.tv_sheet_user_name)
+        val tvSheetEmail = sheetView.findViewById<TextView>(R.id.tv_sheet_user_email)
+        val etPartnerNickname = sheetView.findViewById<EditText>(R.id.et_partner_nickname)
+        val btnSaveNickname = sheetView.findViewById<MaterialButton>(R.id.btn_save_nickname)
+        val btnChangeAvatar = sheetView.findViewById<MaterialButton>(R.id.btn_change_avatar)
+        val btnAvatarFrame = sheetView.findViewById<FrameLayout>(R.id.btn_change_avatar_frame)
+
+        tvSheetName.text = user?.name?.takeIf { it.isNotBlank() } ?: "OurBloom Lover"
+        tvSheetEmail.text = user?.email?.takeIf { it.isNotBlank() } ?: "Connected with Google"
+        etPartnerNickname.setText(user?.nicknameForPartner ?: "")
+
+        if (!user?.avatarUrl.isNullOrBlank()) {
+            Glide.with(this)
+                .load(user!!.avatarUrl)
+                .circleCrop()
+                .placeholder(R.drawable.ic_person_rounded)
+                .into(ivSheetAvatar)
+            ivSheetAvatar.imageTintList = null
+        }
+
+        val launchPicker = {
+            pickProfileImageLauncher.launch("image/*")
+        }
+        btnAvatarFrame.setOnClickListener { launchPicker() }
+        btnChangeAvatar.setOnClickListener { launchPicker() }
+
+        btnSaveNickname.setOnClickListener {
+            val newNick = etPartnerNickname.text.toString().trim()
+            if (newNick.isNotEmpty()) {
+                viewModel.updateNicknameForPartner(newNick)
+                Toast.makeText(requireContext(), "Nickname saved as $newNick! ❤️", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
     }
 }

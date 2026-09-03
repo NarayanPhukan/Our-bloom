@@ -32,7 +32,7 @@
             android:id="@+id/tv_chat_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFFFF"
+            android:textColor="@color/chat_bubble_sent_text"
             android:textSize="15sp"
             android:fontFamily="sans-serif"
             android:lineSpacingExtra="2dp" />
@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginTop="4dp"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/chat_bubble_sent_time"
             android:textSize="10sp" />
 
     </LinearLayout>

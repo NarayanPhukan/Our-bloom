@@ -25,6 +25,11 @@ class ChatAdapter(
 
     private val messages = mutableListOf<ChatMessage>()
     private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    var partnerAvatarUrl: String? = null
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
 
     fun submitList(newMessages: List<ChatMessage>) {
         messages.clear()
@@ -57,7 +62,7 @@ class ChatAdapter(
         if (holder is SentMessageViewHolder) {
             holder.bind(message)
         } else if (holder is ReceivedMessageViewHolder) {
-            holder.bind(message)
+            holder.bind(message, partnerAvatarUrl)
         }
     }
 
@@ -101,9 +106,25 @@ class ChatAdapter(
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
+        private val ivPartnerAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
 
-        fun bind(message: ChatMessage) {
+        fun bind(message: ChatMessage, partnerAvatarUrl: String?) {
             tvSender.text = message.senderName.ifBlank { "My Love" }
+
+            if (!partnerAvatarUrl.isNullOrBlank()) {
+                Glide.with(itemView.context)
+                    .load(partnerAvatarUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_favorite)
+                    .into(ivPartnerAvatar)
+                ivPartnerAvatar.imageTintList = null
+                ivPartnerAvatar.setPadding(0, 0, 0, 0)
+            } else {
+                ivPartnerAvatar.setImageResource(R.drawable.ic_favorite)
+                ivPartnerAvatar.imageTintList = android.content.res.ColorStateList.valueOf(0xFFE85D75.toInt())
+                val p = (5 * itemView.context.resources.displayMetrics.density).toInt()
+                ivPartnerAvatar.setPadding(p, p, p, p)
+            }
 
             if (message.text.isNotBlank()) {
                 tvText.text = message.text

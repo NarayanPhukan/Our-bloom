@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0E0B10">
+    android:background="@color/chat_bg">
 
     <!-- WhatsApp-style Romantic Header -->
     <LinearLayout
@@ -16,17 +16,27 @@
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:background="#161218"
+        android:background="@color/chat_header_bg"
         android:elevation="4dp">
 
-        <ImageView
-            android:id="@+id/iv_partner_avatar"
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@drawable/ic_favorite"
-            app:tint="#E85D75"
-            android:background="@drawable/bg_widget_glass"
-            android:padding="8dp" />
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#E85D75"
+            app:strokeWidth="1.5dp"
+            app:cardBackgroundColor="@color/chat_avatar_bg">
+
+            <ImageView
+                android:id="@+id/iv_partner_avatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_favorite"
+                app:tint="#E85D75"
+                android:padding="8dp" />
+        </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -40,7 +50,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="My Love"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/chat_header_text"
                 android:textSize="17sp"
                 android:fontFamily="@font/playfair_display"
                 android:textStyle="bold" />
@@ -50,7 +60,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Forever blooming together 🌸"
-                android:textColor="#80FFFFFF"
+                android:textColor="@color/chat_header_subtitle"
                 android:textSize="11sp" />
 
         </LinearLayout>
@@ -61,7 +71,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:src="@drawable/ic_cloud_upload"
-            app:tint="#FFB6C1"
+            app:tint="@color/chat_header_icon"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Chat &amp; Google Drive Backup Settings"
             android:padding="10dp" />
@@ -106,7 +116,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Our Secret Space 💌"
-                android:textColor="#B3FFFFFF"
+                android:textColor="@color/chat_empty_title"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
@@ -116,7 +126,7 @@
                 android:layout_marginTop="4dp"
                 android:gravity="center"
                 android:text="Say something sweet to start the conversation..."
-                android:textColor="#66FFFFFF"
+                android:textColor="@color/chat_empty_subtitle"
                 android:textSize="12sp" />
 
         </LinearLayout>
@@ -133,7 +143,7 @@
         android:paddingEnd="12dp"
         android:paddingTop="8dp"
         android:paddingBottom="12dp"
-        android:background="#161218">
+        android:background="@color/chat_input_bar_bg">
 
         <!-- Attach Photo Button -->
         <ImageButton
@@ -141,7 +151,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:src="@drawable/ic_add_a_photo"
-            app:tint="#FFB6C1"
+            app:tint="@color/chat_attach_icon"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Attach Photo"
             android:padding="10dp" />
@@ -156,8 +166,8 @@
             android:maxHeight="120dp"
             android:background="@drawable/bg_chat_input"
             android:hint="Type a message..."
-            android:textColorHint="#66FFFFFF"
-            android:textColor="#FFFFFFFF"
+            android:textColorHint="@color/chat_input_hint"
+            android:textColor="@color/chat_input_text"
             android:textSize="14sp"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"

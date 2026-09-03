@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme (Dark Mode). -->
     <style name="Theme.OurBloom" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/bloom_primary</item>
@@ -16,9 +16,9 @@
         <item name="colorSurface">@color/bloom_surface</item>
         <item name="colorOnSurface">@color/bloom_on_surface</item>
         
-        <!-- Status bar color. -->
+        <!-- Status bar color in dark mode: white icons (windowLightStatusBar = false) -->
         <item name="android:statusBarColor">@color/bloom_surface</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
         
         <!-- Typography -->
         <item name="android:fontFamily">@font/hanken_grotesk</item>
