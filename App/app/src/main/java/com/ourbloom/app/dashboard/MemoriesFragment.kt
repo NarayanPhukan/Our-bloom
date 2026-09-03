@@ -239,7 +239,7 @@ class MemoriesFragment : Fragment() {
     }
     
     private fun startRecording() {
-        val file = File(requireContext().cacheDir, "audio_${System.currentTimeMillis()}.3gp")
+        val file = File(requireContext().cacheDir, "audio_${System.currentTimeMillis()}.m4a")
         audioFileUri = Uri.fromFile(file)
         
         audioRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -249,8 +249,10 @@ class MemoriesFragment : Fragment() {
             MediaRecorder()
         }.apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            setAudioEncodingBitRate(128000)
+            setAudioSamplingRate(44100)
             setOutputFile(file.absolutePath)
             try {
                 prepare()
@@ -272,6 +274,16 @@ class MemoriesFragment : Fragment() {
             }
             audioRecorder = null
             isRecording = false
+
+            // Verify that the recorded file is valid and not empty
+            val uri = audioFileUri
+            if (uri != null && uri.path != null) {
+                val file = File(uri.path!!)
+                if (!file.exists() || file.length() < 1024) {
+                    audioFileUri = null
+                    Toast.makeText(context, "Recording was too short, audio discarded", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

@@ -30,6 +30,8 @@ class AppUpdateHelper(private val activity: Activity) {
                     Log.e(TAG, "Failed to start update flow", e)
                 }
             }
+        }.addOnFailureListener { e ->
+            Log.d(TAG, "In-app update check skipped: ${e.message}")
         }
     }
 
@@ -48,6 +50,8 @@ class AppUpdateHelper(private val activity: Activity) {
                     Log.e(TAG, "Failed to resume update flow", e)
                 }
             }
+        }.addOnFailureListener { e ->
+            Log.d(TAG, "Resume update skipped: ${e.message}")
         }
     }
 

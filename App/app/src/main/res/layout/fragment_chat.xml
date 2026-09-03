@@ -133,61 +133,102 @@
 
     </FrameLayout>
 
-    <!-- Bottom Input Bar -->
+    <!-- WhatsApp Floating Input Bar -->
     <LinearLayout
+        android:id="@+id/layout_chat_input_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="12dp"
-        android:background="@color/chat_input_bar_bg">
+        android:gravity="bottom"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        android:background="@android:color/transparent">
 
-        <!-- Attach Photo Button -->
-        <ImageButton
-            android:id="@+id/btn_attach_photo"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:src="@drawable/ic_add_a_photo"
-            app:tint="@color/chat_attach_icon"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Attach Photo"
-            android:padding="10dp" />
-
-        <!-- Message Input Field -->
-        <EditText
-            android:id="@+id/et_chat_input"
+        <!-- WhatsApp Pill Container -->
+        <LinearLayout
+            android:id="@+id/layout_whatsapp_pill"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="44dp"
-            android:maxHeight="120dp"
-            android:background="@drawable/bg_chat_input"
-            android:hint="Type a message..."
-            android:textColorHint="@color/chat_input_hint"
-            android:textColor="@color/chat_input_text"
-            android:textSize="14sp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="8dp"
-            android:inputType="textCapSentences|textMultiLine" />
+            android:minHeight="48dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_whatsapp_pill"
+            android:elevation="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp">
 
-        <!-- Send Button -->
+            <!-- Emoji Button -->
+            <ImageButton
+                android:id="@+id/btn_chat_emoji"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_emoji_whatsapp"
+                app:tint="@color/whatsapp_icon_tint"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Emoji"
+                android:padding="8dp" />
+
+            <!-- Input EditText -->
+            <EditText
+                android:id="@+id/et_chat_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="42dp"
+                android:maxHeight="120dp"
+                android:background="@null"
+                android:hint="Type a message"
+                android:textColorHint="@color/chat_input_hint"
+                android:textColor="@color/chat_input_text"
+                android:textSize="16sp"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:inputType="textCapSentences|textMultiLine" />
+
+            <!-- Attachment / Paperclip Button -->
+            <ImageButton
+                android:id="@+id/btn_attach_photo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_attach_paperclip"
+                app:tint="@color/whatsapp_icon_tint"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Attach File"
+                android:padding="8dp" />
+
+            <!-- Camera Button -->
+            <ImageButton
+                android:id="@+id/btn_chat_camera"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_camera_whatsapp"
+                app:tint="@color/whatsapp_icon_tint"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Camera"
+                android:padding="8dp" />
+
+        </LinearLayout>
+
+        <!-- WhatsApp Circular Action Button (Mic / Send) -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btn_send_chat"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:src="@drawable/ic_send_rounded"
-            app:fabCustomSize="44dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginBottom="1dp"
+            android:src="@drawable/ic_mic_whatsapp"
+            app:fabCustomSize="48dp"
             app:tint="#FFFFFFFF"
-            app:backgroundTint="#E85D75"
-            app:elevation="4dp"
-            android:contentDescription="Send Message" />
+            app:backgroundTint="@color/chat_action_pink"
+            app:elevation="3dp"
+            android:contentDescription="Voice Note" />
 
     </LinearLayout>
 

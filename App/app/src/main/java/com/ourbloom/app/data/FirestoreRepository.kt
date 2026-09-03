@@ -320,20 +320,57 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun uploadImageBytes(bytes: ByteArray, filename: String = "${UUID.randomUUID()}.jpg"): String? = withContext(Dispatchers.IO) {
+        try {
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "file",
+                    filename,
+                    bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url("$baseUrl/api/upload")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val json = JSONObject(responseBody)
+                    val urlPath = json.optString("url", "")
+                    if (urlPath.isNotEmpty()) {
+                        return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error uploading image bytes to server", e)
+            null
+        }
+    }
+
     suspend fun uploadAudio(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
         try {
             val inputStream = context.contentResolver.openInputStream(uri)
             val bytes = inputStream?.readBytes() ?: return@withContext null
             inputStream.close()
 
-            val filename = "${UUID.randomUUID()}.3gp"
+            val isM4a = uri.path?.endsWith(".m4a") == true
+            val ext = if (isM4a) "m4a" else "3gp"
+            val mime = if (isM4a) "audio/mp4" else "audio/3gpp"
+            val filename = "${UUID.randomUUID()}.$ext"
 
             val requestBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "file",
                     filename,
-                    bytes.toRequestBody("audio/3gpp".toMediaTypeOrNull())
+                    bytes.toRequestBody(mime.toMediaTypeOrNull())
                 )
                 .build()
 

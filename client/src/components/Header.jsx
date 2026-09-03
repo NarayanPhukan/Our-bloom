@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { isNativeApp } from '../utils/capacitorPlugins';
+import { APP_DOWNLOADS } from '../utils/appDownloads';
 import logoImage from '../assets/logo.jpg';
 
 export default function Header() {
@@ -209,17 +210,29 @@ export default function Header() {
           >
             <span className="material-symbols-outlined text-[24px]">logout</span>
           </button>
-
           {/* Download App (Desktop only, web only) */}
           {!isNative && (
-            <a
-              href="/OurBloom.apk"
-              download
-              className="hidden lg:flex items-center gap-1.5 bg-primary text-on-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors duration-300 shadow-glow-primary font-label-sm tracking-wide uppercase whitespace-nowrap min-h-[44px]"
-            >
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              <span>Download</span>
-            </a>
+            <div className="hidden lg:flex items-center gap-1.5 bg-surface-variant/40 px-2 py-1 rounded-full border border-outline-variant/30 shadow-sm">
+              <a
+                href={APP_DOWNLOADS.android}
+                download
+                className="flex items-center gap-1 text-on-surface-variant hover:text-secondary hover:bg-secondary/10 px-2.5 py-1 rounded-full transition-all text-[11px] font-semibold tracking-wider uppercase"
+                title="Download for Android (.apk)"
+              >
+                <span className="material-symbols-outlined text-[16px]">android</span>
+                <span>Android</span>
+              </a>
+              <span className="text-outline-variant/40 text-xs">|</span>
+              <a
+                href={APP_DOWNLOADS.windows}
+                download
+                className="flex items-center gap-1 text-primary hover:text-secondary hover:bg-primary/10 px-2.5 py-1 rounded-full transition-all text-[11px] font-semibold tracking-wider uppercase"
+                title="Download for Windows (.exe)"
+              >
+                <span className="material-symbols-outlined text-[16px]">desktop_windows</span>
+                <span>Windows</span>
+              </a>
+            </div>
           )}
 
           {/* Mobile Menu Toggle */}
@@ -234,7 +247,7 @@ export default function Header() {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* Mobile Drawer Menu */}
       {mobileOpen && (
         <>
           {/* Overlay to close on outside tap */}
@@ -276,6 +289,33 @@ export default function Header() {
                 <span className="material-symbols-outlined">logout</span>
                 Logout
               </button>
+
+              {!isNative && (
+                <>
+                  <hr className="border-outline-variant/20 my-2" />
+                  <p className="text-[10px] uppercase tracking-widest text-on-surface-variant/70 px-2 pt-1 font-semibold">Get Native App</p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <a
+                      href={APP_DOWNLOADS.android}
+                      download
+                      onClick={() => setMobileOpen(false)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-secondary/10 text-secondary rounded-xl text-xs font-semibold hover:bg-secondary/20 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">android</span>
+                      Android (.apk)
+                    </a>
+                    <a
+                      href={APP_DOWNLOADS.windows}
+                      download
+                      onClick={() => setMobileOpen(false)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-primary/10 text-primary rounded-xl text-xs font-semibold hover:bg-primary/20 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">desktop_windows</span>
+                      Windows (.exe)
+                    </a>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </>

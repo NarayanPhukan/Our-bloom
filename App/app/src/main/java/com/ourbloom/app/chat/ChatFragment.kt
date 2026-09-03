@@ -2,12 +2,15 @@ package com.ourbloom.app.chat
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -15,6 +18,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +26,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.io.ByteArrayOutputStream
 import com.bumptech.glide.Glide
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -126,6 +131,38 @@ class ChatFragment : Fragment() {
         }
     }
 
+    // Direct Camera launcher
+    private val takePhotoPreviewLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            uploadAndSendBitmap(bitmap)
+        }
+    }
+
+    private fun uploadAndSendBitmap(bitmap: Bitmap) {
+        val coupleId = currentCouple?.id ?: return
+        Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val stream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+            val bytes = stream.toByteArray()
+            val uploadedUrl = repository.uploadImageBytes(bytes)
+            if (!uploadedUrl.isNullOrBlank()) {
+                repository.sendChatMessage(
+                    coupleId = coupleId,
+                    text = "",
+                    imageUrl = uploadedUrl,
+                    senderName = mySenderName
+                )
+                triggerSendHaptic()
+            } else {
+                Toast.makeText(requireContext(), "Failed to upload photo", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     // Profile photo launcher
     private val pickProfileImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -184,6 +221,9 @@ class ChatFragment : Fragment() {
         ivPartnerAvatar = view.findViewById(R.id.iv_partner_avatar)
         layoutEmpty = view.findViewById(R.id.layout_chat_empty)
 
+        val btnEmoji = view.findViewById<ImageButton>(R.id.btn_chat_emoji)
+        val btnCamera = view.findViewById<ImageButton>(R.id.btn_chat_camera)
+
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         chatAdapter = ChatAdapter(currentUid) { imageUrl ->
             // Photo clicked - preview
@@ -196,12 +236,50 @@ class ChatFragment : Fragment() {
         rvMessages.layoutManager = layoutManager
         rvMessages.adapter = chatAdapter
 
+        // Dynamically toggle Mic / Send icon like WhatsApp
+        etInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val hasText = !s.isNullOrBlank()
+                if (hasText) {
+                    btnSend.setImageResource(R.drawable.ic_send_rounded)
+                    btnSend.contentDescription = "Send Message"
+                } else {
+                    btnSend.setImageResource(R.drawable.ic_mic_whatsapp)
+                    btnSend.contentDescription = "Voice Note"
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
         btnSend.setOnClickListener {
-            sendMessage()
+            val text = etInput.text?.toString()?.trim() ?: ""
+            if (text.isNotEmpty()) {
+                sendMessage()
+            } else {
+                Toast.makeText(requireContext(), "Hold to record voice note 🎙️", Toast.LENGTH_SHORT).show()
+            }
         }
 
         btnAttach.setOnClickListener {
             attachPhotoLauncher.launch("image/*")
+        }
+
+        btnCamera.setOnClickListener {
+            takePhotoPreviewLauncher.launch(null)
+        }
+
+        btnEmoji.setOnClickListener {
+            val popup = PopupMenu(requireContext(), btnEmoji)
+            val emojis = listOf("❤️", "🌸", "🥰", "✨", "😘", "💖", "🫂", "🌹", "😍", "🙈")
+            emojis.forEach { emoji ->
+                popup.menu.add(emoji)
+            }
+            popup.setOnMenuItemClickListener { item ->
+                etInput.append(item.title)
+                true
+            }
+            popup.show()
         }
 
         btnSettings.setOnClickListener {
@@ -244,7 +322,7 @@ class ChatFragment : Fragment() {
                         ?: partnerUser?.name?.takeIf { it.isNotBlank() }
                         ?: "My Love"
                     tvPartnerName.text = partnerDisplayName
-                    etInput.hint = "Message $partnerDisplayName..."
+                    etInput.hint = "Type a message"
 
                     // What the partner calls me
                     mySenderName = partnerUser?.nicknameForPartner?.takeIf { it.isNotBlank() }

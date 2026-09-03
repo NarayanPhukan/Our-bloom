@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">OurBloom</string>
-    <!-- Replace this with your actual Web Client ID from Firebase Console -->
-    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com</string>
+    <!-- Actual Web Client ID from Firebase Console / google-services.json -->
+    <string name="default_web_client_id">782460060772-f9lmr5ir8aup9r3e13k6p9knu6pvbni8.apps.googleusercontent.com</string>
 
     <string name="widget_name">Love Counter</string>
     <string name="widget_description">Live romantic counter of your days and hours together on your home screen.</string>

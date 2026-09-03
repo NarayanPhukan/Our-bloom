@@ -6,7 +6,8 @@
   "scripts": {
     "server": "cd server && node index.js",
     "client": "cd client && npm run dev",
-    "dev": "npm run server & npm run client"
+    "dev": "npm run server & npm run client",
+    "desktop:build:win": "cd client && npm run electron:build:win"
   },
   "keywords": ["mern", "timeline", "romantic"],
   "author": "",

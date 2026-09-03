@@ -40,12 +40,22 @@
     <color name="chat_header_subtitle">#80FFFFFF</color>
     <color name="chat_header_icon">#FFB6C1</color>
     
-    <color name="chat_input_bar_bg">#161218</color>
+    <color name="chat_input_bar_bg">#00000000</color>
     <color name="chat_input_bg">#1F1A22</color>
     <color name="chat_input_stroke">#26FFFFFF</color>
     <color name="chat_input_text">#FFFFFF</color>
     <color name="chat_input_hint">#66FFFFFF</color>
     <color name="chat_attach_icon">#FFB6C1</color>
+    
+    <!-- WhatsApp Chat Styling -->
+    <color name="whatsapp_action_green">#E85D75</color>
+    <color name="whatsapp_action_green_pressed">#D94562</color>
+    <color name="chat_action_pink">#E85D75</color>
+    <color name="chat_action_pink_pressed">#D94562</color>
+    <color name="whatsapp_icon_tint">#8696A0</color>
+    <color name="whatsapp_pill_bg">#1F2C34</color>
+    <color name="whatsapp_pill_stroke">#2A3942</color>
+    <color name="whatsapp_chat_bg">#0B141A</color>
     
     <color name="chat_bubble_sent_start">#8B1D3D</color>
     <color name="chat_bubble_sent_end">#69142C</color>

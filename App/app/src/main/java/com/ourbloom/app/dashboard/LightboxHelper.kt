@@ -5,9 +5,11 @@ import android.app.DownloadManager
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
@@ -24,7 +26,7 @@ fun Fragment.showLightbox(memory: Memory) {
 
     val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
     dialog.setContentView(R.layout.dialog_lightbox)
-    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.parseColor("#D9000000"))) // 85% opacity black
+    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
     dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
     val ivImage = dialog.findViewById<ImageView>(R.id.iv_lightbox_image)
@@ -43,45 +45,104 @@ fun Fragment.showLightbox(memory: Memory) {
             .into(ivImage)
     }
 
-    // Audio setup
+    // Robust Audio Setup
     var mediaPlayer: MediaPlayer? = null
+    var isPrepared = false
+    var isBuffering = false
     var isPlaying = false
 
     if (memory.audioUrl.isNotBlank()) {
         btnPlay.visibility = View.VISIBLE
         
         btnPlay.setOnClickListener {
-            if (mediaPlayer == null) {
+            if (isBuffering) {
+                Toast.makeText(context, "Buffering audio, please wait...", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (mediaPlayer == null || !isPrepared) {
                 try {
+                    mediaPlayer?.release()
+                    mediaPlayer = null
+                    isBuffering = true
+                    btnPlay.alpha = 0.6f
+                    Toast.makeText(context, "Loading audio... 🎵", Toast.LENGTH_SHORT).show()
+
+                    var finalUrl = memory.audioUrl.trim()
+                    if (finalUrl.startsWith("/uploads")) {
+                        finalUrl = "https://our-bloom.onrender.com" + finalUrl
+                    }
+
                     mediaPlayer = MediaPlayer().apply {
-                        var finalUrl = memory.audioUrl
-                        if (finalUrl.startsWith("/uploads")) {
-                            finalUrl = "http://10.0.2.2:5000" + finalUrl // Emulator fallback
-                        }
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .build()
+                        )
                         setDataSource(finalUrl)
-                        prepareAsync()
+
                         setOnPreparedListener {
-                            start()
-                            isPlaying = true
-                            btnPlay.setImageResource(android.R.drawable.ic_media_pause)
+                            isPrepared = true
+                            isBuffering = false
+                            btnPlay.alpha = 1.0f
+                            try {
+                                start()
+                                isPlaying = true
+                                btnPlay.setImageResource(android.R.drawable.ic_media_pause)
+                            } catch (e: Exception) {
+                                Log.e("LightboxHelper", "Error starting playback", e)
+                                isPlaying = false
+                                btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                            }
                         }
+
                         setOnCompletionListener {
                             isPlaying = false
                             btnPlay.setImageResource(android.R.drawable.ic_media_play)
                         }
+
+                        setOnErrorListener { mp, what, extra ->
+                            Log.e("LightboxHelper", "MediaPlayer error: what=$what, extra=$extra")
+                            isPrepared = false
+                            isBuffering = false
+                            isPlaying = false
+                            btnPlay.alpha = 1.0f
+                            btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                            Toast.makeText(context, "Audio file is corrupt or unavailable", Toast.LENGTH_SHORT).show()
+                            try {
+                                mp.reset()
+                            } catch (e: Exception) {
+                                // ignore
+                            }
+                            true // Consumes error so MediaPlayer doesn't crash or cascade to state 0
+                        }
+
+                        prepareAsync()
                     }
                 } catch (e: Exception) {
+                    Log.e("LightboxHelper", "Exception initializing MediaPlayer", e)
+                    isBuffering = false
+                    isPrepared = false
+                    btnPlay.alpha = 1.0f
                     Toast.makeText(context, "Cannot play audio", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                if (isPlaying) {
-                    mediaPlayer?.pause()
+                try {
+                    if (isPlaying) {
+                        mediaPlayer?.pause()
+                        isPlaying = false
+                        btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                    } else {
+                        mediaPlayer?.start()
+                        isPlaying = true
+                        btnPlay.setImageResource(android.R.drawable.ic_media_pause)
+                    }
+                } catch (e: Exception) {
+                    Log.e("LightboxHelper", "Exception toggling playback", e)
+                    isPrepared = false
                     isPlaying = false
                     btnPlay.setImageResource(android.R.drawable.ic_media_play)
-                } else {
-                    mediaPlayer?.start()
-                    isPlaying = true
-                    btnPlay.setImageResource(android.R.drawable.ic_media_pause)
                 }
             }
         }

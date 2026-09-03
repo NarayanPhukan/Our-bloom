@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { APP_DOWNLOADS } from '../utils/appDownloads';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -107,14 +108,26 @@ export default function LoginPage() {
             
             <div className="mt-8 pt-6 border-t border-outline-variant/20">
               <p className="text-label-sm uppercase tracking-widest text-on-surface-variant mb-4">Experience it Natively</p>
-              <a 
-                href="/OurBloom.apk" 
-                download
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary/10 text-secondary hover:bg-secondary/20 hover:scale-105 transition-all rounded-full font-label-sm uppercase tracking-wider w-full md:w-auto"
-              >
-                <span className="material-symbols-outlined text-[18px]">android</span>
-                Download Android App
-              </a>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a 
+                  href={APP_DOWNLOADS.android} 
+                  download
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-secondary/10 text-secondary hover:bg-secondary/20 hover:scale-105 transition-all rounded-full font-label-sm uppercase tracking-wider w-full sm:w-auto min-h-[44px]"
+                  title="Download Our Bloom for Android (.apk)"
+                >
+                  <span className="material-symbols-outlined text-[20px]">android</span>
+                  Android (.apk)
+                </a>
+                <a 
+                  href={APP_DOWNLOADS.windows} 
+                  download
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all rounded-full font-label-sm uppercase tracking-wider w-full sm:w-auto min-h-[44px]"
+                  title="Download Our Bloom for Windows PC (.exe)"
+                >
+                  <span className="material-symbols-outlined text-[20px]">desktop_windows</span>
+                  Windows (.exe)
+                </a>
+              </div>
             </div>
           </div>
         </div>

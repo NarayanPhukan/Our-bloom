@@ -113,3 +113,8 @@ server/uploads/
 # Firebase credentials
 firebase-service-account.json
 *-service-account.json
+
+# Executables & desktop release builds (protect against GitHub 100MB limit)
+*.exe
+release/
+client/release/
