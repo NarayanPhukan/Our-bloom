@@ -1,6 +1,12 @@
 package com.ourbloom.app.dashboard
 
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +17,11 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentChange
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.ourbloom.app.R
 import com.ourbloom.app.widget.LoveTimerWidgetProvider
 
@@ -18,6 +29,9 @@ class DashboardFragment : Fragment() {
 
     private val viewModel: DashboardViewModel by viewModels()
     private lateinit var galleryAdapter: GalleryAdapter
+    private var heartbeatListener: ListenerRegistration? = null
+    private var cooldownTimer: CountDownTimer? = null
+    private val sessionStartTime = System.currentTimeMillis()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -74,12 +88,43 @@ class DashboardFragment : Fragment() {
             }
         }
 
+        // Real-time Heartbeat button
+        val btnSendHeartbeat = view.findViewById<MaterialButton>(R.id.btn_send_heartbeat)
+        val ivHeartIcon = view.findViewById<ImageView>(R.id.iv_heartbeat_icon)
+        btnSendHeartbeat?.setOnClickListener {
+            triggerHeartbeatHaptic()
+            ivHeartIcon?.animate()?.scaleX(1.4f)?.scaleY(1.4f)?.setDuration(120)?.withEndAction {
+                ivHeartIcon.animate().scaleX(1.0f).scaleY(1.0f).setDuration(180).start()
+            }?.start()
+
+            btnSendHeartbeat.isEnabled = false
+
+            viewModel.sendHeartbeat { success ->
+                if (success) {
+                    val partnerNick = viewModel.partnerUser.value?.nicknameForPartner ?: "your partner"
+                    Toast.makeText(context, "Heartbeat sent to $partnerNick! ❤️", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            cooldownTimer?.cancel()
+            cooldownTimer = object : CountDownTimer(15000, 1000) {
+                override fun onTick(millisUntilFinished: Long) {
+                    btnSendHeartbeat.text = "Sent! (${millisUntilFinished / 1000}s)"
+                }
+                override fun onFinish() {
+                    btnSendHeartbeat.isEnabled = true
+                    btnSendHeartbeat.text = "Send Heartbeat 💓"
+                }
+            }.start()
+        }
+
         // Observers
         viewModel.memories.observe(viewLifecycleOwner) { memoryList ->
             galleryAdapter.submitList(memoryList)
         }
         viewModel.couple.observe(viewLifecycleOwner) { couple ->
             if (couple != null) {
+                setupHeartbeatListener(couple.id)
                 // Format since date
                 try {
                     val formatIn = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
@@ -272,6 +317,9 @@ class DashboardFragment : Fragment() {
         
         tvDaysAsNames?.text = "DAYS AS ${leftName.uppercase()} & ${myNicknameForPartner.uppercase()}"
 
+        val tvHeartbeatSubtitle = view?.findViewById<TextView>(R.id.tv_heartbeat_subtitle)
+        tvHeartbeatSubtitle?.text = "Send a live tactile heartbeat pulse to $myNicknameForPartner ❤️"
+
         // Sync data to home screen widget
         context?.let { ctx ->
             LoveTimerWidgetProvider.saveWidgetData(
@@ -284,6 +332,76 @@ class DashboardFragment : Fragment() {
                 leftName
             )
         }
+    }
+
+    private fun triggerHeartbeatHaptic() {
+        try {
+            val pattern = longArrayOf(0, 120, 80, 240)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = requireContext().getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                val effect = VibrationEffect.createWaveform(pattern, -1)
+                vibratorManager?.defaultVibrator?.vibrate(effect)
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = requireContext().getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(pattern, -1)
+                }
+            }
+        } catch (e: Throwable) {
+            // Ignore
+        }
+    }
+
+    private fun setupHeartbeatListener(coupleId: String) {
+        heartbeatListener?.remove()
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        heartbeatListener = FirebaseFirestore.getInstance()
+            .collection("heartbeats")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null || snapshot == null) return@addSnapshotListener
+                for (change in snapshot.documentChanges) {
+                    if (change.type == DocumentChange.Type.ADDED) {
+                        val doc = change.document
+                        val senderId = doc.getString("senderId")
+                        val createdAt = doc.getLong("createdAt") ?: 0L
+                        if (senderId != myUid && createdAt > sessionStartTime && (System.currentTimeMillis() - createdAt) < 30000) {
+                            val senderName = doc.getString("senderName") ?: "Your Love"
+                            triggerHeartbeatHaptic()
+                            showIncomingHeartbeatDialog(senderName)
+                        }
+                    }
+                }
+            }
+    }
+
+    private fun showIncomingHeartbeatDialog(senderName: String) {
+        if (!isAdded || context == null) return
+        try {
+            android.app.AlertDialog.Builder(requireContext())
+                .setTitle("💓 Heartbeat Received")
+                .setMessage("$senderName is thinking of you right now! ❤️")
+                .setPositiveButton("Send Back 💓") { _, _ ->
+                    val btn = view?.findViewById<MaterialButton>(R.id.btn_send_heartbeat)
+                    btn?.performClick()
+                }
+                .setNegativeButton("Close", null)
+                .show()
+        } catch (e: Exception) {
+            // Safe fallback
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        heartbeatListener?.remove()
+        heartbeatListener = null
+        cooldownTimer?.cancel()
+        cooldownTimer = null
     }
 
     private fun showNicknameDialog() {

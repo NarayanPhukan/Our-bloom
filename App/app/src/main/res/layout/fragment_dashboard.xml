@@ -299,6 +299,94 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Real-time Haptic Heartbeat Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_heartbeat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#FF4D6D"
+            app:cardBackgroundColor="#2A1520">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="48dp"
+                        android:layout_height="48dp">
+
+                        <ImageView
+                            android:id="@+id/iv_heartbeat_icon_bg"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:alpha="0.25"
+                            android:src="@drawable/bg_widget_glass" />
+
+                        <ImageView
+                            android:id="@+id/iv_heartbeat_icon"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_favorite"
+                            app:tint="#FF4D6D" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Thinking of You"
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_heartbeat_subtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Send a live tactile heartbeat pulse to your partner ❤️"
+                            android:textAppearance="?attr/textAppearanceBodySmall"
+                            android:textColor="#E2E8F0" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_send_heartbeat"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="16dp"
+                    android:text="Send Heartbeat 💓"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="#E11D48"
+                    app:cornerRadius="16dp"
+                    app:icon="@drawable/ic_favorite"
+                    app:iconGravity="textStart"
+                    app:iconTint="@android:color/white" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Home Screen Widget Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_home_screen_widget"

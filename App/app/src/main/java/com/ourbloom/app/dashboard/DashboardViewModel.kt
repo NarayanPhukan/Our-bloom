@@ -168,4 +168,13 @@ class DashboardViewModel : ViewModel() {
             }
         }
     }
+
+    fun sendHeartbeat(onResult: (Boolean) -> Unit) {
+        val cId = _couple.value?.id ?: return
+        val senderName = _currentUser.value?.let { it.nicknameForPartner ?: it.name } ?: "Your Love"
+        viewModelScope.launch {
+            val success = repository.sendHeartbeat(cId, senderName)
+            onResult(success)
+        }
+    }
 }

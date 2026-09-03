@@ -52,6 +52,23 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun sendHeartbeat(coupleId: String, senderName: String): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        return try {
+            val heartbeatData = hashMapOf(
+                "coupleId" to coupleId,
+                "senderId" to uid,
+                "senderName" to senderName,
+                "createdAt" to System.currentTimeMillis()
+            )
+            db.collection("heartbeats").add(heartbeatData).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error sending heartbeat", e)
+            false
+        }
+    }
+
     suspend fun getUser(userId: String): User? {
         return try {
             val doc = db.collection("users").document(userId).get().await()

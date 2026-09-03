@@ -237,4 +237,56 @@ router.put('/:slug', authMiddleware, coupleMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/couples/:slug/heartbeat — Send real-time heartbeat / "thinking of you" ping
+router.post('/:slug/heartbeat', authMiddleware, coupleMiddleware, async (req, res) => {
+  try {
+    const couple = req.couple;
+    const sender = await User.findById(req.user.userId);
+    const partnerId = couple.user1.toString() === req.user.userId.toString() ? couple.user2 : couple.user1;
+
+    let partner = null;
+    if (partnerId) {
+      partner = await User.findById(partnerId);
+    }
+
+    const senderName = sender ? (sender.nicknameForPartner || sender.name) : 'Your love';
+    const timestamp = Date.now();
+
+    // 1. Broadcast via Socket.io to the couple room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(couple.slug).emit('heartbeat', {
+        senderId: req.user.userId,
+        senderName,
+        timestamp
+      });
+      io.to(couple.slug).emit('notification', {
+        type: 'heartbeat',
+        userId: req.user.userId,
+        senderName,
+        timestamp
+      });
+    }
+
+    // 2. Dispatch FCM push notification to partner
+    if (partner && partner.fcmToken) {
+      const { sendPushNotification } = require('../utils/firebase');
+      sendPushNotification(
+        partner.fcmToken,
+        `${senderName} sent you a Heartbeat ❤️`,
+        'Thinking of you right now... tap to send one back!',
+        {
+          type: 'heartbeat',
+          senderName: String(senderName),
+          timestamp: String(timestamp)
+        }
+      ).catch(err => console.error('Heartbeat push error:', err));
+    }
+
+    res.json({ success: true, message: 'Heartbeat sent', timestamp });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

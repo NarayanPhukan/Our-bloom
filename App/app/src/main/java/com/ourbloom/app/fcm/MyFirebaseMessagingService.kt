@@ -6,6 +6,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -21,9 +24,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d("FCMService", "Refreshed token: $token")
+        Log.d(TAG, "Refreshed token: $token")
         
-        // Try to update token in Firestore
         CoroutineScope(Dispatchers.IO).launch {
             val repository = FirestoreRepository()
             repository.updateFcmToken(token)
@@ -32,41 +34,101 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        
-        val title = remoteMessage.notification?.title ?: "Our Bloom"
-        val body = remoteMessage.notification?.body ?: "You have a new message!"
-        
-        sendNotification(title, body)
+
+        val type = remoteMessage.data["type"]
+        val isHeartbeat = type == "heartbeat"
+
+        val title = remoteMessage.notification?.title 
+            ?: (if (isHeartbeat) {
+                val sender = remoteMessage.data["senderName"] ?: "Your Love"
+                "$sender sent you a Heartbeat ❤️"
+            } else {
+                "OurBloom"
+            })
+
+        val body = remoteMessage.notification?.body 
+            ?: (if (isHeartbeat) {
+                "Thinking of you right now... tap to send one back!"
+            } else {
+                "You have a new message!"
+            })
+
+        if (isHeartbeat) {
+            triggerHeartbeatHaptic()
+        }
+
+        sendNotification(title, body, isHeartbeat)
     }
 
-    private fun sendNotification(title: String, messageBody: String) {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    private fun triggerHeartbeatHaptic() {
+        try {
+            val pattern = longArrayOf(0, 120, 80, 240)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                val vibrator = vibratorManager?.defaultVibrator
+                val effect = VibrationEffect.createWaveform(pattern, -1)
+                vibrator?.vibrate(effect)
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(pattern, -1)
+                }
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to trigger haptic: ${e.message}")
+        }
+    }
+
+    private fun sendNotification(title: String, messageBody: String, isHeartbeat: Boolean) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (isHeartbeat) {
+                putExtra("action", "heartbeat_received")
+            }
+        }
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
+            this, 
+            if (isHeartbeat) 4041 else 0, 
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val channelId = "ourbloom_fcm_channel"
-        val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_logo)
-            .setContentTitle(title)
-            .setContentText(messageBody)
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(pendingIntent)
+        val channelId = if (isHeartbeat) "ourbloom_heartbeat_channel" else "ourbloom_fcm_channel"
+        val channelName = if (isHeartbeat) "Heartbeat & Thinking of You" else "Our Bloom Notifications"
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Our Bloom Notifications",
+                channelName,
                 NotificationManager.IMPORTANCE_HIGH
-            )
+            ).apply {
+                enableVibration(true)
+                vibrationPattern = if (isHeartbeat) longArrayOf(0, 120, 80, 240) else longArrayOf(0, 250, 250, 250)
+                description = if (isHeartbeat) "Instant tactile heartbeat notifications from your partner" else "Standard updates"
+            }
             notificationManager.createNotificationChannel(channel)
         }
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(messageBody)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVibrate(if (isHeartbeat) longArrayOf(0, 120, 80, 240) else longArrayOf(0, 250, 250, 250))
+            .setContentIntent(pendingIntent)
+
+        val notifId = if (isHeartbeat) 8888 else System.currentTimeMillis().toInt()
+        notificationManager.notify(notifId, notificationBuilder.build())
+    }
+
+    companion object {
+        private const val TAG = "FCMService"
     }
 }

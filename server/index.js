@@ -55,13 +55,14 @@ if (serviceAccount) {
 }
 
 // Helper to send push notification
-const sendPushNotification = async (userId, title, body) => {
+const sendPushNotification = async (userId, title, body, data = {}) => {
   if (!db || !messaging) return;
   try {
     const userDoc = await db.collection('users').doc(userId).get();
     if (userDoc.exists && userDoc.data().fcmToken) {
       const message = {
         notification: { title, body },
+        data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
         token: userDoc.data().fcmToken
       };
       await messaging.send(message);
@@ -78,20 +79,38 @@ const setupFirestoreListeners = () => {
   if (!db) return;
   console.log('✿ Setting up Firestore real-time listeners for push notifications...');
 
-  const notifyPartner = async (coupleId, authorUid, title, body) => {
+  const notifyPartner = async (coupleId, authorUid, title, body, data = {}) => {
     try {
       const coupleDoc = await db.collection('couples').doc(coupleId).get();
       if (coupleDoc.exists) {
         const { user1, user2 } = coupleDoc.data();
         const partner = authorUid === user1 ? user2 : (authorUid === user2 ? user1 : user2);
         if (partner) {
-          sendPushNotification(partner, title, body);
+          sendPushNotification(partner, title, body, data);
         }
       }
     } catch (e) {
       console.error('Error notifying partner', e);
     }
   };
+
+  db.collection('heartbeats').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        const hb = change.doc.data();
+        const age = Date.now() - (hb.createdAt || 0);
+        if (age < 120000) {
+          notifyPartner(
+            hb.coupleId,
+            hb.senderId,
+            `${hb.senderName || 'Your Love'} sent you a Heartbeat ❤️`,
+            'Thinking of you right now... tap to send one back!',
+            { type: 'heartbeat', senderName: hb.senderName || 'Your Love' }
+          );
+        }
+      }
+    });
+  });
   
   db.collection('loveNotes').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
@@ -174,6 +193,14 @@ io.on('connection', (socket) => {
     if (slug) {
       socket.join(slug);
       console.log(`✿ Socket joined room: ${slug}`);
+    }
+  });
+
+  socket.on('sendHeartbeat', (data) => {
+    const slug = data?.slug || socket.handshake.auth.coupleSlug;
+    if (slug) {
+      socket.to(slug).emit('heartbeat', data);
+      console.log(`✿ Heartbeat relayed to room: ${slug}`);
     }
   });
 
