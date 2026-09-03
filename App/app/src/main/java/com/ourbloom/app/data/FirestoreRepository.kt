@@ -3,10 +3,12 @@ package com.ourbloom.app.data
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import android.net.Uri
 import android.content.Context
 import java.util.UUID
+import com.ourbloom.app.data.models.ChatMessage
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.Milestone
 import com.ourbloom.app.data.models.User
@@ -18,6 +20,7 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 
 class FirestoreRepository {
@@ -365,6 +368,141 @@ class FirestoreRepository {
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error deleting memory", e)
             false
+        }
+    }
+
+    suspend fun sendChatMessage(
+        coupleId: String,
+        text: String,
+        imageUrl: String? = null,
+        senderName: String
+    ): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        return try {
+            val messageData = hashMapOf(
+                "coupleId" to coupleId,
+                "senderId" to uid,
+                "senderName" to senderName,
+                "text" to text,
+                "imageUrl" to (imageUrl ?: ""),
+                "timestamp" to System.currentTimeMillis(),
+                "isRead" to false
+            )
+            db.collection("chat_messages").add(messageData).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error sending chat message", e)
+            false
+        }
+    }
+
+    fun getChatMessagesListener(
+        coupleId: String,
+        onMessages: (List<ChatMessage>) -> Unit
+    ): ListenerRegistration {
+        return db.collection("chat_messages")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    Log.e("FirestoreRepo", "Chat listener error", error)
+                    return@addSnapshotListener
+                }
+                val messages = snapshot.documents.mapNotNull { it.toObject(ChatMessage::class.java) }
+                    .sortedBy { it.timestamp }
+                onMessages(messages)
+            }
+    }
+
+    suspend fun exportChatBackupJson(coupleId: String): String {
+        return try {
+            val snapshot = db.collection("chat_messages")
+                .whereEqualTo("coupleId", coupleId)
+                .get()
+                .await()
+
+            val messages = snapshot.documents.mapNotNull { it.toObject(ChatMessage::class.java) }
+                .sortedBy { it.timestamp }
+
+            val jsonArray = JSONArray()
+            for (msg in messages) {
+                val obj = JSONObject().apply {
+                    put("id", msg.id)
+                    put("coupleId", msg.coupleId)
+                    put("senderId", msg.senderId)
+                    put("senderName", msg.senderName)
+                    put("text", msg.text)
+                    put("imageUrl", msg.imageUrl ?: "")
+                    put("timestamp", msg.timestamp)
+                    put("isRead", msg.isRead)
+                }
+                jsonArray.put(obj)
+            }
+
+            val backupObj = JSONObject().apply {
+                put("appName", "OurBloom")
+                put("version", 1)
+                put("coupleId", coupleId)
+                put("exportedAt", System.currentTimeMillis())
+                put("totalMessages", messages.size)
+                put("messages", jsonArray)
+            }
+
+            backupObj.toString(2)
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error exporting chat backup", e)
+            throw e
+        }
+    }
+
+    suspend fun importChatBackupJson(coupleId: String, jsonString: String): Int {
+        return try {
+            val backupObj = JSONObject(jsonString)
+            val appName = backupObj.optString("appName")
+            if (appName != "OurBloom") {
+                throw IllegalArgumentException("Invalid backup file: Not an OurBloom backup")
+            }
+
+            val messagesArray = backupObj.optJSONArray("messages") ?: JSONArray()
+            var importedCount = 0
+
+            val existingSnapshot = db.collection("chat_messages")
+                .whereEqualTo("coupleId", coupleId)
+                .get()
+                .await()
+            val existingSignatures = existingSnapshot.documents.map { 
+                "${it.getString("senderId")}_${it.getLong("timestamp")}" 
+            }.toSet()
+
+            val batch = db.batch()
+            for (i in 0 until messagesArray.length()) {
+                val obj = messagesArray.getJSONObject(i)
+                val senderId = obj.optString("senderId")
+                val timestamp = obj.optLong("timestamp")
+                val sig = "${senderId}_${timestamp}"
+
+                if (!existingSignatures.contains(sig)) {
+                    val docRef = db.collection("chat_messages").document()
+                    val data = hashMapOf(
+                        "coupleId" to coupleId,
+                        "senderId" to senderId,
+                        "senderName" to obj.optString("senderName", "Partner"),
+                        "text" to obj.optString("text", ""),
+                        "imageUrl" to obj.optString("imageUrl", ""),
+                        "timestamp" to timestamp,
+                        "isRead" to obj.optBoolean("isRead", true)
+                    )
+                    batch.set(docRef, data)
+                    importedCount++
+                }
+            }
+
+            if (importedCount > 0) {
+                batch.commit().await()
+            }
+            importedCount
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error importing chat backup", e)
+            throw e
         }
     }
 }

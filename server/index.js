@@ -146,6 +146,25 @@ const setupFirestoreListeners = () => {
     });
   });
 
+  db.collection('chat_messages').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        const msg = change.doc.data();
+        const age = Date.now() - (msg.timestamp || 0);
+        if (age < 120000) {
+          const bodyText = msg.text ? msg.text : (msg.imageUrl ? '📷 Sent a photo' : 'New message');
+          notifyPartner(
+            msg.coupleId,
+            msg.senderId,
+            `${msg.senderName || 'Your Love'} 💬`,
+            bodyText,
+            { type: 'chat', senderName: msg.senderName || 'Your Love', messageId: change.doc.id }
+          );
+        }
+      }
+    });
+  });
+
   db.collection('couples').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added' || change.type === 'modified') {

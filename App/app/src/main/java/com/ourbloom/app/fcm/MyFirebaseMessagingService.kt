@@ -37,11 +37,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val type = remoteMessage.data["type"]
         val isHeartbeat = type == "heartbeat"
+        val isChat = type == "chat"
 
         val title = remoteMessage.notification?.title 
             ?: (if (isHeartbeat) {
                 val sender = remoteMessage.data["senderName"] ?: "Your Love"
                 "$sender sent you a Heartbeat ❤️"
+            } else if (isChat) {
+                val sender = remoteMessage.data["senderName"] ?: "Your Love"
+                "$sender 💬"
             } else {
                 "OurBloom"
             })
@@ -49,6 +53,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val body = remoteMessage.notification?.body 
             ?: (if (isHeartbeat) {
                 "Thinking of you right now... tap to send one back!"
+            } else if (isChat) {
+                "Sent you a new message"
             } else {
                 "You have a new message!"
             })
@@ -57,7 +63,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             triggerHeartbeatHaptic()
         }
 
-        sendNotification(title, body, isHeartbeat)
+        sendNotification(title, body, isHeartbeat, isChat)
     }
 
     private fun triggerHeartbeatHaptic() {
@@ -83,22 +89,32 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
-    private fun sendNotification(title: String, messageBody: String, isHeartbeat: Boolean) {
+    private fun sendNotification(title: String, messageBody: String, isHeartbeat: Boolean, isChat: Boolean) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             if (isHeartbeat) {
                 putExtra("action", "heartbeat_received")
+            } else if (isChat) {
+                putExtra("action", "open_chat")
             }
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 
-            if (isHeartbeat) 4041 else 0, 
+            if (isHeartbeat) 4041 else (if (isChat) 4042 else 0), 
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val channelId = if (isHeartbeat) "ourbloom_heartbeat_channel" else "ourbloom_fcm_channel"
-        val channelName = if (isHeartbeat) "Heartbeat & Thinking of You" else "Our Bloom Notifications"
+        val channelId = when {
+            isHeartbeat -> "ourbloom_heartbeat_channel"
+            isChat -> "ourbloom_chat_channel"
+            else -> "ourbloom_fcm_channel"
+        }
+        val channelName = when {
+            isHeartbeat -> "Heartbeat & Thinking of You"
+            isChat -> "Couple Chat Messages"
+            else -> "Our Bloom Notifications"
+        }
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 

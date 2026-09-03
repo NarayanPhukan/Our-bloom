@@ -3,6 +3,7 @@ package com.ourbloom.app
 import android.os.Bundle
 import android.util.Log
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,6 +80,20 @@ class MainActivity : AppCompatActivity() {
                     bottomNav.visibility = View.VISIBLE
                 }
             }
+        }
+
+        if (intent?.getStringExtra("action") == "open_chat") {
+            navController.navigate(R.id.chatFragment)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+        val navController = navHostFragment?.navController
+        if (intent.getStringExtra("action") == "open_chat") {
+            navController?.navigate(R.id.chatFragment)
         }
     }
 
