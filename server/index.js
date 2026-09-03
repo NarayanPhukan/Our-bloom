@@ -28,8 +28,9 @@ let serviceAccount;
 try {
   serviceAccount = require('./firebase-service-account.json');
 } catch (e) {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (rawServiceAccount) {
+    serviceAccount = JSON.parse(rawServiceAccount);
   }
 }
 
@@ -60,9 +61,20 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
     const userDoc = await db.collection('users').doc(userId).get();
     if (userDoc.exists && userDoc.data().fcmToken) {
+      const isHeartbeat = data.type === 'heartbeat';
       const message = {
         notification: { title, body },
         data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: isHeartbeat ? 'ourbloom_heartbeat_channel' : 'ourbloom_fcm_channel',
+            priority: 'max',
+            sound: 'default',
+            defaultVibrateTimings: !isHeartbeat,
+            vibrateTimingsMillis: isHeartbeat ? [0, 120, 80, 240] : undefined
+          }
+        },
         token: userDoc.data().fcmToken
       };
       await messaging.send(message);

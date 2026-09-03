@@ -46,10 +46,12 @@ class MemoriesAdapter(
             if (memory.imageUrl.isNotEmpty()) {
                 Glide.with(itemView.context)
                     .load(memory.imageUrl)
+                    .placeholder(R.drawable.placeholder_memory)
+                    .error(R.drawable.placeholder_memory)
                     .centerCrop()
                     .into(ivImage)
             } else {
-                ivImage.setImageResource(0)
+                ivImage.setImageResource(R.drawable.placeholder_memory)
             }
             
             itemView.setOnClickListener {

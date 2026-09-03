@@ -174,8 +174,9 @@ class DashboardViewModel : ViewModel() {
         val senderName = _partnerUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
             ?: _currentUser.value?.name?.takeIf { it.isNotBlank() }
             ?: "Your Love"
+        val slug = _couple.value?.slug
         viewModelScope.launch {
-            val success = repository.sendHeartbeat(cId, senderName)
+            val success = repository.sendHeartbeat(cId, senderName, slug)
             onResult(success)
         }
     }

@@ -52,7 +52,7 @@ class FirestoreRepository {
         }
     }
 
-    suspend fun sendHeartbeat(coupleId: String, senderName: String): Boolean {
+    suspend fun sendHeartbeat(coupleId: String, senderName: String, coupleSlug: String? = null): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {
             val heartbeatData = hashMapOf(
@@ -62,6 +62,26 @@ class FirestoreRepository {
                 "createdAt" to System.currentTimeMillis()
             )
             db.collection("heartbeats").add(heartbeatData).await()
+
+            if (!coupleSlug.isNullOrBlank()) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val url = "$baseUrl/api/couples/$coupleSlug/heartbeat"
+                        val json = JSONObject().apply {
+                            put("senderName", senderName)
+                        }
+                        val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                        val request = Request.Builder()
+                            .url(url)
+                            .post(body)
+                            .build()
+                        client.newCall(request).execute().close()
+                    } catch (e: Exception) {
+                        Log.e("FirestoreRepo", "Heartbeat API call error: ${e.message}")
+                    }
+                }
+            }
+
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error sending heartbeat", e)
@@ -275,7 +295,7 @@ class FirestoreRepository {
                     val json = JSONObject(responseBody)
                     val urlPath = json.optString("url", "")
                     if (urlPath.isNotEmpty()) {
-                        return@withContext baseUrl + urlPath
+                        return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
                     }
                 }
             }
@@ -315,7 +335,7 @@ class FirestoreRepository {
                     val json = JSONObject(responseBody)
                     val urlPath = json.optString("url", "")
                     if (urlPath.isNotEmpty()) {
-                        return@withContext baseUrl + urlPath
+                        return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
                     }
                 }
             }

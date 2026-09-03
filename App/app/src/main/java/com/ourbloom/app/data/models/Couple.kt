@@ -12,5 +12,6 @@ data class Couple(
     val startTime: String = "00:00",
     val joinCode: String = "",
     val spotifyTrackId: String = "4O2N861eOnF9q8EtpH8IJu",
-    val heroImageUrl: String = ""
+    val heroImageUrl: String = "",
+    val slug: String = ""
 )
