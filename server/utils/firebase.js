@@ -57,7 +57,18 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
     console.log('✿ Push notification sent successfully:', response);
     return true;
   } catch (error) {
-    console.error('✿ Error sending push notification:', error);
+    const isUnregistered = 
+      error?.code === 'messaging/registration-token-not-registered' ||
+      error?.errorInfo?.code === 'messaging/registration-token-not-registered' ||
+      error?.details?.some?.(d => d.errorCode === 'UNREGISTERED') ||
+      error?.message?.includes('NotRegistered') ||
+      error?.status === 404;
+
+    if (isUnregistered) {
+      console.warn('✿ FCM registration token is expired or unregistered.');
+    } else {
+      console.error('✿ Error sending push notification:', error?.message || error);
+    }
     return false;
   }
 };

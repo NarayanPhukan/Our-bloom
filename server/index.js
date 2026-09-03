@@ -81,7 +81,21 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
       console.log(`✿ Push notification sent to user ${userId}`);
     }
   } catch (err) {
-    console.error(`✿ Error sending push notification to user ${userId}:`, err);
+    const isUnregistered = 
+      err?.code === 'messaging/registration-token-not-registered' ||
+      err?.errorInfo?.code === 'messaging/registration-token-not-registered' ||
+      err?.details?.some?.(d => d.errorCode === 'UNREGISTERED') ||
+      err?.message?.includes('NotRegistered') ||
+      err?.status === 404;
+
+    if (isUnregistered) {
+      console.warn(`✿ Stale FCM token for user ${userId} is unregistered/expired. Clearing from database.`);
+      try {
+        await db.collection('users').doc(userId).update({ fcmToken: null });
+      } catch (_) {}
+    } else {
+      console.error(`✿ Error sending push notification to user ${userId}:`, err?.message || err);
+    }
   }
 };
 

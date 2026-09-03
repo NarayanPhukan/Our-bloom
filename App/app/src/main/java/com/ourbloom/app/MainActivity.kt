@@ -17,6 +17,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.updates.AppUpdateHelper
@@ -61,6 +62,12 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         setupBackgroundWorkers()
         fetchAndSaveFcmToken()
+
+        FirebaseAuth.getInstance().addAuthStateListener { auth ->
+            if (auth.currentUser != null) {
+                fetchAndSaveFcmToken()
+            }
+        }
     }
     
     private fun setupNavigation() {
