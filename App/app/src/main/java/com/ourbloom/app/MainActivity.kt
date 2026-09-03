@@ -37,8 +37,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        appUpdateHelper = AppUpdateHelper(this)
-        appUpdateHelper.checkForUpdates()
+        try {
+            appUpdateHelper = AppUpdateHelper(this)
+            appUpdateHelper.checkForUpdates()
+        } catch (e: Throwable) {
+            Log.e("MainActivity", "AppUpdateHelper error: ${e.message}")
+        }
         
         requestPermissions.launch(arrayOf(
             Manifest.permission.CAMERA,
@@ -113,8 +117,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        appUpdateHelper.resumeUpdates()
-        WorkManager.getInstance(this).cancelUniqueWork("InactivityReminderWork")
-        com.ourbloom.app.widget.WidgetLiveUpdateService.start(this)
+        try {
+            appUpdateHelper.resumeUpdates()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error resuming updates: ${e.message}")
+        }
+        try {
+            WorkManager.getInstance(this).cancelUniqueWork("InactivityReminderWork")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error cancelling work: ${e.message}")
+        }
     }
 }

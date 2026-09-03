@@ -36,30 +36,34 @@ class WidgetLiveUpdateService : Service() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                Intent.ACTION_SCREEN_ON -> {
-                    isScreenOn = true
-                    LoveTimerWidgetProvider.updateAllWidgets(applicationContext)
-                    startTicker()
+            try {
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_ON -> {
+                        isScreenOn = true
+                        LoveTimerWidgetProvider.updateAllWidgets(applicationContext)
+                        startTicker()
+                    }
+                    Intent.ACTION_SCREEN_OFF -> {
+                        isScreenOn = false
+                        stopTicker()
+                    }
+                    Intent.ACTION_TIME_TICK,
+                    Intent.ACTION_TIME_CHANGED,
+                    Intent.ACTION_TIMEZONE_CHANGED -> {
+                        LoveTimerWidgetProvider.updateAllWidgets(applicationContext)
+                    }
                 }
-                Intent.ACTION_SCREEN_OFF -> {
-                    isScreenOn = false
-                    stopTicker()
-                }
-                Intent.ACTION_TIME_TICK,
-                Intent.ACTION_TIME_CHANGED,
-                Intent.ACTION_TIMEZONE_CHANGED -> {
-                    LoveTimerWidgetProvider.updateAllWidgets(applicationContext)
-                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Error in screenReceiver: ${e.message}")
             }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-
         try {
+            createNotificationChannel()
+
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             isScreenOn = powerManager?.isInteractive ?: true
 
@@ -72,23 +76,28 @@ class WidgetLiveUpdateService : Service() {
             }
             registerReceiver(screenReceiver, filter)
             receiverRegistered = true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error registering receiver: ${e.message}")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error in onCreate: ${e.message}")
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // ALWAYS promote to foreground first to prevent ForegroundServiceDidNotStartInTimeException
+        startForegroundNotification()
+
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val thisWidget = ComponentName(this, LoveTimerWidgetProvider::class.java)
         val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
 
         if (allWidgetIds.isEmpty()) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } catch (e: Throwable) {
+                // Ignore
+            }
             stopSelf()
             return START_NOT_STICKY
         }
-
-        startForegroundNotification()
 
         if (isScreenOn) {
             startTicker()
@@ -135,7 +144,7 @@ class WidgetLiveUpdateService : Service() {
                 .setSilent(true)
                 .build()
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14+
                 ServiceCompat.startForeground(
                     this,
                     NOTIFICATION_ID,
@@ -145,7 +154,7 @@ class WidgetLiveUpdateService : Service() {
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Error starting foreground notification: ${e.message}")
         }
     }
@@ -154,15 +163,19 @@ class WidgetLiveUpdateService : Service() {
         tickerJob?.cancel()
         tickerJob = serviceScope.launch {
             while (isActive && isScreenOn) {
-                val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
-                val thisWidget = ComponentName(applicationContext, LoveTimerWidgetProvider::class.java)
-                val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
-                if (allWidgetIds.isEmpty()) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                    break
+                try {
+                    val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
+                    val thisWidget = ComponentName(applicationContext, LoveTimerWidgetProvider::class.java)
+                    val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
+                    if (allWidgetIds.isEmpty()) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                        break
+                    }
+                    LoveTimerWidgetProvider.updateAllWidgets(applicationContext)
+                } catch (e: Throwable) {
+                    Log.e(TAG, "Error during widget tick: ${e.message}")
                 }
-                LoveTimerWidgetProvider.updateAllWidgets(applicationContext)
                 delay(1000L)
             }
         }
@@ -179,7 +192,7 @@ class WidgetLiveUpdateService : Service() {
         if (receiverRegistered) {
             try {
                 unregisterReceiver(screenReceiver)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Ignore
             }
             receiverRegistered = false
@@ -195,14 +208,26 @@ class WidgetLiveUpdateService : Service() {
 
         fun start(context: Context) {
             try {
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val thisWidget = ComponentName(context, LoveTimerWidgetProvider::class.java)
+                val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
+                if (allWidgetIds.isEmpty()) {
+                    // Do NOT start service if no widgets exist!
+                    return
+                }
+
                 val intent = Intent(context, WidgetLiveUpdateService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
+                    try {
+                        context.startForegroundService(intent)
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "startForegroundService restricted: ${e.message}")
+                    }
                 } else {
                     context.startService(intent)
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not start service directly: ${e.message}")
+            } catch (e: Throwable) {
+                Log.w(TAG, "Could not start service: ${e.message}")
             }
         }
 
@@ -210,7 +235,7 @@ class WidgetLiveUpdateService : Service() {
             try {
                 val intent = Intent(context, WidgetLiveUpdateService::class.java)
                 context.stopService(intent)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Ignore
             }
         }

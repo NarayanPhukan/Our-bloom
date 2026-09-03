@@ -24,17 +24,29 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
-        WidgetLiveUpdateService.start(context)
+        try {
+            WidgetLiveUpdateService.start(context)
+        } catch (e: Throwable) {
+            // Safe fallback
+        }
     }
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WidgetLiveUpdateService.start(context)
+        try {
+            WidgetLiveUpdateService.start(context)
+        } catch (e: Throwable) {
+            // Safe fallback
+        }
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        WidgetLiveUpdateService.stop(context)
+        try {
+            WidgetLiveUpdateService.stop(context)
+        } catch (e: Throwable) {
+            // Safe fallback
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -168,7 +180,11 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
                 apply()
             }
             updateAllWidgets(context)
-            WidgetLiveUpdateService.start(context)
+            try {
+                WidgetLiveUpdateService.start(context)
+            } catch (e: Throwable) {
+                // Safe fallback
+            }
         }
 
         fun updateAllWidgets(context: Context) {
