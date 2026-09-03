@@ -171,7 +171,9 @@ class DashboardViewModel : ViewModel() {
 
     fun sendHeartbeat(onResult: (Boolean) -> Unit) {
         val cId = _couple.value?.id ?: return
-        val senderName = _currentUser.value?.let { it.nicknameForPartner ?: it.name } ?: "Your Love"
+        val senderName = _partnerUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
+            ?: _currentUser.value?.name?.takeIf { it.isNotBlank() }
+            ?: "Your Love"
         viewModelScope.launch {
             val success = repository.sendHeartbeat(cId, senderName)
             onResult(success)

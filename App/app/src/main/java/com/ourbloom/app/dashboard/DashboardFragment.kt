@@ -101,7 +101,9 @@ class DashboardFragment : Fragment() {
 
             viewModel.sendHeartbeat { success ->
                 if (success) {
-                    val partnerNick = viewModel.partnerUser.value?.nicknameForPartner ?: "your partner"
+                    val partnerNick = viewModel.currentUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
+                        ?: viewModel.partnerUser.value?.name
+                        ?: "your partner"
                     Toast.makeText(context, "Heartbeat sent to $partnerNick! ❤️", Toast.LENGTH_SHORT).show()
                 }
             }

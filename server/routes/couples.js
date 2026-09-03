@@ -249,7 +249,7 @@ router.post('/:slug/heartbeat', authMiddleware, coupleMiddleware, async (req, re
       partner = await User.findById(partnerId);
     }
 
-    const senderName = sender ? (sender.nicknameForPartner || sender.name) : 'Your love';
+    const senderName = (partner && partner.nicknameForPartner) ? partner.nicknameForPartner : (sender ? sender.name : 'Your love');
     const timestamp = Date.now();
 
     // 1. Broadcast via Socket.io to the couple room
