@@ -13,6 +13,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import android.content.res.ColorStateList
+
 class ChatAdapter(
     private val currentUserId: String,
     private val onImageClick: (String) -> Unit = {}
@@ -21,6 +23,8 @@ class ChatAdapter(
     companion object {
         private const val VIEW_TYPE_SENT = 1
         private const val VIEW_TYPE_RECEIVED = 2
+        private const val COLOR_TICK_READ = 0xFF34B7F1.toInt() // WhatsApp blue
+        private const val COLOR_TICK_DEFAULT = 0xFFE0E0E0.toInt() // Subtle grey/white
     }
 
     private val messages = mutableListOf<ChatMessage>()
@@ -71,6 +75,8 @@ class ChatAdapter(
     inner class SentMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
+        private val ivStatus: ImageView = itemView.findViewById(R.id.iv_chat_status)
+        private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
 
         fun bind(message: ChatMessage) {
@@ -83,8 +89,30 @@ class ChatAdapter(
 
             tvTime.text = timeFormat.format(Date(message.timestamp))
 
+            // WhatsApp-style status ticks:
+            // 1. Double Blue Tick: read by receiver
+            // 2. Double Grey Tick: delivered to receiver's device
+            // 3. Single Grey Tick: sent to server, receiver not yet received
+            when {
+                message.isRead -> {
+                    ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
+                    ivStatus.imageTintList = ColorStateList.valueOf(COLOR_TICK_READ)
+                    ivStatus.contentDescription = "Read"
+                }
+                message.isDelivered -> {
+                    ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
+                    ivStatus.imageTintList = ColorStateList.valueOf(COLOR_TICK_DEFAULT)
+                    ivStatus.contentDescription = "Delivered"
+                }
+                else -> {
+                    ivStatus.setImageResource(R.drawable.ic_msg_status_single_tick)
+                    ivStatus.imageTintList = ColorStateList.valueOf(COLOR_TICK_DEFAULT)
+                    ivStatus.contentDescription = "Sent"
+                }
+            }
+
             if (!message.imageUrl.isNullOrBlank()) {
-                ivImage.visibility = View.VISIBLE
+                cardImage.visibility = View.VISIBLE
                 Glide.with(itemView.context)
                     .load(message.imageUrl)
                     .placeholder(R.drawable.placeholder_memory)
@@ -96,7 +124,7 @@ class ChatAdapter(
                     onImageClick(message.imageUrl)
                 }
             } else {
-                ivImage.visibility = View.GONE
+                cardImage.visibility = View.GONE
             }
         }
     }
@@ -105,6 +133,7 @@ class ChatAdapter(
         private val tvSender: TextView = itemView.findViewById(R.id.tv_chat_sender)
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
+        private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
         private val ivPartnerAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
 
@@ -121,7 +150,7 @@ class ChatAdapter(
                 ivPartnerAvatar.setPadding(0, 0, 0, 0)
             } else {
                 ivPartnerAvatar.setImageResource(R.drawable.ic_favorite)
-                ivPartnerAvatar.imageTintList = android.content.res.ColorStateList.valueOf(0xFFE85D75.toInt())
+                ivPartnerAvatar.imageTintList = ColorStateList.valueOf(0xFFE85D75.toInt())
                 val p = (5 * itemView.context.resources.displayMetrics.density).toInt()
                 ivPartnerAvatar.setPadding(p, p, p, p)
             }
@@ -136,7 +165,7 @@ class ChatAdapter(
             tvTime.text = timeFormat.format(Date(message.timestamp))
 
             if (!message.imageUrl.isNullOrBlank()) {
-                ivImage.visibility = View.VISIBLE
+                cardImage.visibility = View.VISIBLE
                 Glide.with(itemView.context)
                     .load(message.imageUrl)
                     .placeholder(R.drawable.placeholder_memory)
@@ -148,7 +177,7 @@ class ChatAdapter(
                     onImageClick(message.imageUrl)
                 }
             } else {
-                ivImage.visibility = View.GONE
+                cardImage.visibility = View.GONE
             }
         }
     }

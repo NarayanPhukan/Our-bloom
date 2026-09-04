@@ -42,6 +42,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.MediaRecorder
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import androidx.core.content.ContextCompat
+import java.io.File
+
 class ChatFragment : Fragment() {
 
     private lateinit var repository: FirestoreRepository
@@ -54,10 +63,12 @@ class ChatFragment : Fragment() {
     private lateinit var btnAttach: ImageButton
     private lateinit var btnSettings: ImageButton
     private lateinit var tvPartnerName: TextView
+    private lateinit var tvChatStatus: TextView
     private lateinit var ivPartnerAvatar: ImageView
     private lateinit var layoutEmpty: View
 
     private var messagesListener: ListenerRegistration? = null
+    private var typingListener: ListenerRegistration? = null
     private var currentCouple: Couple? = null
     private var currentUser: User? = null
     private var partnerUser: User? = null
@@ -65,6 +76,35 @@ class ChatFragment : Fragment() {
 
     private var pendingBackupJson: String? = null
     private var settingsDialog: BottomSheetDialog? = null
+
+    // Typing debounce handler
+    private val typingHandler = Handler(Looper.getMainLooper())
+    private var isCurrentlyTyping = false
+    private val stopTypingRunnable = Runnable {
+        if (isCurrentlyTyping) {
+            isCurrentlyTyping = false
+            val cId = currentCouple?.id ?: return@Runnable
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@Runnable
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.setTypingStatus(cId, uid, "idle")
+            }
+        }
+    }
+
+    // Voice recording
+    private var mediaRecorder: MediaRecorder? = null
+    private var audioRecordingFile: File? = null
+    private var isRecordingAudio = false
+
+    private val requestAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(requireContext(), "Microphone ready! Hold mic to record.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(requireContext(), "Microphone permission needed to record audio.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Google Sign-In launcher for connecting account
     private val googleSignInLauncher = registerForActivityResult(
@@ -218,6 +258,7 @@ class ChatFragment : Fragment() {
         btnAttach = view.findViewById(R.id.btn_attach_photo)
         btnSettings = view.findViewById(R.id.btn_chat_settings)
         tvPartnerName = view.findViewById(R.id.tv_chat_partner_name)
+        tvChatStatus = view.findViewById(R.id.tv_chat_status)
         ivPartnerAvatar = view.findViewById(R.id.iv_partner_avatar)
         layoutEmpty = view.findViewById(R.id.layout_chat_empty)
 
@@ -236,28 +277,79 @@ class ChatFragment : Fragment() {
         rvMessages.layoutManager = layoutManager
         rvMessages.adapter = chatAdapter
 
-        // Dynamically toggle Mic / Send icon like WhatsApp
+        // Dynamically toggle Mic / Send icon like WhatsApp & push typing state
         etInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val hasText = !s.isNullOrBlank()
+                val cId = currentCouple?.id
+                val uid = FirebaseAuth.getInstance().currentUser?.uid
+
                 if (hasText) {
                     btnSend.setImageResource(R.drawable.ic_send_rounded)
                     btnSend.contentDescription = "Send Message"
+
+                    if (cId != null && uid != null) {
+                        typingHandler.removeCallbacks(stopTypingRunnable)
+                        if (!isCurrentlyTyping) {
+                            isCurrentlyTyping = true
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                repository.setTypingStatus(cId, uid, "typing")
+                            }
+                        }
+                        typingHandler.postDelayed(stopTypingRunnable, 3000)
+                    }
                 } else {
                     btnSend.setImageResource(R.drawable.ic_mic_whatsapp)
                     btnSend.contentDescription = "Voice Note"
+
+                    if (isCurrentlyTyping) {
+                        isCurrentlyTyping = false
+                        typingHandler.removeCallbacks(stopTypingRunnable)
+                        if (cId != null && uid != null) {
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                repository.setTypingStatus(cId, uid, "idle")
+                            }
+                        }
+                    }
                 }
             }
             override fun afterTextChanged(s: Editable?) {}
         })
 
+        // WhatsApp-style dual button: Tap to Send (when text present) / Hold to Record (when empty)
+        btnSend.setOnTouchListener { _, event ->
+            val hasText = !etInput.text.isNullOrBlank()
+            if (hasText) {
+                // Return false so normal OnClickListener executes for sending text
+                return@setOnTouchListener false
+            }
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        startVoiceRecording()
+                    } else {
+                        requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    stopVoiceRecording(send = true)
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    stopVoiceRecording(send = false)
+                    true
+                }
+                else -> false
+            }
+        }
+
         btnSend.setOnClickListener {
             val text = etInput.text?.toString()?.trim() ?: ""
             if (text.isNotEmpty()) {
                 sendMessage()
-            } else {
-                Toast.makeText(requireContext(), "Hold to record voice note 🎙️", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -330,6 +422,29 @@ class ChatFragment : Fragment() {
                         ?: "Your Love"
 
                     setupMessagesListener(cId)
+                    if (partnerId.isNotBlank()) {
+                        setupTypingListener(cId, partnerId)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setupTypingListener(coupleId: String, partnerId: String) {
+        typingListener?.remove()
+        typingListener = repository.listenTypingStatus(coupleId, partnerId) { status ->
+            when (status) {
+                "typing" -> {
+                    tvChatStatus.text = "typing..."
+                    tvChatStatus.setTextColor(0xFF25D366.toInt()) // WhatsApp green
+                }
+                "recording" -> {
+                    tvChatStatus.text = "🎙️ recording audio..."
+                    tvChatStatus.setTextColor(0xFFE85D75.toInt()) // Rose accent
+                }
+                else -> {
+                    tvChatStatus.text = "Forever blooming together 🌸"
+                    tvChatStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.chat_header_subtitle))
                 }
             }
         }
@@ -345,22 +460,126 @@ class ChatFragment : Fragment() {
             } else {
                 layoutEmpty.visibility = View.VISIBLE
             }
+
+            // Real-time WhatsApp double blue ticks: mark partner messages as read & delivered
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val hasUnreadFromPartner = messages.any { 
+                it.senderId.isNotBlank() && it.senderId != currentUid && (!it.isRead || !it.isDelivered) 
+            }
+            if (hasUnreadFromPartner) {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    repository.markMessagesAsRead(coupleId, currentUid)
+                }
+            }
         }
+    }
+
+    private fun startVoiceRecording() {
+        val coupleId = currentCouple?.id ?: return
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        try {
+            val file = File(requireContext().cacheDir, "voice_chat_${System.currentTimeMillis()}.m4a")
+            audioRecordingFile = file
+
+            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(requireContext())
+            } else {
+                @Suppress("DEPRECATION")
+                MediaRecorder()
+            }.apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(128000)
+                setAudioSamplingRate(44100)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+            isRecordingAudio = true
+            triggerSendHaptic()
+
+            // Broadcast recording status to partner
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.setTypingStatus(coupleId, uid, "recording")
+            }
+            Toast.makeText(requireContext(), "Recording voice note... 🎙️", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("ChatFragment", "Failed to start audio recording", e)
+            isRecordingAudio = false
+            try { mediaRecorder?.release() } catch (_: Exception) {}
+            mediaRecorder = null
+        }
+    }
+
+    private fun stopVoiceRecording(send: Boolean) {
+        if (!isRecordingAudio) return
+        isRecordingAudio = false
+
+        val coupleId = currentCouple?.id
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (coupleId != null && uid != null) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.setTypingStatus(coupleId, uid, "idle")
+            }
+        }
+
+        try {
+            mediaRecorder?.stop()
+            mediaRecorder?.release()
+        } catch (e: Exception) {
+            Log.e("ChatFragment", "Error stopping recorder", e)
+        }
+        mediaRecorder = null
+
+        val file = audioRecordingFile
+        if (send && file != null && file.exists() && file.length() > 1024 && coupleId != null) {
+            triggerSendHaptic()
+            Toast.makeText(requireContext(), "Sending voice note...", Toast.LENGTH_SHORT).show()
+            val uri = Uri.fromFile(file)
+            viewLifecycleOwner.lifecycleScope.launch {
+                val uploadedUrl = repository.uploadAudio(requireContext(), uri)
+                if (!uploadedUrl.isNullOrBlank()) {
+                    repository.sendChatMessage(
+                        coupleId = coupleId,
+                        text = "🎙️ Voice note",
+                        imageUrl = null,
+                        audioUrl = uploadedUrl,
+                        senderName = mySenderName
+                    )
+                } else {
+                    Toast.makeText(requireContext(), "Failed to send voice note", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            file?.delete()
+        }
+        audioRecordingFile = null
     }
 
     private fun sendMessage() {
         val text = etInput.text.toString().trim()
         val coupleId = currentCouple?.id ?: return
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         if (text.isBlank()) return
 
         etInput.setText("")
         triggerSendHaptic()
+
+        if (isCurrentlyTyping) {
+            isCurrentlyTyping = false
+            typingHandler.removeCallbacks(stopTypingRunnable)
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.setTypingStatus(coupleId, currentUid, "idle")
+            }
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             repository.sendChatMessage(
                 coupleId = coupleId,
                 text = text,
                 imageUrl = null,
+                audioUrl = null,
                 senderName = mySenderName
             )
         }
@@ -511,9 +730,30 @@ class ChatFragment : Fragment() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (isCurrentlyTyping) {
+            isCurrentlyTyping = false
+            typingHandler.removeCallbacks(stopTypingRunnable)
+            val cId = currentCouple?.id
+            val uid = FirebaseAuth.getInstance().currentUser?.uid
+            if (cId != null && uid != null) {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    repository.setTypingStatus(cId, uid, "idle")
+                }
+            }
+        }
+        if (isRecordingAudio) {
+            stopVoiceRecording(send = false)
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
+        typingHandler.removeCallbacks(stopTypingRunnable)
         messagesListener?.remove()
         messagesListener = null
+        typingListener?.remove()
+        typingListener = null
     }
 }

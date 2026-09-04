@@ -423,6 +423,7 @@ class FirestoreRepository {
         coupleId: String,
         text: String,
         imageUrl: String? = null,
+        audioUrl: String? = null,
         senderName: String
     ): Boolean {
         val uid = auth.currentUser?.uid ?: return false
@@ -433,8 +434,10 @@ class FirestoreRepository {
                 "senderName" to senderName,
                 "text" to text,
                 "imageUrl" to (imageUrl ?: ""),
+                "audioUrl" to (audioUrl ?: ""),
                 "timestamp" to System.currentTimeMillis(),
-                "isRead" to false
+                "isRead" to false,
+                "isDelivered" to false
             )
             db.collection("chat_messages").add(messageData).await()
             true
@@ -442,6 +445,112 @@ class FirestoreRepository {
             Log.e("FirestoreRepo", "Error sending chat message", e)
             false
         }
+    }
+
+    suspend fun markMessagesDelivered(coupleId: String, currentUserId: String) {
+        if (coupleId.isBlank() || currentUserId.isBlank()) return
+        try {
+            val snapshot = db.collection("chat_messages")
+                .whereEqualTo("coupleId", coupleId)
+                .get()
+                .await()
+
+            val toUpdate = snapshot.documents.filter { doc ->
+                val senderId = doc.getString("senderId") ?: ""
+                val isDelivered = doc.getBoolean("isDelivered") ?: false
+                senderId.isNotBlank() && senderId != currentUserId && !isDelivered
+            }
+
+            if (toUpdate.isNotEmpty()) {
+                val batch = db.batch()
+                toUpdate.forEach { doc ->
+                    batch.update(doc.reference, "isDelivered", true)
+                }
+                batch.commit().await()
+                Log.d("FirestoreRepo", "Marked ${toUpdate.size} messages as delivered")
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking messages delivered", e)
+        }
+    }
+
+    suspend fun markMessagesAsRead(coupleId: String, currentUserId: String) {
+        if (coupleId.isBlank() || currentUserId.isBlank()) return
+        try {
+            val snapshot = db.collection("chat_messages")
+                .whereEqualTo("coupleId", coupleId)
+                .get()
+                .await()
+
+            val toUpdate = snapshot.documents.filter { doc ->
+                val senderId = doc.getString("senderId") ?: ""
+                val isRead = doc.getBoolean("isRead") ?: false
+                val isDelivered = doc.getBoolean("isDelivered") ?: false
+                senderId.isNotBlank() && senderId != currentUserId && (!isRead || !isDelivered)
+            }
+
+            if (toUpdate.isNotEmpty()) {
+                val batch = db.batch()
+                toUpdate.forEach { doc ->
+                    batch.update(
+                        doc.reference,
+                        mapOf(
+                            "isRead" to true,
+                            "isDelivered" to true
+                        )
+                    )
+                }
+                batch.commit().await()
+                Log.d("FirestoreRepo", "Marked ${toUpdate.size} messages as read & delivered")
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking messages as read", e)
+        }
+    }
+
+    suspend fun setTypingStatus(coupleId: String, userId: String, status: String) {
+        if (coupleId.isBlank() || userId.isBlank()) return
+        try {
+            val statusData = hashMapOf<String, Any>(
+                userId to hashMapOf(
+                    "status" to status,
+                    "timestamp" to System.currentTimeMillis()
+                )
+            )
+            db.collection("typing_status").document(coupleId)
+                .set(statusData, com.google.firebase.firestore.SetOptions.merge())
+                .await()
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error setting typing status", e)
+        }
+    }
+
+    fun listenTypingStatus(
+        coupleId: String,
+        partnerId: String,
+        onStatusChange: (status: String) -> Unit
+    ): ListenerRegistration {
+        return db.collection("typing_status").document(coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) {
+                    onStatusChange("idle")
+                    return@addSnapshotListener
+                }
+                val data = snapshot.data
+                @Suppress("UNCHECKED_CAST")
+                val partnerMap = data?.get(partnerId) as? Map<String, Any>
+                val status = partnerMap?.get("status") as? String ?: "idle"
+                val timestamp = (partnerMap?.get("timestamp") as? Number)?.toLong() ?: 0L
+                val timeDiff = System.currentTimeMillis() - timestamp
+
+                // Consider active if within last 6 seconds (or 15s for recording)
+                val maxDiff = if (status == "recording") 15000L else 6000L
+                if (timeDiff < maxDiff && (status == "typing" || status == "recording")) {
+                    onStatusChange(status)
+                } else {
+                    onStatusChange("idle")
+                }
+            }
     }
 
     fun getChatMessagesListener(

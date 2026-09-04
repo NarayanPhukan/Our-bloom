@@ -11,6 +11,8 @@ data class ChatMessage(
     val senderName: String = "",
     val text: String = "",
     val imageUrl: String? = null,
+    val audioUrl: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
-    val isRead: Boolean = false
+    val isRead: Boolean = false,
+    val isDelivered: Boolean = false
 )

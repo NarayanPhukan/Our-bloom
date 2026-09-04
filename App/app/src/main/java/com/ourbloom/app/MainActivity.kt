@@ -115,12 +115,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun fetchAndSaveFcmToken() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val token = task.result
-                Log.d("MainActivity", "FCM Token: $token")
-                CoroutineScope(Dispatchers.IO).launch {
-                    FirestoreRepository().updateFcmToken(token)
-                }
+            if (!task.isSuccessful) {
+                Log.w("MainActivity", "Fetching FCM registration token failed", task.exception)
+                return@addOnCompleteListener
+            }
+            val token = task.result
+            CoroutineScope(Dispatchers.IO).launch {
+                val repository = FirestoreRepository()
+                repository.updateFcmToken(token)
             }
         }
     }
@@ -148,6 +150,20 @@ class MainActivity : AppCompatActivity() {
             WorkManager.getInstance(this).cancelUniqueWork("InactivityReminderWork")
         } catch (e: Exception) {
             Log.e("MainActivity", "Error cancelling work: ${e.message}")
+        }
+
+        if (FirebaseAuth.getInstance().currentUser != null) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val repo = FirestoreRepository()
+                    val user = repo.getCurrentUser()
+                    val cId = user?.coupleId
+                    val uid = user?.uid
+                    if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
+                        repo.markMessagesDelivered(cId, uid)
+                    }
+                } catch (_: Exception) {}
+            }
         }
     }
 }

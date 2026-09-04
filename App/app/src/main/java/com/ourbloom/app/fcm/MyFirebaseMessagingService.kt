@@ -63,6 +63,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             triggerHeartbeatHaptic()
         }
 
+        if (isChat) {
+            val coupleId = remoteMessage.data["coupleId"]
+            val senderId = remoteMessage.data["senderId"]
+            if (!coupleId.isNullOrBlank()) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val repository = FirestoreRepository()
+                        repository.markMessagesDelivered(coupleId, senderId ?: "")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error marking messages delivered from FCM", e)
+                    }
+                }
+            }
+        }
+
         sendNotification(title, body, isHeartbeat, isChat)
     }
 

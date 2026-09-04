@@ -172,9 +172,14 @@ const setupFirestoreListeners = () => {
             msg.senderId,
             `${msg.senderName || 'Your Love'} 💬`,
             bodyText,
-            { type: 'chat', senderName: msg.senderName || 'Your Love', messageId: change.doc.id }
+            { 
+              type: 'chat', 
+              senderName: msg.senderName || 'Your Love', 
+              messageId: change.doc.id,
+              coupleId: msg.coupleId || '',
+              senderId: msg.senderId || ''
+            }
           );
-        }
       }
     });
   });
