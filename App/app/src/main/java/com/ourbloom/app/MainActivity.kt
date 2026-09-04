@@ -26,6 +26,7 @@ import com.ourbloom.app.workers.ReminderWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -127,8 +128,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var deliveryListener: com.google.firebase.firestore.ListenerRegistration? = null
+
     override fun onPause() {
         super.onPause()
+        deliveryListener?.remove()
+        deliveryListener = null
         val reminderRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
             .setInitialDelay(4, TimeUnit.DAYS)
             .build()
@@ -137,6 +142,12 @@ class MainActivity : AppCompatActivity() {
             ExistingWorkPolicy.REPLACE,
             reminderRequest
         )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        deliveryListener?.remove()
+        deliveryListener = null
     }
 
     override fun onResume() {
@@ -152,18 +163,43 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "Error cancelling work: ${e.message}")
         }
 
-        if (FirebaseAuth.getInstance().currentUser != null) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val repo = FirestoreRepository()
                     val user = repo.getCurrentUser()
                     val cId = user?.coupleId
-                    val uid = user?.uid
-                    if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
+                    val uid = user?.uid ?: currentUser.uid
+                    if (!cId.isNullOrBlank()) {
                         repo.markMessagesDelivered(cId, uid)
+                        withContext(Dispatchers.Main) {
+                            startDeliveryListener(cId, uid)
+                        }
                     }
                 } catch (_: Exception) {}
             }
         }
+    }
+
+    private fun startDeliveryListener(cId: String, currentUid: String) {
+        deliveryListener?.remove()
+        deliveryListener = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("chat_messages")
+            .whereEqualTo("coupleId", cId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val undeliveredIds = snapshot.documents.filter { doc ->
+                    val senderId = doc.getString("senderId") ?: ""
+                    val isDelivered = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
+                    senderId.isNotBlank() && senderId != currentUid && !isDelivered
+                }.map { it.id }
+
+                if (undeliveredIds.isNotEmpty()) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        FirestoreRepository().markMessagesDeliveredByIds(undeliveredIds)
+                    }
+                }
+            }
     }
 }

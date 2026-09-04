@@ -70,6 +70,16 @@
                 android:resource="@xml/love_timer_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".fcm.NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ourbloom.app.fcm.ACTION_REPLY" />
+                <action android:name="com.ourbloom.app.fcm.ACTION_MARK_AS_READ" />
+                <action android:name="com.ourbloom.app.fcm.ACTION_MUTE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

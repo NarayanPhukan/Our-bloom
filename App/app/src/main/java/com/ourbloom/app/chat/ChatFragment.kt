@@ -51,6 +51,8 @@ import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import java.io.File
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import androidx.activity.OnBackPressedCallback
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -119,6 +121,7 @@ class ChatFragment : Fragment() {
     private var mediaRecorder: MediaRecorder? = null
     private var audioRecordingFile: File? = null
     private var isRecordingAudio = false
+    private var recordingStartTime = 0L
 
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -352,11 +355,25 @@ class ChatFragment : Fragment() {
         rvMessages.layoutManager = layoutManager
         rvMessages.adapter = chatAdapter
 
-        // Swipe-to-Reply ItemTouchHelper
+        // WhatsApp-style Swipe-to-Reply ItemTouchHelper
         val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
-            private var hasVibratedForCurrentSwipe = false
+            private var isSwipeTriggered = false
+            private var hasVibrated = false
+            private var wasActive = false
             private val replyIcon: Drawable? = ContextCompat.getDrawable(requireContext(), R.drawable.ic_reply)
-            private val triggerThreshold = 160f
+
+            override fun isLongPressDragEnabled(): Boolean = false
+            override fun isItemViewSwipeEnabled(): Boolean = true
+
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                if (chatAdapter.getSelectedMessage() != null) {
+                    return makeMovementFlags(0, 0)
+                }
+                return makeMovementFlags(0, ItemTouchHelper.RIGHT)
+            }
 
             override fun onMove(
                 recyclerView: RecyclerView,
@@ -364,23 +381,13 @@ class ChatFragment : Fragment() {
                 target: RecyclerView.ViewHolder
             ): Boolean = false
 
+            // Set high threshold so ItemTouchHelper NEVER dismisses the item
+            override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 10f
+            override fun getSwipeEscapeVelocity(defaultValue: Float): Float = Float.MAX_VALUE
+            override fun getSwipeVelocityThreshold(defaultValue: Float): Float = Float.MAX_VALUE
+
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    val message = chatAdapter.getMessageAt(position)
-                    chatAdapter.notifyItemChanged(position)
-                    if (message != null) {
-                        enterReplyMode(message)
-                    }
-                }
-            }
-
-            override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float {
-                return 0.25f
-            }
-
-            override fun getSwipeEscapeVelocity(defaultValue: Float): Float {
-                return defaultValue * 2f
+                // Not called because threshold is 10f
             }
 
             override fun onChildDraw(
@@ -393,47 +400,102 @@ class ChatFragment : Fragment() {
                 isCurrentlyActive: Boolean
             ) {
                 val itemView = viewHolder.itemView
-                val maxSwipe = 220f
-                val clampedDX = if (dX > 0) {
-                    (dX * 0.45f).coerceAtMost(maxSwipe)
+                val density = resources.displayMetrics.density
+                val maxSwipe = 85f * density
+                val triggerThreshold = 46f * density
+
+                // Smooth elastic translation
+                val translationX = if (dX > 0) {
+                    (dX * 0.6f).coerceAtMost(maxSwipe)
                 } else 0f
 
-                if (clampedDX > 10f && replyIcon != null) {
-                    val iconSize = (26 * resources.displayMetrics.density).toInt()
-                    val iconMargin = (16 * resources.displayMetrics.density).toInt()
-                    val centerY = itemView.top + (itemView.height / 2)
-                    val iconLeft = itemView.left + iconMargin
-                    val iconTop = centerY - (iconSize / 2)
-                    val iconRight = iconLeft + iconSize
-                    val iconBottom = iconTop + iconSize
-
-                    val progress = (clampedDX / triggerThreshold).coerceIn(0f, 1f)
-                    replyIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom)
-                    replyIcon.setTint(ContextCompat.getColor(requireContext(), R.color.chat_quote_accent))
-                    replyIcon.alpha = (progress * 255).toInt()
-
-                    c.save()
-                    c.scale(0.7f + 0.3f * progress, 0.7f + 0.3f * progress, (iconLeft + iconRight) / 2f, centerY.toFloat())
-                    replyIcon.draw(c)
-                    c.restore()
-
-                    if (clampedDX >= triggerThreshold && !hasVibratedForCurrentSwipe && isCurrentlyActive) {
-                        triggerSendHaptic()
-                        hasVibratedForCurrentSwipe = true
+                if (isCurrentlyActive) {
+                    wasActive = true
+                    if (translationX >= triggerThreshold) {
+                        if (!hasVibrated) {
+                            triggerSendHaptic()
+                            hasVibrated = true
+                        }
+                        isSwipeTriggered = true
+                    } else {
+                        isSwipeTriggered = false
+                        hasVibrated = false
+                    }
+                } else {
+                    // Finger released! Check if swipe threshold was met
+                    if (wasActive) {
+                        wasActive = false
+                        if (isSwipeTriggered) {
+                            isSwipeTriggered = false
+                            hasVibrated = false
+                            val position = viewHolder.adapterPosition
+                            if (position != RecyclerView.NO_POSITION) {
+                                val message = chatAdapter.getMessageAt(position)
+                                if (message != null) {
+                                    enterReplyMode(message)
+                                }
+                            }
+                        }
                     }
                 }
 
-                if (!isCurrentlyActive) {
-                    hasVibratedForCurrentSwipe = false
+                // Draw WhatsApp reply indicator icon behind the sliding message
+                if (translationX > 4f && replyIcon != null) {
+                    val circleRadius = 18f * density
+                    val iconSize = (20f * density).toInt()
+                    val marginStart = 16f * density
+                    val centerY = itemView.top + (itemView.height / 2f)
+                    val circleCenterX = itemView.left + marginStart + circleRadius
+
+                    val progress = (translationX / triggerThreshold).coerceIn(0f, 1f)
+
+                    // Circular background
+                    val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = if (progress >= 1f) {
+                            ContextCompat.getColor(requireContext(), R.color.chat_quote_accent)
+                        } else {
+                            ContextCompat.getColor(requireContext(), R.color.bloom_surface_variant)
+                        }
+                        alpha = (progress * 240).toInt()
+                    }
+                    c.drawCircle(circleCenterX, centerY, circleRadius * (0.6f + 0.4f * progress), circlePaint)
+
+                    // Reply arrow icon inside circle
+                    val iconLeft = (circleCenterX - iconSize / 2f).toInt()
+                    val iconTop = (centerY - iconSize / 2f).toInt()
+                    val iconRight = iconLeft + iconSize
+                    val iconBottom = iconTop + iconSize
+
+                    replyIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom)
+                    replyIcon.setTint(if (progress >= 1f) Color.WHITE else ContextCompat.getColor(requireContext(), R.color.chat_header_subtitle))
+                    replyIcon.alpha = (progress * 255).toInt()
+
+                    c.save()
+                    c.scale(0.7f + 0.3f * progress, 0.7f + 0.3f * progress, circleCenterX, centerY)
+                    replyIcon.draw(c)
+                    c.restore()
                 }
 
-                getDefaultUIUtil().onDraw(c, recyclerView, itemView, clampedDX, dY, actionState, isCurrentlyActive)
+                getDefaultUIUtil().onDraw(c, recyclerView, itemView, translationX, dY, actionState, isCurrentlyActive)
             }
 
             override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
                 super.clearView(recyclerView, viewHolder)
-                hasVibratedForCurrentSwipe = false
                 getDefaultUIUtil().clearView(viewHolder.itemView)
+
+                if (isSwipeTriggered) {
+                    isSwipeTriggered = false
+                    hasVibrated = false
+                    val position = viewHolder.adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val message = chatAdapter.getMessageAt(position)
+                        if (message != null) {
+                            enterReplyMode(message)
+                        }
+                    }
+                }
+                wasActive = false
+                hasVibrated = false
             }
         }
         ItemTouchHelper(swipeCallback).attachToRecyclerView(rvMessages)
@@ -731,12 +793,12 @@ class ChatFragment : Fragment() {
 
             // Real-time WhatsApp double blue ticks: mark partner messages as read & delivered
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val hasUnreadFromPartner = messages.any { 
+            val unreadPartnerIds = messages.filter { 
                 it.senderId.isNotBlank() && it.senderId != currentUid && (!it.isRead || !it.isDelivered) 
-            }
-            if (hasUnreadFromPartner) {
+            }.map { it.id }
+            if (unreadPartnerIds.isNotEmpty()) {
                 viewLifecycleOwner.lifecycleScope.launch {
-                    repository.markMessagesAsRead(coupleId, currentUid)
+                    repository.markMessagesReadByIds(unreadPartnerIds)
                 }
             }
         }
@@ -748,6 +810,7 @@ class ChatFragment : Fragment() {
         try {
             val file = File(requireContext().cacheDir, "voice_chat_${System.currentTimeMillis()}.m4a")
             audioRecordingFile = file
+            recordingStartTime = System.currentTimeMillis()
 
             mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(requireContext())
@@ -831,16 +894,30 @@ class ChatFragment : Fragment() {
             }
         }
 
+        val durationMs = System.currentTimeMillis() - recordingStartTime
+        val file = audioRecordingFile
+
+        if (durationMs < 800) {
+            try { mediaRecorder?.stop() } catch (_: Exception) {}
+            try { mediaRecorder?.release() } catch (_: Exception) {}
+            mediaRecorder = null
+            file?.delete()
+            audioRecordingFile = null
+            Toast.makeText(requireContext(), "Hold to record voice note, release to send", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         try {
             mediaRecorder?.stop()
-            mediaRecorder?.release()
         } catch (e: Exception) {
             Log.e("ChatFragment", "Error stopping recorder", e)
         }
+        try {
+            mediaRecorder?.release()
+        } catch (_: Exception) {}
         mediaRecorder = null
 
-        val file = audioRecordingFile
-        if (send && file != null && file.exists() && file.length() > 1024 && coupleId != null) {
+        if (send && file != null && file.exists() && file.length() > 500 && coupleId != null) {
             val replyId = replyingToMessage?.id
             val replyText = replyingToMessage?.let {
                 if (it.text.isNotBlank()) it.text
@@ -855,9 +932,9 @@ class ChatFragment : Fragment() {
 
             triggerSendHaptic()
             Toast.makeText(requireContext(), "Sending voice note...", Toast.LENGTH_SHORT).show()
-            val uri = Uri.fromFile(file)
             viewLifecycleOwner.lifecycleScope.launch {
-                val uploadedUrl = repository.uploadAudio(requireContext(), uri)
+                val uploadedUrl = repository.uploadAudioFile(file)
+                file.delete()
                 if (!uploadedUrl.isNullOrBlank()) {
                     repository.sendChatMessage(
                         coupleId = coupleId,
@@ -870,7 +947,7 @@ class ChatFragment : Fragment() {
                         replyToSenderName = replySenderName
                     )
                 } else {
-                    Toast.makeText(requireContext(), "Failed to send voice note", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Failed to send voice note. Check connection.", Toast.LENGTH_SHORT).show()
                 }
             }
         } else {
@@ -1085,6 +1162,7 @@ class ChatFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        isChatVisible = true
         val cId = currentCouple?.id
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
@@ -1096,6 +1174,7 @@ class ChatFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
+        isChatVisible = false
         if (isCurrentlyTyping) {
             isCurrentlyTyping = false
             typingHandler.removeCallbacks(stopTypingRunnable)
@@ -1110,14 +1189,21 @@ class ChatFragment : Fragment() {
         if (isRecordingAudio) {
             stopVoiceRecording(send = false)
         }
+        chatAdapter.releaseAudioPlayer()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        isChatVisible = false
+        chatAdapter.releaseAudioPlayer()
         typingHandler.removeCallbacks(stopTypingRunnable)
         messagesListener?.remove()
         messagesListener = null
         typingListener?.remove()
         typingListener = null
+    }
+
+    companion object {
+        var isChatVisible: Boolean = false
     }
 }

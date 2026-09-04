@@ -7,6 +7,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import android.net.Uri
 import android.content.Context
+import java.io.File
 import java.util.UUID
 import com.ourbloom.app.data.models.ChatMessage
 import com.ourbloom.app.data.models.Couple
@@ -354,13 +355,56 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun uploadAudioFile(file: File): String? = withContext(Dispatchers.IO) {
+        try {
+            if (!file.exists() || file.length() == 0L) return@withContext null
+            val bytes = file.readBytes()
+            val filename = "voice_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}.m4a"
+
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "file",
+                    filename,
+                    bytes.toRequestBody("audio/mp4".toMediaTypeOrNull())
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url("$baseUrl/api/upload")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val json = JSONObject(responseBody)
+                    val urlPath = json.optString("url", "")
+                    if (urlPath.isNotEmpty()) {
+                        return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error uploading audio file to server", e)
+            null
+        }
+    }
+
     suspend fun uploadAudio(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
         try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val bytes = inputStream?.readBytes() ?: return@withContext null
-            inputStream.close()
+            val bytes = if (uri.scheme == "file" && uri.path != null) {
+                File(uri.path!!).readBytes()
+            } else {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val read = inputStream?.readBytes()
+                inputStream?.close()
+                read ?: return@withContext null
+            }
 
-            val isM4a = uri.path?.endsWith(".m4a") == true
+            val isM4a = uri.path?.endsWith(".m4a") == true || uri.toString().contains(".m4a")
             val ext = if (isM4a) "m4a" else "3gp"
             val mime = if (isM4a) "audio/mp4" else "audio/3gpp"
             val filename = "${UUID.randomUUID()}.$ext"
@@ -449,6 +493,9 @@ class FirestoreRepository {
                 "deletedFor" to emptyList<String>()
             )
             db.collection("chat_messages").add(messageData).await()
+            try {
+                markMessagesAsRead(coupleId, uid)
+            } catch (_: Exception) {}
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error sending chat message", e)
@@ -520,6 +567,48 @@ class FirestoreRepository {
             Log.d("FirestoreRepo", "Marked single message $messageId as delivered")
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error marking single message $messageId delivered", e)
+        }
+    }
+
+    suspend fun markMessagesDeliveredByIds(ids: List<String>) {
+        if (ids.isEmpty()) return
+        try {
+            val batch = db.batch()
+            ids.take(500).forEach { id ->
+                if (id.isNotBlank()) {
+                    val ref = db.collection("chat_messages").document(id)
+                    batch.update(ref, mapOf(
+                        "isDelivered" to true,
+                        "delivered" to true
+                    ))
+                }
+            }
+            batch.commit().await()
+            Log.d("FirestoreRepo", "Marked ${ids.size} messages delivered by ID")
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking messages delivered by ID", e)
+        }
+    }
+
+    suspend fun markMessagesReadByIds(ids: List<String>) {
+        if (ids.isEmpty()) return
+        try {
+            val batch = db.batch()
+            ids.take(500).forEach { id ->
+                if (id.isNotBlank()) {
+                    val ref = db.collection("chat_messages").document(id)
+                    batch.update(ref, mapOf(
+                        "isRead" to true,
+                        "read" to true,
+                        "isDelivered" to true,
+                        "delivered" to true
+                    ))
+                }
+            }
+            batch.commit().await()
+            Log.d("FirestoreRepo", "Marked ${ids.size} messages read by ID")
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking messages read by ID", e)
         }
     }
 

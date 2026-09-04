@@ -15,6 +15,10 @@ import java.util.Locale
 
 import android.content.res.ColorStateList
 import android.graphics.PorterDuff
+import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
+import android.widget.ProgressBar
 import androidx.core.widget.ImageViewCompat
 
 class ChatAdapter(
@@ -43,6 +47,113 @@ class ChatAdapter(
     var onMessageLongClick: ((ChatMessage) -> Unit)? = null
     var onMessageClick: ((ChatMessage) -> Unit)? = null
     var onQuoteClick: ((String) -> Unit)? = null
+
+    // Audio Playback State
+    private var mediaPlayer: MediaPlayer? = null
+    private var playingMessageId: String? = null
+    private val progressHandler = Handler(Looper.getMainLooper())
+    private var progressRunnable: Runnable? = null
+    private var activeProgressBar: ProgressBar? = null
+    private var activeDurationText: TextView? = null
+    private var activePlayButton: ImageView? = null
+
+    fun releaseAudioPlayer() {
+        progressRunnable?.let { progressHandler.removeCallbacks(it) }
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+        } catch (_: Exception) {}
+        mediaPlayer = null
+        playingMessageId = null
+        activeProgressBar = null
+        activeDurationText = null
+        activePlayButton = null
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView)
+        releaseAudioPlayer()
+    }
+
+    private fun toggleAudioPlayback(
+        message: ChatMessage,
+        playBtn: ImageView,
+        progressBar: ProgressBar,
+        durationTv: TextView
+    ) {
+        val audioUrl = message.audioUrl ?: return
+
+        if (playingMessageId == message.id) {
+            mediaPlayer?.let { player ->
+                if (player.isPlaying) {
+                    player.pause()
+                    playBtn.setImageResource(R.drawable.ic_play_arrow)
+                    progressRunnable?.let { progressHandler.removeCallbacks(it) }
+                } else {
+                    player.start()
+                    playBtn.setImageResource(R.drawable.ic_pause)
+                    startProgressTracker()
+                }
+            }
+            return
+        }
+
+        releaseAudioPlayer()
+
+        playingMessageId = message.id
+        activePlayButton = playBtn
+        activeProgressBar = progressBar
+        activeDurationText = durationTv
+
+        playBtn.setImageResource(R.drawable.ic_pause)
+
+        try {
+            val player = MediaPlayer().apply {
+                setDataSource(audioUrl)
+                setOnPreparedListener { mp ->
+                    mp.start()
+                    val totalDuration = mp.duration
+                    progressBar.max = if (totalDuration > 0) totalDuration else 100
+                    startProgressTracker()
+                }
+                setOnCompletionListener {
+                    playBtn.setImageResource(R.drawable.ic_play_arrow)
+                    progressBar.progress = 0
+                    durationTv.text = "0:00"
+                    releaseAudioPlayer()
+                }
+                setOnErrorListener { _, _, _ ->
+                    playBtn.setImageResource(R.drawable.ic_play_arrow)
+                    progressBar.progress = 0
+                    durationTv.text = "0:00"
+                    releaseAudioPlayer()
+                    true
+                }
+                prepareAsync()
+            }
+            mediaPlayer = player
+        } catch (e: Exception) {
+            playBtn.setImageResource(R.drawable.ic_play_arrow)
+            releaseAudioPlayer()
+        }
+    }
+
+    private fun startProgressTracker() {
+        progressRunnable?.let { progressHandler.removeCallbacks(it) }
+        progressRunnable = object : Runnable {
+            override fun run() {
+                val player = mediaPlayer
+                if (player != null && player.isPlaying) {
+                    val current = player.currentPosition
+                    activeProgressBar?.progress = current
+                    val seconds = current / 1000
+                    activeDurationText?.text = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+                    progressHandler.postDelayed(this, 150)
+                }
+            }
+        }
+        progressRunnable?.let { progressHandler.post(it) }
+    }
 
     fun submitList(newMessages: List<ChatMessage>) {
         messages.clear()
@@ -102,6 +213,7 @@ class ChatAdapter(
 
     inner class SentMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val rootLayout: View = itemView.findViewById(R.id.layout_message_root)
+        private val bubbleContainer: View? = itemView.findViewById(R.id.layout_bubble_container)
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
         private val ivStatus: ImageView = itemView.findViewById(R.id.iv_chat_status)
@@ -110,19 +222,29 @@ class ChatAdapter(
         private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
         private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
         private val tvQuoteText: TextView? = itemView.findViewById(R.id.tv_quote_text)
+        private val layoutAudio: View? = itemView.findViewById(R.id.layout_chat_audio)
+        private val ivPlayPause: ImageView? = itemView.findViewById(R.id.iv_audio_play_pause)
+        private val pbAudioProgress: ProgressBar? = itemView.findViewById(R.id.pb_audio_progress)
+        private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
 
         fun bind(message: ChatMessage) {
             val isSelected = message.id == selectedMessageId
             rootLayout.setBackgroundResource(if (isSelected) R.drawable.bg_msg_selected else 0)
 
-            rootLayout.setOnLongClickListener {
+            val longClickListener = View.OnLongClickListener {
                 onMessageLongClick?.invoke(message)
                 true
             }
-
-            rootLayout.setOnClickListener {
+            val clickListener = View.OnClickListener {
                 onMessageClick?.invoke(message)
             }
+
+            itemView.setOnLongClickListener(longClickListener)
+            itemView.setOnClickListener(clickListener)
+            rootLayout.setOnLongClickListener(longClickListener)
+            rootLayout.setOnClickListener(clickListener)
+            bubbleContainer?.setOnLongClickListener(longClickListener)
+            bubbleContainer?.setOnClickListener(clickListener)
 
             // Quoted reply binding
             if (message.isReply) {
@@ -139,11 +261,39 @@ class ChatAdapter(
                 layoutQuote?.visibility = View.GONE
             }
 
-            if (message.text.isNotBlank()) {
-                tvText.text = message.text
-                tvText.visibility = View.VISIBLE
+            // Voice note binding
+            if (!message.audioUrl.isNullOrBlank()) {
+                layoutAudio?.visibility = View.VISIBLE
+                val isSelfPlaying = message.id == playingMessageId && mediaPlayer?.isPlaying == true
+                ivPlayPause?.setImageResource(if (isSelfPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
+
+                if (!isSelfPlaying) {
+                    pbAudioProgress?.progress = 0
+                    tvAudioDuration?.text = "0:00"
+                }
+
+                ivPlayPause?.let { btn ->
+                    btn.setOnClickListener {
+                        val pb = pbAudioProgress ?: return@setOnClickListener
+                        val tv = tvAudioDuration ?: return@setOnClickListener
+                        toggleAudioPlayback(message, btn, pb, tv)
+                    }
+                }
+
+                if (message.text.isBlank() || message.text == "🎙️ Voice note" || message.text == "🎙️ Voice message") {
+                    tvText.visibility = View.GONE
+                } else {
+                    tvText.text = message.text
+                    tvText.visibility = View.VISIBLE
+                }
             } else {
-                tvText.visibility = View.GONE
+                layoutAudio?.visibility = View.GONE
+                if (message.text.isNotBlank()) {
+                    tvText.text = message.text
+                    tvText.visibility = View.VISIBLE
+                } else {
+                    tvText.visibility = View.GONE
+                }
             }
 
             tvTime.text = timeFormat.format(Date(message.timestamp))
@@ -197,6 +347,7 @@ class ChatAdapter(
 
     inner class ReceivedMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val rootLayout: View = itemView.findViewById(R.id.layout_message_root)
+        private val bubbleContainer: View? = itemView.findViewById(R.id.layout_bubble_container)
         private val tvSender: TextView = itemView.findViewById(R.id.tv_chat_sender)
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
@@ -206,19 +357,29 @@ class ChatAdapter(
         private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
         private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
         private val tvQuoteText: TextView? = itemView.findViewById(R.id.tv_quote_text)
+        private val layoutAudio: View? = itemView.findViewById(R.id.layout_chat_audio)
+        private val ivPlayPause: ImageView? = itemView.findViewById(R.id.iv_audio_play_pause)
+        private val pbAudioProgress: ProgressBar? = itemView.findViewById(R.id.pb_audio_progress)
+        private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
 
         fun bind(message: ChatMessage, partnerAvatarUrl: String?) {
             val isSelected = message.id == selectedMessageId
             rootLayout.setBackgroundResource(if (isSelected) R.drawable.bg_msg_selected else 0)
 
-            rootLayout.setOnLongClickListener {
+            val longClickListener = View.OnLongClickListener {
                 onMessageLongClick?.invoke(message)
                 true
             }
-
-            rootLayout.setOnClickListener {
+            val clickListener = View.OnClickListener {
                 onMessageClick?.invoke(message)
             }
+
+            itemView.setOnLongClickListener(longClickListener)
+            itemView.setOnClickListener(clickListener)
+            rootLayout.setOnLongClickListener(longClickListener)
+            rootLayout.setOnClickListener(clickListener)
+            bubbleContainer?.setOnLongClickListener(longClickListener)
+            bubbleContainer?.setOnClickListener(clickListener)
 
             // Quoted reply binding
             if (message.isReply) {
@@ -252,11 +413,39 @@ class ChatAdapter(
                 ivPartnerAvatar.setPadding(p, p, p, p)
             }
 
-            if (message.text.isNotBlank()) {
-                tvText.text = message.text
-                tvText.visibility = View.VISIBLE
+            // Voice note binding
+            if (!message.audioUrl.isNullOrBlank()) {
+                layoutAudio?.visibility = View.VISIBLE
+                val isSelfPlaying = message.id == playingMessageId && mediaPlayer?.isPlaying == true
+                ivPlayPause?.setImageResource(if (isSelfPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
+
+                if (!isSelfPlaying) {
+                    pbAudioProgress?.progress = 0
+                    tvAudioDuration?.text = "0:00"
+                }
+
+                ivPlayPause?.let { btn ->
+                    btn.setOnClickListener {
+                        val pb = pbAudioProgress ?: return@setOnClickListener
+                        val tv = tvAudioDuration ?: return@setOnClickListener
+                        toggleAudioPlayback(message, btn, pb, tv)
+                    }
+                }
+
+                if (message.text.isBlank() || message.text == "🎙️ Voice note" || message.text == "🎙️ Voice message") {
+                    tvText.visibility = View.GONE
+                } else {
+                    tvText.text = message.text
+                    tvText.visibility = View.VISIBLE
+                }
             } else {
-                tvText.visibility = View.GONE
+                layoutAudio?.visibility = View.GONE
+                if (message.text.isNotBlank()) {
+                    tvText.text = message.text
+                    tvText.visibility = View.VISIBLE
+                } else {
+                    tvText.visibility = View.GONE
+                }
             }
 
             tvTime.text = timeFormat.format(Date(message.timestamp))

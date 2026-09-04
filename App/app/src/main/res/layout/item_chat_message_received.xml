@@ -122,6 +122,72 @@
                 android:scaleType="centerCrop" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Audio Voice Note Player Container -->
+        <LinearLayout
+            android:id="@+id/layout_chat_audio"
+            android:layout_width="220dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/iv_audio_play_pause"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_audio_play_received"
+                android:src="@drawable/ic_play_arrow"
+                android:padding="7dp"
+                app:tint="#E85D75"
+                android:contentDescription="Play voice note" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="6dp"
+                android:orientation="vertical">
+
+                <ProgressBar
+                    android:id="@+id/pb_audio_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="#E85D75"
+                    android:progressBackgroundTint="#26E85D75" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_audio_duration"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="0:00"
+                        android:textColor="@color/chat_bubble_received_time"
+                        android:textSize="11sp" />
+
+                    <ImageView
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:src="@drawable/ic_mic_whatsapp"
+                        app:tint="#E85D75"
+                        android:contentDescription="Voice note" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <TextView
             android:id="@+id/tv_chat_text"
             android:layout_width="wrap_content"

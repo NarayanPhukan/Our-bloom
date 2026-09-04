@@ -35,20 +35,13 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
   try {
     const isHeartbeat = data.type === 'heartbeat';
     const message = {
-      notification: {
-        title,
-        body
+      data: {
+        title: String(title),
+        body: String(body),
+        ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
       },
-      data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
       android: {
-        priority: 'high',
-        notification: {
-          channelId: isHeartbeat ? 'ourbloom_heartbeat_channel' : 'ourbloom_fcm_channel',
-          priority: 'max',
-          sound: 'default',
-          defaultVibrateTimings: !isHeartbeat,
-          vibrateTimingsMillis: isHeartbeat ? [0, 120, 80, 240] : undefined
-        }
+        priority: 'high'
       },
       token: fcmToken
     };
