@@ -66,11 +66,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (isChat) {
             val coupleId = remoteMessage.data["coupleId"]
             val senderId = remoteMessage.data["senderId"]
+            val messageId = remoteMessage.data["messageId"]
             if (!coupleId.isNullOrBlank()) {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val repository = FirestoreRepository()
-                        repository.markMessagesDelivered(coupleId, senderId ?: "")
+                        if (!messageId.isNullOrBlank()) {
+                            repository.markSingleMessageDelivered(messageId)
+                        }
+                        if (!senderId.isNullOrBlank()) {
+                            repository.markMessagesFromSenderDelivered(coupleId, senderId)
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error marking messages delivered from FCM", e)
                     }

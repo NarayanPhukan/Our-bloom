@@ -22,4 +22,14 @@ data class ChatMessage(
 
     val hasDelivered: Boolean
         get() = isDelivered || isRead
+
+    @PropertyName("read")
+    fun setReadField(value: Boolean) {
+        this.isRead = this.isRead || value
+    }
+
+    @PropertyName("delivered")
+    fun setDeliveredField(value: Boolean) {
+        this.isDelivered = this.isDelivered || value
+    }
 }

@@ -479,6 +479,49 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun markSingleMessageDelivered(messageId: String) {
+        if (messageId.isBlank()) return
+        try {
+            db.collection("chat_messages").document(messageId).update(mapOf(
+                "isDelivered" to true,
+                "delivered" to true
+            )).await()
+            Log.d("FirestoreRepo", "Marked single message $messageId as delivered")
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking single message $messageId delivered", e)
+        }
+    }
+
+    suspend fun markMessagesFromSenderDelivered(coupleId: String, senderId: String) {
+        if (coupleId.isBlank() || senderId.isBlank()) return
+        try {
+            val snapshot = db.collection("chat_messages")
+                .whereEqualTo("coupleId", coupleId)
+                .whereEqualTo("senderId", senderId)
+                .get()
+                .await()
+
+            val toUpdate = snapshot.documents.filter { doc ->
+                val isDelivered = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
+                !isDelivered
+            }
+
+            if (toUpdate.isNotEmpty()) {
+                val batch = db.batch()
+                toUpdate.forEach { doc ->
+                    batch.update(doc.reference, mapOf(
+                        "isDelivered" to true,
+                        "delivered" to true
+                    ))
+                }
+                batch.commit().await()
+                Log.d("FirestoreRepo", "Marked ${toUpdate.size} messages from sender $senderId as delivered")
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking messages from sender delivered", e)
+        }
+    }
+
     suspend fun markMessagesAsRead(coupleId: String, currentUserId: String) {
         if (coupleId.isBlank() || currentUserId.isBlank()) return
         try {
@@ -571,8 +614,18 @@ class FirestoreRepository {
                     Log.e("FirestoreRepo", "Chat listener error", error)
                     return@addSnapshotListener
                 }
-                val messages = snapshot.documents.mapNotNull { it.toObject(ChatMessage::class.java) }
-                    .sortedBy { it.timestamp }
+                val messages = snapshot.documents.mapNotNull { doc ->
+                    val msg = doc.toObject(ChatMessage::class.java) ?: return@mapNotNull null
+                    val isReadDirect = (doc.getBoolean("isRead") == true) || (doc.getBoolean("read") == true)
+                    val isDeliveredDirect = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
+                    if (isReadDirect) {
+                        msg.isRead = true
+                    }
+                    if (isDeliveredDirect) {
+                        msg.isDelivered = true
+                    }
+                    msg
+                }.sortedBy { it.timestamp }
                 onMessages(messages)
             }
     }

@@ -730,6 +730,17 @@ class ChatFragment : Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        val cId = currentCouple?.id
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.markMessagesAsRead(cId, uid)
+            }
+        }
+    }
+
     override fun onPause() {
         super.onPause()
         if (isCurrentlyTyping) {

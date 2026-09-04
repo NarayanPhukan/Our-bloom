@@ -14,6 +14,7 @@ import java.util.Date
 import java.util.Locale
 
 import android.content.res.ColorStateList
+import android.graphics.PorterDuff
 import androidx.core.widget.ImageViewCompat
 
 class ChatAdapter(
@@ -98,16 +99,19 @@ class ChatAdapter(
                 message.isSeen -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
                     ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_READ))
+                    ImageViewCompat.setImageTintMode(ivStatus, PorterDuff.Mode.SRC_IN)
                     ivStatus.contentDescription = "Read"
                 }
                 message.hasDelivered -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
                     ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_DEFAULT))
+                    ImageViewCompat.setImageTintMode(ivStatus, PorterDuff.Mode.SRC_IN)
                     ivStatus.contentDescription = "Delivered"
                 }
                 else -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_single_tick)
                     ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_DEFAULT))
+                    ImageViewCompat.setImageTintMode(ivStatus, PorterDuff.Mode.SRC_IN)
                     ivStatus.contentDescription = "Sent"
                 }
             }
