@@ -1,0 +1,8 @@
+{
+  "versionCode": 3,
+  "versionName": "1.2",
+  "title": "New Bloom Update Available! 🌸",
+  "changelog": "• In-app automatic update & installation\n• WhatsApp-style notifications with direct reply & actions\n• Swipe-to-reply on chat bubbles\n• Real-time delivery and read ticks\n• High-fidelity voice notes playback\n• Desktop & Web sync improvements",
+  "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
+  "forceUpdate": false
+}

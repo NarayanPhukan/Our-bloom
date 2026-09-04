@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
@@ -298,6 +299,20 @@ app.use('/api/couples/:slug/love-notes', authMiddleware, coupleMiddleware, loveN
 app.use('/api/couples/:slug/memories', authMiddleware, coupleMiddleware, memoryRoutes);
 app.use('/api/couples/:slug/dream-locations', authMiddleware, coupleMiddleware, dreamLocationRoutes);
 app.use('/api/couples/:slug/settings', authMiddleware, coupleMiddleware, settingsRoutes);
+
+// App update manifest endpoint
+app.get('/api/app-update', (req, res) => {
+  try {
+    const updatePath = path.join(__dirname, 'public/updates/app-update.json');
+    if (fs.existsSync(updatePath)) {
+      const data = JSON.parse(fs.readFileSync(updatePath, 'utf8'));
+      return res.json(data);
+    }
+  } catch (e) {
+    console.error('Error reading app-update.json:', e.message);
+  }
+  res.status(404).json({ error: 'Update info not available' });
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -5,6 +5,7 @@
 # Keep Data Models
 -keep class com.ourbloom.app.data.** { *; }
 -keep class com.ourbloom.app.chat.** { *; }
+-keep class com.ourbloom.app.updates.** { *; }
 
 # Firebase Keep Rules
 -keepattributes *Annotation*

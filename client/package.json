@@ -11,7 +11,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "electron:build:win": "vite build && electron-builder --win portable"
+    "electron:build:win": "vite build --mode electron && electron-builder --win portable"
   },
   "build": {
     "appId": "com.ourbloom.desktop",
