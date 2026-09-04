@@ -37,11 +37,37 @@ class ChatAdapter(
             notifyDataSetChanged()
         }
 
+    var selectedMessageId: String? = null
+        private set
+
+    var onMessageLongClick: ((ChatMessage) -> Unit)? = null
+    var onMessageClick: ((ChatMessage) -> Unit)? = null
+    var onQuoteClick: ((String) -> Unit)? = null
+
     fun submitList(newMessages: List<ChatMessage>) {
         messages.clear()
         messages.addAll(newMessages)
         notifyDataSetChanged()
     }
+
+    fun setSelectedMessage(id: String?) {
+        val oldId = selectedMessageId
+        selectedMessageId = id
+        if (oldId != null) {
+            val oldIdx = messages.indexOfFirst { it.id == oldId }
+            if (oldIdx != -1) notifyItemChanged(oldIdx)
+        }
+        if (id != null) {
+            val newIdx = messages.indexOfFirst { it.id == id }
+            if (newIdx != -1) notifyItemChanged(newIdx)
+        }
+    }
+
+    fun getSelectedMessage(): ChatMessage? = messages.find { it.id == selectedMessageId }
+
+    fun getMessagePosition(messageId: String): Int = messages.indexOfFirst { it.id == messageId }
+
+    fun getMessageAt(position: Int): ChatMessage? = messages.getOrNull(position)
 
     override fun getItemViewType(position: Int): Int {
         return if (messages[position].senderId == currentUserId) {
@@ -75,13 +101,44 @@ class ChatAdapter(
     override fun getItemCount(): Int = messages.size
 
     inner class SentMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val rootLayout: View = itemView.findViewById(R.id.layout_message_root)
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
         private val ivStatus: ImageView = itemView.findViewById(R.id.iv_chat_status)
         private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
+        private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
+        private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
+        private val tvQuoteText: TextView? = itemView.findViewById(R.id.tv_quote_text)
 
         fun bind(message: ChatMessage) {
+            val isSelected = message.id == selectedMessageId
+            rootLayout.setBackgroundResource(if (isSelected) R.drawable.bg_msg_selected else 0)
+
+            rootLayout.setOnLongClickListener {
+                onMessageLongClick?.invoke(message)
+                true
+            }
+
+            rootLayout.setOnClickListener {
+                onMessageClick?.invoke(message)
+            }
+
+            // Quoted reply binding
+            if (message.isReply) {
+                layoutQuote?.visibility = View.VISIBLE
+                tvQuoteSender?.text = message.replyToSenderName?.ifBlank { "You" } ?: "You"
+                tvQuoteText?.text = message.replyToText ?: ""
+                layoutQuote?.setOnClickListener {
+                    val targetId = message.replyToId
+                    if (!targetId.isNullOrBlank()) {
+                        onQuoteClick?.invoke(targetId)
+                    }
+                }
+            } else {
+                layoutQuote?.visibility = View.GONE
+            }
+
             if (message.text.isNotBlank()) {
                 tvText.text = message.text
                 tvText.visibility = View.VISIBLE
@@ -126,7 +183,11 @@ class ChatAdapter(
                     .into(ivImage)
 
                 ivImage.setOnClickListener {
-                    onImageClick(message.imageUrl)
+                    if (selectedMessageId != null) {
+                        onMessageClick?.invoke(message)
+                    } else {
+                        onImageClick(message.imageUrl)
+                    }
                 }
             } else {
                 cardImage.visibility = View.GONE
@@ -135,14 +196,45 @@ class ChatAdapter(
     }
 
     inner class ReceivedMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val rootLayout: View = itemView.findViewById(R.id.layout_message_root)
         private val tvSender: TextView = itemView.findViewById(R.id.tv_chat_sender)
         private val tvText: TextView = itemView.findViewById(R.id.tv_chat_text)
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
         private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
         private val ivPartnerAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
+        private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
+        private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
+        private val tvQuoteText: TextView? = itemView.findViewById(R.id.tv_quote_text)
 
         fun bind(message: ChatMessage, partnerAvatarUrl: String?) {
+            val isSelected = message.id == selectedMessageId
+            rootLayout.setBackgroundResource(if (isSelected) R.drawable.bg_msg_selected else 0)
+
+            rootLayout.setOnLongClickListener {
+                onMessageLongClick?.invoke(message)
+                true
+            }
+
+            rootLayout.setOnClickListener {
+                onMessageClick?.invoke(message)
+            }
+
+            // Quoted reply binding
+            if (message.isReply) {
+                layoutQuote?.visibility = View.VISIBLE
+                tvQuoteSender?.text = message.replyToSenderName?.ifBlank { "Message" } ?: "Message"
+                tvQuoteText?.text = message.replyToText ?: ""
+                layoutQuote?.setOnClickListener {
+                    val targetId = message.replyToId
+                    if (!targetId.isNullOrBlank()) {
+                        onQuoteClick?.invoke(targetId)
+                    }
+                }
+            } else {
+                layoutQuote?.visibility = View.GONE
+            }
+
             tvSender.text = message.senderName.ifBlank { "My Love" }
 
             if (!partnerAvatarUrl.isNullOrBlank()) {
@@ -179,7 +271,11 @@ class ChatAdapter(
                     .into(ivImage)
 
                 ivImage.setOnClickListener {
-                    onImageClick(message.imageUrl)
+                    if (selectedMessageId != null) {
+                        onMessageClick?.invoke(message)
+                    } else {
+                        onImageClick(message.imageUrl)
+                    }
                 }
             } else {
                 cardImage.visibility = View.GONE

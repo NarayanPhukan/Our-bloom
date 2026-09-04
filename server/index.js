@@ -62,13 +62,18 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
     const userDoc = await db.collection('users').doc(userId).get();
     if (userDoc.exists && userDoc.data().fcmToken) {
       const isHeartbeat = data.type === 'heartbeat';
+      const isChat = data.type === 'chat';
+      const channelId = isHeartbeat 
+        ? 'ourbloom_heartbeat_channel' 
+        : (isChat ? 'ourbloom_chat_channel' : 'ourbloom_fcm_channel');
+
       const message = {
         notification: { title, body },
         data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
         android: {
           priority: 'high',
           notification: {
-            channelId: isHeartbeat ? 'ourbloom_heartbeat_channel' : 'ourbloom_fcm_channel',
+            channelId,
             priority: 'max',
             sound: 'default',
             defaultVibrateTimings: !isHeartbeat,
@@ -166,20 +171,33 @@ const setupFirestoreListeners = () => {
         const msg = change.doc.data();
         const age = Date.now() - (msg.timestamp || 0);
         if (age < 120000) {
-          const bodyText = msg.text ? msg.text : (msg.imageUrl ? '📷 Sent a photo' : 'New message');
+          let bodyText = 'New message';
+          if (msg.text && msg.text.trim().length > 0) {
+            bodyText = msg.text.trim();
+          } else if (msg.audioUrl) {
+            bodyText = '🎙️ Voice message';
+          } else if (msg.imageUrl) {
+            bodyText = '📷 Photo';
+          }
+
+          const sender = msg.senderName || 'Your Love';
           notifyPartner(
             msg.coupleId,
             msg.senderId,
-            `${msg.senderName || 'Your Love'} 💬`,
+            sender,
             bodyText,
             { 
               type: 'chat', 
-              senderName: msg.senderName || 'Your Love', 
+              senderName: sender,
+              messageText: msg.text || '',
+              imageUrl: msg.imageUrl || '',
+              audioUrl: msg.audioUrl || '',
               messageId: change.doc.id,
               coupleId: msg.coupleId || '',
               senderId: msg.senderId || ''
             }
           );
+        }
       }
     });
   });

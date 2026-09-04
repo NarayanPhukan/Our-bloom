@@ -72,6 +72,15 @@
     <color name="chat_empty_title">#B3FFFFFF</color>
     <color name="chat_empty_subtitle">#66FFFFFF</color>
     
+    <!-- Reply & Selection Tokens (Dark Mode) -->
+    <color name="chat_reply_preview_bg">#231B22</color>
+    <color name="chat_reply_preview_stroke">#3D2D3A</color>
+    <color name="chat_selection_overlay">#3DE85D75</color>
+    <color name="chat_quote_sent_bg">#33000000</color>
+    <color name="chat_quote_received_bg">#1C161D</color>
+    <color name="chat_quote_accent">#E85D75</color>
+    <color name="chat_quote_accent_blue">#34B7F1</color>
+    
     <!-- Bottom Sheet & Cards Tokens (Dark Mode) -->
     <color name="sheet_bg">#161218</color>
     <color name="sheet_handle">#40FFFFFF</color>

@@ -50,6 +50,11 @@ import android.os.Looper
 import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import java.io.File
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
+import androidx.activity.OnBackPressedCallback
+import androidx.recyclerview.widget.ItemTouchHelper
+import com.ourbloom.app.data.models.ChatMessage
 
 class ChatFragment : Fragment() {
 
@@ -66,6 +71,25 @@ class ChatFragment : Fragment() {
     private lateinit var tvChatStatus: TextView
     private lateinit var ivPartnerAvatar: ImageView
     private lateinit var layoutEmpty: View
+
+    // Contextual Action Bar views
+    private lateinit var layoutActionBar: View
+    private lateinit var chatHeader: View
+    private lateinit var btnActionClose: ImageButton
+    private lateinit var tvActionCount: TextView
+    private lateinit var btnActionReply: ImageButton
+    private lateinit var btnActionCopy: ImageButton
+    private lateinit var btnActionDelete: ImageButton
+
+    // Reply preview views
+    private lateinit var layoutReplyPreview: View
+    private lateinit var tvReplyPreviewName: TextView
+    private lateinit var tvReplyPreviewText: TextView
+    private lateinit var btnCancelReply: ImageButton
+
+    // Selection & Reply State
+    private var selectedMessage: ChatMessage? = null
+    private var replyingToMessage: ChatMessage? = null
 
     private var messagesListener: ListenerRegistration? = null
     private var typingListener: ListenerRegistration? = null
@@ -182,6 +206,19 @@ class ChatFragment : Fragment() {
 
     private fun uploadAndSendBitmap(bitmap: Bitmap) {
         val coupleId = currentCouple?.id ?: return
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        val replyId = replyingToMessage?.id
+        val replyText = replyingToMessage?.let {
+            if (it.text.isNotBlank()) it.text
+            else if (!it.imageUrl.isNullOrBlank()) "📷 Photo"
+            else if (!it.audioUrl.isNullOrBlank()) "🎙️ Voice note"
+            else "Message"
+        }
+        val replySenderName = replyingToMessage?.let {
+            if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
+        }
+        clearReplyMode()
+
         Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -194,7 +231,10 @@ class ChatFragment : Fragment() {
                     coupleId = coupleId,
                     text = "",
                     imageUrl = uploadedUrl,
-                    senderName = mySenderName
+                    senderName = mySenderName,
+                    replyToId = replyId,
+                    replyToText = replyText,
+                    replyToSenderName = replySenderName
                 )
                 triggerSendHaptic()
             } else {
@@ -262,6 +302,20 @@ class ChatFragment : Fragment() {
         ivPartnerAvatar = view.findViewById(R.id.iv_partner_avatar)
         layoutEmpty = view.findViewById(R.id.layout_chat_empty)
 
+        // Action Bar & Reply Preview Views
+        layoutActionBar = view.findViewById(R.id.layout_chat_action_bar)
+        chatHeader = view.findViewById(R.id.chat_header)
+        btnActionClose = view.findViewById(R.id.btn_action_close)
+        tvActionCount = view.findViewById(R.id.tv_action_count)
+        btnActionReply = view.findViewById(R.id.btn_action_reply)
+        btnActionCopy = view.findViewById(R.id.btn_action_copy)
+        btnActionDelete = view.findViewById(R.id.btn_action_delete)
+
+        layoutReplyPreview = view.findViewById(R.id.layout_reply_preview)
+        tvReplyPreviewName = view.findViewById(R.id.tv_reply_preview_name)
+        tvReplyPreviewText = view.findViewById(R.id.tv_reply_preview_text)
+        btnCancelReply = view.findViewById(R.id.btn_cancel_reply)
+
         val btnEmoji = view.findViewById<ImageButton>(R.id.btn_chat_emoji)
         val btnCamera = view.findViewById<ImageButton>(R.id.btn_chat_camera)
 
@@ -271,11 +325,225 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "Viewing photo", Toast.LENGTH_SHORT).show()
         }
 
+        chatAdapter.onMessageLongClick = { message ->
+            selectMessage(message)
+        }
+
+        chatAdapter.onMessageClick = { message ->
+            if (selectedMessage != null) {
+                if (selectedMessage?.id == message.id) {
+                    clearSelection()
+                } else {
+                    selectMessage(message)
+                }
+            }
+        }
+
+        chatAdapter.onQuoteClick = { targetMsgId ->
+            val pos = chatAdapter.getMessagePosition(targetMsgId)
+            if (pos != -1) {
+                rvMessages.smoothScrollToPosition(pos)
+            }
+        }
+
         val layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
         }
         rvMessages.layoutManager = layoutManager
         rvMessages.adapter = chatAdapter
+
+        // Swipe-to-Reply ItemTouchHelper
+        val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
+            private var hasVibratedForCurrentSwipe = false
+            private val replyIcon: Drawable? = ContextCompat.getDrawable(requireContext(), R.drawable.ic_reply)
+            private val triggerThreshold = 160f
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    val message = chatAdapter.getMessageAt(position)
+                    chatAdapter.notifyItemChanged(position)
+                    if (message != null) {
+                        enterReplyMode(message)
+                    }
+                }
+            }
+
+            override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float {
+                return 0.25f
+            }
+
+            override fun getSwipeEscapeVelocity(defaultValue: Float): Float {
+                return defaultValue * 2f
+            }
+
+            override fun onChildDraw(
+                c: Canvas,
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                dX: Float,
+                dY: Float,
+                actionState: Int,
+                isCurrentlyActive: Boolean
+            ) {
+                val itemView = viewHolder.itemView
+                val maxSwipe = 220f
+                val clampedDX = if (dX > 0) {
+                    (dX * 0.45f).coerceAtMost(maxSwipe)
+                } else 0f
+
+                if (clampedDX > 10f && replyIcon != null) {
+                    val iconSize = (26 * resources.displayMetrics.density).toInt()
+                    val iconMargin = (16 * resources.displayMetrics.density).toInt()
+                    val centerY = itemView.top + (itemView.height / 2)
+                    val iconLeft = itemView.left + iconMargin
+                    val iconTop = centerY - (iconSize / 2)
+                    val iconRight = iconLeft + iconSize
+                    val iconBottom = iconTop + iconSize
+
+                    val progress = (clampedDX / triggerThreshold).coerceIn(0f, 1f)
+                    replyIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom)
+                    replyIcon.setTint(ContextCompat.getColor(requireContext(), R.color.chat_quote_accent))
+                    replyIcon.alpha = (progress * 255).toInt()
+
+                    c.save()
+                    c.scale(0.7f + 0.3f * progress, 0.7f + 0.3f * progress, (iconLeft + iconRight) / 2f, centerY.toFloat())
+                    replyIcon.draw(c)
+                    c.restore()
+
+                    if (clampedDX >= triggerThreshold && !hasVibratedForCurrentSwipe && isCurrentlyActive) {
+                        triggerSendHaptic()
+                        hasVibratedForCurrentSwipe = true
+                    }
+                }
+
+                if (!isCurrentlyActive) {
+                    hasVibratedForCurrentSwipe = false
+                }
+
+                getDefaultUIUtil().onDraw(c, recyclerView, itemView, clampedDX, dY, actionState, isCurrentlyActive)
+            }
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                hasVibratedForCurrentSwipe = false
+                getDefaultUIUtil().clearView(viewHolder.itemView)
+            }
+        }
+        ItemTouchHelper(swipeCallback).attachToRecyclerView(rvMessages)
+
+        // Action Bar Buttons
+        btnActionClose.setOnClickListener {
+            clearSelection()
+        }
+
+        btnActionReply.setOnClickListener {
+            val msg = selectedMessage
+            clearSelection()
+            if (msg != null) {
+                enterReplyMode(msg)
+            }
+        }
+
+        btnActionCopy.setOnClickListener {
+            val msg = selectedMessage ?: return@setOnClickListener
+            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val textToCopy = when {
+                msg.text.isNotBlank() -> msg.text
+                !msg.imageUrl.isNullOrBlank() -> msg.imageUrl
+                !msg.audioUrl.isNullOrBlank() -> msg.audioUrl
+                else -> ""
+            }
+            if (textToCopy.isNotBlank()) {
+                val clip = android.content.ClipData.newPlainText("Chat Message", textToCopy)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                triggerSendHaptic()
+            }
+            clearSelection()
+        }
+
+        btnActionDelete.setOnClickListener {
+            val msg = selectedMessage ?: return@setOnClickListener
+            val isMine = msg.senderId == currentUid
+
+            val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            builder.setTitle("Delete message?")
+
+            if (isMine) {
+                val options = arrayOf("Delete for everyone", "Delete for me", "Cancel")
+                builder.setItems(options) { dialog, which ->
+                    when (which) {
+                        0 -> {
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val ok = repository.deleteChatMessageForEveryone(msg.id)
+                                if (ok) {
+                                    Toast.makeText(requireContext(), "Deleted for everyone", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(requireContext(), "Failed to delete", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            clearSelection()
+                        }
+                        1 -> {
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val ok = repository.deleteChatMessageForMe(msg.id, currentUid)
+                                if (ok) {
+                                    Toast.makeText(requireContext(), "Deleted for you", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(requireContext(), "Failed to delete", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            clearSelection()
+                        }
+                        2 -> dialog.dismiss()
+                    }
+                }
+            } else {
+                val options = arrayOf("Delete for me", "Cancel")
+                builder.setItems(options) { dialog, which ->
+                    when (which) {
+                        0 -> {
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val ok = repository.deleteChatMessageForMe(msg.id, currentUid)
+                                if (ok) {
+                                    Toast.makeText(requireContext(), "Deleted for you", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(requireContext(), "Failed to delete", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            clearSelection()
+                        }
+                        1 -> dialog.dismiss()
+                    }
+                }
+            }
+            builder.show()
+        }
+
+        btnCancelReply.setOnClickListener {
+            clearReplyMode()
+        }
+
+        // Handle Back button to clear selection or cancel reply first
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (selectedMessage != null) {
+                    clearSelection()
+                } else if (replyingToMessage != null) {
+                    clearReplyMode()
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
 
         // Dynamically toggle Mic / Send icon like WhatsApp & push typing state
         etInput.addTextChangedListener(object : TextWatcher {
@@ -512,6 +780,45 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun selectMessage(message: ChatMessage) {
+        selectedMessage = message
+        chatAdapter.setSelectedMessage(message.id)
+        layoutActionBar.visibility = View.VISIBLE
+        chatHeader.visibility = View.GONE
+        tvActionCount.text = "1"
+        triggerSendHaptic()
+    }
+
+    private fun clearSelection() {
+        selectedMessage = null
+        chatAdapter.setSelectedMessage(null)
+        layoutActionBar.visibility = View.GONE
+        chatHeader.visibility = View.VISIBLE
+    }
+
+    private fun enterReplyMode(message: ChatMessage) {
+        replyingToMessage = message
+        layoutReplyPreview.visibility = View.VISIBLE
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        val senderLabel = if (message.senderId == currentUid) "You" else message.senderName.ifBlank { "My Love" }
+        tvReplyPreviewName.text = "Replying to $senderLabel"
+        tvReplyPreviewText.text = when {
+            message.text.isNotBlank() -> message.text
+            !message.imageUrl.isNullOrBlank() -> "📷 Photo"
+            !message.audioUrl.isNullOrBlank() -> "🎙️ Voice note"
+            else -> "Message"
+        }
+        etInput.requestFocus()
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+        imm?.showSoftInput(etInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        triggerSendHaptic()
+    }
+
+    private fun clearReplyMode() {
+        replyingToMessage = null
+        layoutReplyPreview.visibility = View.GONE
+    }
+
     private fun stopVoiceRecording(send: Boolean) {
         if (!isRecordingAudio) return
         isRecordingAudio = false
@@ -534,6 +841,18 @@ class ChatFragment : Fragment() {
 
         val file = audioRecordingFile
         if (send && file != null && file.exists() && file.length() > 1024 && coupleId != null) {
+            val replyId = replyingToMessage?.id
+            val replyText = replyingToMessage?.let {
+                if (it.text.isNotBlank()) it.text
+                else if (!it.imageUrl.isNullOrBlank()) "📷 Photo"
+                else if (!it.audioUrl.isNullOrBlank()) "🎙️ Voice note"
+                else "Message"
+            }
+            val replySenderName = replyingToMessage?.let {
+                if (it.senderId == uid) "You" else it.senderName.ifBlank { "My Love" }
+            }
+            clearReplyMode()
+
             triggerSendHaptic()
             Toast.makeText(requireContext(), "Sending voice note...", Toast.LENGTH_SHORT).show()
             val uri = Uri.fromFile(file)
@@ -545,7 +864,10 @@ class ChatFragment : Fragment() {
                         text = "🎙️ Voice note",
                         imageUrl = null,
                         audioUrl = uploadedUrl,
-                        senderName = mySenderName
+                        senderName = mySenderName,
+                        replyToId = replyId,
+                        replyToText = replyText,
+                        replyToSenderName = replySenderName
                     )
                 } else {
                     Toast.makeText(requireContext(), "Failed to send voice note", Toast.LENGTH_SHORT).show()
@@ -562,6 +884,18 @@ class ChatFragment : Fragment() {
         val coupleId = currentCouple?.id ?: return
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         if (text.isBlank()) return
+
+        val replyId = replyingToMessage?.id
+        val replyText = replyingToMessage?.let {
+            if (it.text.isNotBlank()) it.text
+            else if (!it.imageUrl.isNullOrBlank()) "📷 Photo"
+            else if (!it.audioUrl.isNullOrBlank()) "🎙️ Voice note"
+            else "Message"
+        }
+        val replySenderName = replyingToMessage?.let {
+            if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
+        }
+        clearReplyMode()
 
         etInput.setText("")
         triggerSendHaptic()
@@ -580,13 +914,29 @@ class ChatFragment : Fragment() {
                 text = text,
                 imageUrl = null,
                 audioUrl = null,
-                senderName = mySenderName
+                senderName = mySenderName,
+                replyToId = replyId,
+                replyToText = replyText,
+                replyToSenderName = replySenderName
             )
         }
     }
 
     private fun uploadAndSendPhoto(uri: Uri) {
         val coupleId = currentCouple?.id ?: return
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        val replyId = replyingToMessage?.id
+        val replyText = replyingToMessage?.let {
+            if (it.text.isNotBlank()) it.text
+            else if (!it.imageUrl.isNullOrBlank()) "📷 Photo"
+            else if (!it.audioUrl.isNullOrBlank()) "🎙️ Voice note"
+            else "Message"
+        }
+        val replySenderName = replyingToMessage?.let {
+            if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
+        }
+        clearReplyMode()
+
         Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -596,7 +946,10 @@ class ChatFragment : Fragment() {
                     coupleId = coupleId,
                     text = "",
                     imageUrl = uploadedUrl,
-                    senderName = mySenderName
+                    senderName = mySenderName,
+                    replyToId = replyId,
+                    replyToText = replyText,
+                    replyToSenderName = replySenderName
                 )
                 triggerSendHaptic()
             } else {

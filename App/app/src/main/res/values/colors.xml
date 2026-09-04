@@ -78,6 +78,15 @@
     <color name="chat_empty_title">#2A1B28</color>
     <color name="chat_empty_subtitle">#78716C</color>
     
+    <!-- Reply & Selection Tokens -->
+    <color name="chat_reply_preview_bg">#FFF7F9</color>
+    <color name="chat_reply_preview_stroke">#F0DCE3</color>
+    <color name="chat_selection_overlay">#26E85D75</color>
+    <color name="chat_quote_sent_bg">#33000000</color>
+    <color name="chat_quote_received_bg">#F4EFF2</color>
+    <color name="chat_quote_accent">#E85D75</color>
+    <color name="chat_quote_accent_blue">#34B7F1</color>
+    
     <!-- Bottom Sheet & Cards Tokens (Light Mode) -->
     <color name="sheet_bg">#FFFFFF</color>
     <color name="sheet_handle">#D1C7CD</color>

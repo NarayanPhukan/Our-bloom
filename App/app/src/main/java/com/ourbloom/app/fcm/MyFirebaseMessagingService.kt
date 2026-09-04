@@ -11,6 +11,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.ourbloom.app.MainActivity
@@ -39,25 +40,33 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val isHeartbeat = type == "heartbeat"
         val isChat = type == "chat"
 
-        val title = remoteMessage.notification?.title 
-            ?: (if (isHeartbeat) {
-                val sender = remoteMessage.data["senderName"] ?: "Your Love"
-                "$sender sent you a Heartbeat ❤️"
-            } else if (isChat) {
-                val sender = remoteMessage.data["senderName"] ?: "Your Love"
-                "$sender 💬"
-            } else {
-                "OurBloom"
-            })
+        val title = if (isHeartbeat) {
+            val sender = remoteMessage.data["senderName"] ?: "Your Love"
+            "$sender sent you a Heartbeat ❤️"
+        } else if (isChat) {
+            // WhatsApp style: Contact name is the title
+            remoteMessage.data["senderName"] ?: remoteMessage.notification?.title ?: "Your Love"
+        } else {
+            remoteMessage.notification?.title ?: "OurBloom"
+        }
 
-        val body = remoteMessage.notification?.body 
-            ?: (if (isHeartbeat) {
-                "Thinking of you right now... tap to send one back!"
-            } else if (isChat) {
-                "Sent you a new message"
-            } else {
-                "You have a new message!"
-            })
+        val body = if (isHeartbeat) {
+            "Thinking of you right now... tap to send one back!"
+        } else if (isChat) {
+            // WhatsApp style: exact message text or clean media type
+            val messageText = remoteMessage.data["messageText"]
+            val imageUrl = remoteMessage.data["imageUrl"]
+            val audioUrl = remoteMessage.data["audioUrl"]
+            when {
+                !messageText.isNullOrBlank() -> messageText
+                !imageUrl.isNullOrBlank() -> "📷 Photo"
+                !audioUrl.isNullOrBlank() -> "🎙️ Voice message"
+                !remoteMessage.notification?.body.isNullOrBlank() -> remoteMessage.notification?.body!!
+                else -> "New message"
+            }
+        } else {
+            remoteMessage.notification?.body ?: "You have a new message!"
+        }
 
         if (isHeartbeat) {
             triggerHeartbeatHaptic()
@@ -160,6 +169,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVibrate(if (isHeartbeat) longArrayOf(0, 120, 80, 240) else longArrayOf(0, 250, 250, 250))
             .setContentIntent(pendingIntent)
+
+        if (isChat) {
+            val userPerson = Person.Builder()
+                .setName(title)
+                .build()
+            val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
+                .setConversationTitle(null)
+                .addMessage(messageBody, System.currentTimeMillis(), userPerson)
+            notificationBuilder.setStyle(messagingStyle)
+            notificationBuilder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
+        }
 
         val notifId = if (isHeartbeat) 8888 else System.currentTimeMillis().toInt()
         notificationManager.notify(notifId, notificationBuilder.build())

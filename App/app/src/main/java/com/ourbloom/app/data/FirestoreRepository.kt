@@ -424,7 +424,10 @@ class FirestoreRepository {
         text: String,
         imageUrl: String? = null,
         audioUrl: String? = null,
-        senderName: String
+        senderName: String,
+        replyToId: String? = null,
+        replyToText: String? = null,
+        replyToSenderName: String? = null
     ): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {
@@ -439,12 +442,40 @@ class FirestoreRepository {
                 "isRead" to false,
                 "read" to false,
                 "isDelivered" to false,
-                "delivered" to false
+                "delivered" to false,
+                "replyToId" to (replyToId ?: ""),
+                "replyToText" to (replyToText ?: ""),
+                "replyToSenderName" to (replyToSenderName ?: ""),
+                "deletedFor" to emptyList<String>()
             )
             db.collection("chat_messages").add(messageData).await()
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error sending chat message", e)
+            false
+        }
+    }
+
+    suspend fun deleteChatMessageForEveryone(messageId: String): Boolean {
+        if (messageId.isBlank()) return false
+        return try {
+            db.collection("chat_messages").document(messageId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting chat message for everyone", e)
+            false
+        }
+    }
+
+    suspend fun deleteChatMessageForMe(messageId: String, userId: String): Boolean {
+        if (messageId.isBlank() || userId.isBlank()) return false
+        return try {
+            db.collection("chat_messages").document(messageId)
+                .update("deletedFor", com.google.firebase.firestore.FieldValue.arrayUnion(userId))
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting chat message for me", e)
             false
         }
     }
@@ -607,6 +638,7 @@ class FirestoreRepository {
         coupleId: String,
         onMessages: (List<ChatMessage>) -> Unit
     ): ListenerRegistration {
+        val currentUid = auth.currentUser?.uid ?: ""
         return db.collection("chat_messages")
             .whereEqualTo("coupleId", coupleId)
             .addSnapshotListener { snapshot, error ->
@@ -616,6 +648,9 @@ class FirestoreRepository {
                 }
                 val messages = snapshot.documents.mapNotNull { doc ->
                     val msg = doc.toObject(ChatMessage::class.java) ?: return@mapNotNull null
+                    if (currentUid.isNotEmpty() && msg.deletedFor.contains(currentUid)) {
+                        return@mapNotNull null
+                    }
                     val isReadDirect = (doc.getBoolean("isRead") == true) || (doc.getBoolean("read") == true)
                     val isDeliveredDirect = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
                     if (isReadDirect) {
