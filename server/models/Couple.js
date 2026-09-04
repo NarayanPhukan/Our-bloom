@@ -59,6 +59,10 @@ const coupleSchema = new mongoose.Schema(
       type: String,
       default: '/images/journey-bg.jpg',
     },
+    chatBackgroundUrl: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

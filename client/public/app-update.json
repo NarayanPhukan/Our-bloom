@@ -1,8 +1,8 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2",
+  "versionCode": 4,
+  "versionName": "1.3",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• In-app automatic update & installation\n• WhatsApp-style notifications with direct reply & actions\n• Swipe-to-reply on chat bubbles\n• Real-time delivery and read ticks\n• High-fidelity voice notes playback\n• Desktop & Web sync improvements",
+  "changelog": "• Fix swipe-to-reply UI squashing on short messages\n• Chat image lightbox with one-tap save to gallery\n• Real-time shared custom chat background for both users",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

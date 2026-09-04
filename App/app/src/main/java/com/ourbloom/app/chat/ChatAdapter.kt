@@ -23,7 +23,7 @@ import androidx.core.widget.ImageViewCompat
 
 class ChatAdapter(
     private val currentUserId: String,
-    private val onImageClick: (String) -> Unit = {}
+    private val onImageClick: (ChatMessage) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -332,13 +332,17 @@ class ChatAdapter(
                     .centerCrop()
                     .into(ivImage)
 
-                ivImage.setOnClickListener {
+                val imageClickListener = View.OnClickListener {
                     if (selectedMessageId != null) {
                         onMessageClick?.invoke(message)
                     } else {
-                        onImageClick(message.imageUrl)
+                        onImageClick(message)
                     }
                 }
+                ivImage.setOnClickListener(imageClickListener)
+                cardImage.setOnClickListener(imageClickListener)
+                ivImage.setOnLongClickListener(longClickListener)
+                cardImage.setOnLongClickListener(longClickListener)
             } else {
                 cardImage.visibility = View.GONE
             }
@@ -459,13 +463,17 @@ class ChatAdapter(
                     .centerCrop()
                     .into(ivImage)
 
-                ivImage.setOnClickListener {
+                val imageClickListener = View.OnClickListener {
                     if (selectedMessageId != null) {
                         onMessageClick?.invoke(message)
                     } else {
-                        onImageClick(message.imageUrl)
+                        onImageClick(message)
                     }
                 }
+                ivImage.setOnClickListener(imageClickListener)
+                cardImage.setOnClickListener(imageClickListener)
+                ivImage.setOnLongClickListener(longClickListener)
+                cardImage.setOnLongClickListener(longClickListener)
             } else {
                 cardImage.visibility = View.GONE
             }

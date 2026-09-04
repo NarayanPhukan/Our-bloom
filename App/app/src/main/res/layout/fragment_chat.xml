@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/chat_bg">
+
+    <!-- Shared Chat Wallpaper ImageView -->
+    <ImageView
+        android:id="@+id/iv_chat_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        android:contentDescription="Chat Background" />
+
+    <!-- Romantic Soft Dimming Scrim for Readability -->
+    <View
+        android:id="@+id/view_chat_wallpaper_dim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#20000000"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
     <!-- Top Header & Contextual Selection Bar -->
     <FrameLayout
@@ -384,3 +405,5 @@
     </LinearLayout>
 
 </LinearLayout>
+
+</FrameLayout>

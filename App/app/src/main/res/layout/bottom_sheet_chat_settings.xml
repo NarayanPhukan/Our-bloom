@@ -111,6 +111,115 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Shared Chat Wallpaper Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="@color/sheet_card_bg"
+        app:cardCornerRadius="16dp"
+        app:strokeColor="@color/sheet_card_stroke"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#E85D75"
+                    app:strokeWidth="1.5dp"
+                    app:cardBackgroundColor="@color/chat_avatar_bg">
+
+                    <ImageView
+                        android:id="@+id/iv_chat_settings_wallpaper_preview"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_photo_library_rounded"
+                        app:tint="#E85D75"
+                        android:padding="10dp" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="14dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Shared Chat Wallpaper"
+                        android:textColor="@color/sheet_card_title"
+                        android:textSize="15sp"
+                        android:fontFamily="@font/playfair_display"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_chat_settings_wallpaper_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Same background for both of you"
+                        android:textColor="@color/sheet_card_subtitle"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_change_chat_wallpaper"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="Set Wallpaper"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="#E85D75"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_photo_library_rounded"
+                    app:iconGravity="textStart"
+                    app:iconTint="#FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_reset_chat_wallpaper"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="8dp"
+                    android:text="Reset"
+                    android:textColor="@color/sheet_card_subtitle"
+                    android:textSize="12sp"
+                    app:cornerRadius="12dp"
+                    app:strokeColor="@color/sheet_card_stroke"
+                    app:strokeWidth="1dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
     <!-- Google Account Card -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"

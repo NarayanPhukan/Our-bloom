@@ -846,4 +846,28 @@ class FirestoreRepository {
             throw e
         }
     }
+
+    suspend fun updateChatBackground(coupleId: String, url: String?): Boolean {
+        if (coupleId.isBlank()) return false
+        return try {
+            db.collection("couples").document(coupleId)
+                .update("chatBackgroundUrl", url ?: "")
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating chat background", e)
+            false
+        }
+    }
+
+    fun getCoupleListener(coupleId: String, onCouple: (Couple?) -> Unit): ListenerRegistration {
+        return db.collection("couples").document(coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) {
+                    return@addSnapshotListener
+                }
+                val couple = snapshot.toObject(Couple::class.java)
+                onCouple(couple)
+            }
+    }
 }

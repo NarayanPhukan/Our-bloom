@@ -2,13 +2,19 @@ package com.ourbloom.app.dashboard
 
 import android.app.Dialog
 import android.app.DownloadManager
+import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -20,13 +26,14 @@ import androidx.fragment.app.Fragment
 import com.bumptech.glide.Glide
 import com.ourbloom.app.R
 import com.ourbloom.app.data.models.Memory
+import java.io.File
 
 fun Fragment.showLightbox(memory: Memory) {
     if (context == null) return
 
     val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
     dialog.setContentView(R.layout.dialog_lightbox)
-    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
     dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
     val ivImage = dialog.findViewById<ImageView>(R.id.iv_lightbox_image)
@@ -42,6 +49,7 @@ fun Fragment.showLightbox(memory: Memory) {
     if (memory.imageUrl.isNotEmpty()) {
         Glide.with(this)
             .load(memory.imageUrl)
+            .placeholder(R.drawable.placeholder_memory)
             .into(ivImage)
     }
 
@@ -115,7 +123,7 @@ fun Fragment.showLightbox(memory: Memory) {
                             } catch (e: Exception) {
                                 // ignore
                             }
-                            true // Consumes error so MediaPlayer doesn't crash or cascade to state 0
+                            true
                         }
 
                         prepareAsync()
@@ -148,24 +156,10 @@ fun Fragment.showLightbox(memory: Memory) {
         }
     }
 
-    // Download setup
+    // Download/Save setup
     btnDownload.setOnClickListener {
         if (memory.imageUrl.isBlank()) return@setOnClickListener
-        
-        try {
-            val request = DownloadManager.Request(Uri.parse(memory.imageUrl))
-            request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
-            request.setTitle("Our Bloom Memory")
-            request.setDescription("Downloading photo...")
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, "bloom_memory_${System.currentTimeMillis()}.jpg")
-
-            val downloadManager = requireContext().getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            downloadManager.enqueue(request)
-            Toast.makeText(context, "Downloading photo...", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(context, "Failed to download", Toast.LENGTH_SHORT).show()
-        }
+        saveImageToGallery(requireContext(), ivImage.drawable, memory.imageUrl)
     }
 
     btnClose.setOnClickListener {
@@ -178,4 +172,127 @@ fun Fragment.showLightbox(memory: Memory) {
     }
 
     dialog.show()
+}
+
+/**
+ * Fullscreen Lightbox for Chat Images with Save-to-Gallery option
+ */
+fun Fragment.showChatImageLightbox(
+    imageUrl: String,
+    senderName: String? = null,
+    timeStr: String? = null
+) {
+    if (context == null || imageUrl.isBlank()) return
+
+    val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+    dialog.setContentView(R.layout.dialog_lightbox)
+    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
+    dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+
+    val ivImage = dialog.findViewById<ImageView>(R.id.iv_lightbox_image)
+    val btnClose = dialog.findViewById<ImageButton>(R.id.btn_close)
+    val btnDownload = dialog.findViewById<ImageButton>(R.id.btn_download)
+    val tvTitle = dialog.findViewById<TextView>(R.id.tv_lightbox_title)
+    val tvDate = dialog.findViewById<TextView>(R.id.tv_lightbox_date)
+    val btnPlay = dialog.findViewById<ImageButton>(R.id.btn_play_audio)
+    val detailsLayout = dialog.findViewById<View>(R.id.ll_lightbox_details)
+
+    btnPlay?.visibility = View.GONE
+
+    if (!senderName.isNullOrBlank() || !timeStr.isNullOrBlank()) {
+        detailsLayout?.visibility = View.VISIBLE
+        tvTitle?.text = senderName ?: ""
+        tvDate?.text = timeStr ?: ""
+        tvTitle?.visibility = if (senderName.isNullOrBlank()) View.GONE else View.VISIBLE
+        tvDate?.visibility = if (timeStr.isNullOrBlank()) View.GONE else View.VISIBLE
+    } else {
+        detailsLayout?.visibility = View.GONE
+    }
+
+    Glide.with(this)
+        .load(imageUrl)
+        .placeholder(R.drawable.placeholder_memory)
+        .into(ivImage)
+
+    btnDownload.setOnClickListener {
+        saveImageToGallery(requireContext(), ivImage.drawable, imageUrl)
+    }
+
+    btnClose.setOnClickListener {
+        dialog.dismiss()
+    }
+
+    // Tap image to toggle details visibility
+    ivImage.setOnClickListener {
+        if (detailsLayout != null && (!senderName.isNullOrBlank() || !timeStr.isNullOrBlank())) {
+            detailsLayout.visibility = if (detailsLayout.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+    }
+
+    dialog.show()
+}
+
+/**
+ * Saves the given image to the device's public Pictures/OurBloom gallery.
+ * First tries direct high-speed MediaStore insertion from the cached bitmap,
+ * with fallback to Android's DownloadManager.
+ */
+private fun saveImageToGallery(context: Context, drawable: Drawable?, fallbackUrl: String) {
+    try {
+        val bitmap = (drawable as? BitmapDrawable)?.bitmap
+        if (bitmap != null) {
+            val filename = "OurBloom_${System.currentTimeMillis()}.jpg"
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + File.separator + "OurBloom")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            }
+
+            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            if (uri != null) {
+                resolver.openOutputStream(uri)?.use { stream ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                }
+                Toast.makeText(context, "Photo saved to Gallery! 🌸", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+    } catch (e: Exception) {
+        Log.e("LightboxHelper", "Error saving cached bitmap to MediaStore: ${e.message}")
+    }
+
+    // Fallback to DownloadManager
+    try {
+        var downloadUrl = fallbackUrl.trim()
+        if (downloadUrl.startsWith("/uploads")) {
+            downloadUrl = "https://our-bloom.onrender.com$downloadUrl"
+        }
+
+        val request = DownloadManager.Request(Uri.parse(downloadUrl)).apply {
+            setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+            setTitle("Our Bloom Photo")
+            setDescription("Saving photo to Gallery...")
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            setDestinationInExternalPublicDir(
+                Environment.DIRECTORY_PICTURES,
+                "OurBloom_${System.currentTimeMillis()}.jpg"
+            )
+        }
+
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        downloadManager.enqueue(request)
+        Toast.makeText(context, "Saving photo to gallery... 🌸", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Log.e("LightboxHelper", "Failed to enqueue download", e)
+        Toast.makeText(context, "Failed to save photo: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
 }

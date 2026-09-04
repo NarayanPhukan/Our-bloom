@@ -38,6 +38,10 @@ import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.User
+import com.ourbloom.app.dashboard.showChatImageLightbox
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,10 +99,14 @@ class ChatFragment : Fragment() {
 
     private var messagesListener: ListenerRegistration? = null
     private var typingListener: ListenerRegistration? = null
+    private var coupleListener: ListenerRegistration? = null
     private var currentCouple: Couple? = null
     private var currentUser: User? = null
     private var partnerUser: User? = null
     private var mySenderName: String = "My Love"
+
+    private var ivChatBackground: ImageView? = null
+    private var viewChatWallpaperDim: View? = null
 
     private var pendingBackupJson: String? = null
     private var settingsDialog: BottomSheetDialog? = null
@@ -281,6 +289,70 @@ class ChatFragment : Fragment() {
         }
     }
 
+    // Shared Chat Wallpaper launcher
+    private val pickWallpaperLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            uploadChatWallpaper(uri)
+        }
+    }
+
+    private fun uploadChatWallpaper(uri: Uri) {
+        val coupleId = currentCouple?.id ?: return
+        Toast.makeText(requireContext(), "Setting chat wallpaper for both... 🌸", Toast.LENGTH_SHORT).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val uploadedUrl = repository.uploadImage(requireContext(), uri)
+            if (!uploadedUrl.isNullOrBlank()) {
+                val success = repository.updateChatBackground(coupleId, uploadedUrl)
+                if (success) {
+                    currentCouple = currentCouple?.copy(chatBackgroundUrl = uploadedUrl)
+                    applyChatWallpaper(uploadedUrl)
+                    updateSettingsWallpaperUi(uploadedUrl)
+                    Toast.makeText(requireContext(), "Chat wallpaper updated for both of you! 💕", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Failed to save chat wallpaper", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(requireContext(), "Failed to upload wallpaper", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun resetChatWallpaper() {
+        val coupleId = currentCouple?.id ?: return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val success = repository.updateChatBackground(coupleId, "")
+            if (success) {
+                currentCouple = currentCouple?.copy(chatBackgroundUrl = "")
+                applyChatWallpaper("")
+                updateSettingsWallpaperUi("")
+                Toast.makeText(requireContext(), "Chat wallpaper reset to default", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "Failed to reset wallpaper", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun applyChatWallpaper(url: String?) {
+        if (!isAdded) return
+        val iv = ivChatBackground ?: return
+        val dim = viewChatWallpaperDim
+        if (!url.isNullOrBlank()) {
+            iv.visibility = View.VISIBLE
+            dim?.visibility = View.VISIBLE
+            Glide.with(this@ChatFragment)
+                .load(url)
+                .centerCrop()
+                .into(iv)
+        } else {
+            Glide.with(this@ChatFragment).clear(iv)
+            iv.setImageDrawable(null)
+            iv.visibility = View.GONE
+            dim?.visibility = View.GONE
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -304,6 +376,8 @@ class ChatFragment : Fragment() {
         tvChatStatus = view.findViewById(R.id.tv_chat_status)
         ivPartnerAvatar = view.findViewById(R.id.iv_partner_avatar)
         layoutEmpty = view.findViewById(R.id.layout_chat_empty)
+        ivChatBackground = view.findViewById(R.id.iv_chat_background)
+        viewChatWallpaperDim = view.findViewById(R.id.view_chat_wallpaper_dim)
 
         // Action Bar & Reply Preview Views
         layoutActionBar = view.findViewById(R.id.layout_chat_action_bar)
@@ -323,9 +397,13 @@ class ChatFragment : Fragment() {
         val btnCamera = view.findViewById<ImageButton>(R.id.btn_chat_camera)
 
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-        chatAdapter = ChatAdapter(currentUid) { imageUrl ->
-            // Photo clicked - preview
-            Toast.makeText(requireContext(), "Viewing photo", Toast.LENGTH_SHORT).show()
+        chatAdapter = ChatAdapter(currentUid) { message ->
+            val url = message.imageUrl
+            if (!url.isNullOrBlank()) {
+                val timeStr = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(message.timestamp))
+                val senderLabel = if (message.senderId == currentUid) "You" else message.senderName.ifBlank { "My Love" }
+                showChatImageLightbox(url, senderLabel, timeStr)
+            }
         }
 
         chatAdapter.onMessageLongClick = { message ->
@@ -755,7 +833,22 @@ class ChatFragment : Fragment() {
                     if (partnerId.isNotBlank()) {
                         setupTypingListener(cId, partnerId)
                     }
+
+                    // Apply and listen to shared chat wallpaper in real time
+                    applyChatWallpaper(couple.chatBackgroundUrl)
+                    setupCoupleListener(cId)
                 }
+            }
+        }
+    }
+
+    private fun setupCoupleListener(coupleId: String) {
+        coupleListener?.remove()
+        coupleListener = repository.getCoupleListener(coupleId) { couple ->
+            if (couple != null) {
+                currentCouple = couple
+                applyChatWallpaper(couple.chatBackgroundUrl)
+                updateSettingsWallpaperUi(couple.chatBackgroundUrl)
             }
         }
     }
@@ -1114,6 +1207,19 @@ class ChatFragment : Fragment() {
             startRestoreFlow()
         }
 
+        // Shared Wallpaper Setup
+        val btnChangeWallpaper = sheetView.findViewById<MaterialButton>(R.id.btn_change_chat_wallpaper)
+        val btnResetWallpaper = sheetView.findViewById<MaterialButton>(R.id.btn_reset_chat_wallpaper)
+        updateSettingsWallpaperUi(currentCouple?.chatBackgroundUrl)
+
+        btnChangeWallpaper?.setOnClickListener {
+            pickWallpaperLauncher.launch("image/*")
+        }
+
+        btnResetWallpaper?.setOnClickListener {
+            resetChatWallpaper()
+        }
+
         dialog.show()
     }
 
@@ -1125,6 +1231,36 @@ class ChatFragment : Fragment() {
     private fun updateSettingsBackupUi() {
         settingsDialog?.findViewById<TextView>(R.id.tv_last_backup_status)?.text = 
             "Last backup: ${driveHelper.getLastBackupTime()}"
+    }
+
+    private fun updateSettingsWallpaperUi(wallpaperUrl: String?) {
+        val dialog = settingsDialog ?: return
+        val ivPreview = dialog.findViewById<ImageView>(R.id.iv_chat_settings_wallpaper_preview)
+        val tvStatus = dialog.findViewById<TextView>(R.id.tv_chat_settings_wallpaper_status)
+        val btnReset = dialog.findViewById<MaterialButton>(R.id.btn_reset_chat_wallpaper)
+
+        if (!wallpaperUrl.isNullOrBlank()) {
+            if (ivPreview != null) {
+                Glide.with(this)
+                    .load(wallpaperUrl)
+                    .centerCrop()
+                    .into(ivPreview)
+                ivPreview.imageTintList = null
+                ivPreview.setPadding(0, 0, 0, 0)
+            }
+            tvStatus?.text = "Custom wallpaper synced for both of you 💕"
+            btnReset?.visibility = View.VISIBLE
+        } else {
+            if (ivPreview != null) {
+                Glide.with(this).clear(ivPreview)
+                ivPreview.setImageResource(R.drawable.ic_photo_library_rounded)
+                ivPreview.imageTintList = ContextCompat.getColorStateList(requireContext(), R.color.chat_action_pink)
+                val pad = (10 * resources.displayMetrics.density).toInt()
+                ivPreview.setPadding(pad, pad, pad, pad)
+            }
+            tvStatus?.text = "Default romantic theme"
+            btnReset?.visibility = View.GONE
+        }
     }
 
     private fun startBackupFlow() {
@@ -1201,6 +1337,8 @@ class ChatFragment : Fragment() {
         messagesListener = null
         typingListener?.remove()
         typingListener = null
+        coupleListener?.remove()
+        coupleListener = null
     }
 
     companion object {

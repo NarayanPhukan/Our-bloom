@@ -13,5 +13,6 @@ data class Couple(
     val joinCode: String = "",
     val spotifyTrackId: String = "4O2N861eOnF9q8EtpH8IJu",
     val heroImageUrl: String = "",
-    val slug: String = ""
+    val slug: String = "",
+    val chatBackgroundUrl: String = ""
 )

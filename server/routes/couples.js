@@ -214,21 +214,27 @@ router.post('/:slug/hero-image', authMiddleware, coupleMiddleware, upload.single
 // PUT /api/couples/:slug — Update couple settings
 router.put('/:slug', authMiddleware, coupleMiddleware, async (req, res) => {
   try {
-    const { spotifyTrackId, specialPhrase, startDate, startTime } = req.body;
+    const { spotifyTrackId, specialPhrase, startDate, startTime, chatBackgroundUrl } = req.body;
     const couple = req.couple;
 
     if (spotifyTrackId !== undefined) couple.spotifyTrackId = spotifyTrackId;
     if (specialPhrase !== undefined) couple.specialPhrase = specialPhrase;
     if (startDate !== undefined) couple.startDate = new Date(startDate);
     if (startTime !== undefined) couple.startTime = startTime;
+    if (chatBackgroundUrl !== undefined) couple.chatBackgroundUrl = chatBackgroundUrl;
 
     await couple.save();
     await couple.populate('user1 user2', 'name email nicknameForPartner');
 
-    // Emit socket event for spotify updates
+    // Emit socket event for updates
     const io = req.app.get('io');
-    if (io && spotifyTrackId !== undefined) {
-      io.to(couple.slug).emit('updateSpotify', couple.spotifyTrackId);
+    if (io) {
+      if (spotifyTrackId !== undefined) {
+        io.to(couple.slug).emit('updateSpotify', couple.spotifyTrackId);
+      }
+      if (chatBackgroundUrl !== undefined) {
+        io.to(couple.slug).emit('updateChatBackground', couple.chatBackgroundUrl);
+      }
     }
 
     res.json(couple);
