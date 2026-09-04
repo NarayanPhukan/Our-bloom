@@ -64,11 +64,10 @@
 
             <ImageView
                 android:id="@+id/iv_chat_status"
-                android:layout_width="15dp"
-                android:layout_height="15dp"
-                android:layout_marginStart="4dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="3dp"
                 android:src="@drawable/ic_msg_status_single_tick"
-                app:tint="@color/chat_bubble_sent_time"
                 android:contentDescription="Message status" />
 
         </LinearLayout>

@@ -437,7 +437,9 @@ class FirestoreRepository {
                 "audioUrl" to (audioUrl ?: ""),
                 "timestamp" to System.currentTimeMillis(),
                 "isRead" to false,
-                "isDelivered" to false
+                "read" to false,
+                "isDelivered" to false,
+                "delivered" to false
             )
             db.collection("chat_messages").add(messageData).await()
             true
@@ -457,14 +459,17 @@ class FirestoreRepository {
 
             val toUpdate = snapshot.documents.filter { doc ->
                 val senderId = doc.getString("senderId") ?: ""
-                val isDelivered = doc.getBoolean("isDelivered") ?: false
+                val isDelivered = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
                 senderId.isNotBlank() && senderId != currentUserId && !isDelivered
             }
 
             if (toUpdate.isNotEmpty()) {
                 val batch = db.batch()
                 toUpdate.forEach { doc ->
-                    batch.update(doc.reference, "isDelivered", true)
+                    batch.update(doc.reference, mapOf(
+                        "isDelivered" to true,
+                        "delivered" to true
+                    ))
                 }
                 batch.commit().await()
                 Log.d("FirestoreRepo", "Marked ${toUpdate.size} messages as delivered")
@@ -484,8 +489,8 @@ class FirestoreRepository {
 
             val toUpdate = snapshot.documents.filter { doc ->
                 val senderId = doc.getString("senderId") ?: ""
-                val isRead = doc.getBoolean("isRead") ?: false
-                val isDelivered = doc.getBoolean("isDelivered") ?: false
+                val isRead = (doc.getBoolean("isRead") == true) || (doc.getBoolean("read") == true)
+                val isDelivered = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
                 senderId.isNotBlank() && senderId != currentUserId && (!isRead || !isDelivered)
             }
 
@@ -496,7 +501,9 @@ class FirestoreRepository {
                         doc.reference,
                         mapOf(
                             "isRead" to true,
-                            "isDelivered" to true
+                            "read" to true,
+                            "isDelivered" to true,
+                            "delivered" to true
                         )
                     )
                 }

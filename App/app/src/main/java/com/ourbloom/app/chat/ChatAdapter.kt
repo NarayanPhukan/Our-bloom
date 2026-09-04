@@ -14,6 +14,7 @@ import java.util.Date
 import java.util.Locale
 
 import android.content.res.ColorStateList
+import androidx.core.widget.ImageViewCompat
 
 class ChatAdapter(
     private val currentUserId: String,
@@ -23,7 +24,7 @@ class ChatAdapter(
     companion object {
         private const val VIEW_TYPE_SENT = 1
         private const val VIEW_TYPE_RECEIVED = 2
-        private const val COLOR_TICK_READ = 0xFF34B7F1.toInt() // WhatsApp blue
+        private const val COLOR_TICK_READ = 0xFF34B7F1.toInt() // WhatsApp cyan blue
         private const val COLOR_TICK_DEFAULT = 0xFFE0E0E0.toInt() // Subtle grey/white
     }
 
@@ -94,19 +95,19 @@ class ChatAdapter(
             // 2. Double Grey Tick: delivered to receiver's device
             // 3. Single Grey Tick: sent to server, receiver not yet received
             when {
-                message.isRead -> {
+                message.isSeen -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
-                    ivStatus.imageTintList = ColorStateList.valueOf(COLOR_TICK_READ)
+                    ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_READ))
                     ivStatus.contentDescription = "Read"
                 }
-                message.isDelivered -> {
+                message.hasDelivered -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
-                    ivStatus.imageTintList = ColorStateList.valueOf(COLOR_TICK_DEFAULT)
+                    ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_DEFAULT))
                     ivStatus.contentDescription = "Delivered"
                 }
                 else -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_single_tick)
-                    ivStatus.imageTintList = ColorStateList.valueOf(COLOR_TICK_DEFAULT)
+                    ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_DEFAULT))
                     ivStatus.contentDescription = "Sent"
                 }
             }

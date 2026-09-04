@@ -2,6 +2,7 @@ package com.ourbloom.app.data.models
 
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
+import com.google.firebase.firestore.PropertyName
 
 @IgnoreExtraProperties
 data class ChatMessage(
@@ -13,6 +14,12 @@ data class ChatMessage(
     val imageUrl: String? = null,
     val audioUrl: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
-    val isRead: Boolean = false,
-    val isDelivered: Boolean = false
-)
+    @get:PropertyName("isRead") @set:PropertyName("isRead") var isRead: Boolean = false,
+    @get:PropertyName("isDelivered") @set:PropertyName("isDelivered") var isDelivered: Boolean = false
+) {
+    val isSeen: Boolean
+        get() = isRead
+
+    val hasDelivered: Boolean
+        get() = isDelivered || isRead
+}
