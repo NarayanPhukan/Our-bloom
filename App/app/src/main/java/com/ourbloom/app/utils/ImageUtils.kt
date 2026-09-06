@@ -13,14 +13,15 @@ import java.io.File
 object ImageUtils {
 
     /**
-     * Prepares an image from a Uri with Ultra-HD quality (up to 2560px max dimension, 92% JPEG quality),
-     * auto-correcting EXIF orientation so photos are never rotated sideways or blurry.
+     * Prepares an image from a Uri with Ultra-HD studio quality (up to 2560px max dimension, 95% JPEG quality).
+     * Preserves raw bytes if already within bounds and orientation is upright to eliminate any recompression loss,
+     * and auto-corrects EXIF orientation so photos are never rotated sideways or blurry.
      */
     fun processHighQualityImage(
         context: Context,
         uri: Uri,
         maxDimension: Int = 2560,
-        quality: Int = 92
+        quality: Int = 95
     ): ByteArray? {
         return try {
             // 1. Read bounds first
@@ -38,7 +39,21 @@ object ImageUtils {
                 return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             }
 
-            // 2. Determine sample size to avoid OutOfMemory on huge camera images
+            // 2. Check EXIF orientation
+            val rotation = getExifRotation(context, uri)
+
+            // 3. ZERO-LOSS PASS-THROUGH:
+            // If photo is already within maxDimension (e.g. 1080p, 1440p, 2K photos/screenshots/memes),
+            // orientation is upright (0 deg), and file size is <= 20MB:
+            // Return raw bytes directly with ZERO recompression loss!
+            if (origWidth <= maxDimension && origHeight <= maxDimension && rotation == 0) {
+                val rawBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (rawBytes != null && rawBytes.isNotEmpty() && rawBytes.size <= 20 * 1024 * 1024) {
+                    return rawBytes
+                }
+            }
+
+            // 4. Determine sample size to avoid OutOfMemory on huge camera images (e.g. 48MP/108MP)
             var sampleSize = 1
             var maxSide = maxOf(origWidth, origHeight)
             while (maxSide / 2 >= maxDimension) {
@@ -46,7 +61,7 @@ object ImageUtils {
                 maxSide /= 2
             }
 
-            // 3. Decode bitmap with sampleSize
+            // 5. Decode bitmap with sampleSize and highest color depth
             val decodeOptions = BitmapFactory.Options().apply {
                 inSampleSize = sampleSize
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -55,8 +70,7 @@ object ImageUtils {
                 BitmapFactory.decodeStream(stream, null, decodeOptions)
             } ?: return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
 
-            // 4. Correct EXIF orientation
-            val rotation = getExifRotation(context, uri)
+            // 6. Correct EXIF orientation
             if (rotation != 0) {
                 val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
                 val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
@@ -66,7 +80,7 @@ object ImageUtils {
                 }
             }
 
-            // 5. If still larger than maxDimension, scale smoothly with bilinear filtering
+            // 7. If still larger than maxDimension, scale smoothly with bilinear filtering
             val currentMax = maxOf(bitmap.width, bitmap.height)
             if (currentMax > maxDimension) {
                 val ratio = maxDimension.toFloat() / currentMax.toFloat()
@@ -79,7 +93,7 @@ object ImageUtils {
                 }
             }
 
-            // 6. Compress with high-fidelity JPEG (92%)
+            // 8. Compress with studio-grade JPEG fidelity (95%)
             val outStream = ByteArrayOutputStream()
             bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outStream)
             bitmap.recycle()

@@ -16,6 +16,9 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
@@ -24,6 +27,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import com.ourbloom.app.R
 import com.ourbloom.app.data.models.Memory
 import java.io.File
@@ -211,8 +217,59 @@ fun Fragment.showChatImageLightbox(
 
     Glide.with(this)
         .load(imageUrl)
+        .diskCacheStrategy(DiskCacheStrategy.ALL)
         .placeholder(R.drawable.placeholder_memory)
         .into(ivImage)
+
+    // Smooth Pinch-to-Zoom, Pan, and Double-Tap Zoom
+    var scaleFactor = 1.0f
+
+    val scaleDetector = ScaleGestureDetector(requireContext(), object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+            scaleFactor = (scaleFactor * detector.scaleFactor).coerceIn(1.0f, 4.5f)
+            ivImage.scaleX = scaleFactor
+            ivImage.scaleY = scaleFactor
+            return true
+        }
+    })
+
+    val gestureDetector = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
+        override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+            if (detailsLayout != null && (!senderName.isNullOrBlank() || !timeStr.isNullOrBlank())) {
+                detailsLayout.visibility = if (detailsLayout.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
+            return true
+        }
+
+        override fun onDoubleTap(e: MotionEvent): Boolean {
+            if (scaleFactor > 1.0f) {
+                scaleFactor = 1.0f
+                ivImage.animate().scaleX(1.0f).scaleY(1.0f).translationX(0f).translationY(0f).setDuration(200).start()
+            } else {
+                scaleFactor = 2.5f
+                ivImage.animate().scaleX(2.5f).scaleY(2.5f).setDuration(200).start()
+            }
+            return true
+        }
+
+        override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+            if (scaleFactor > 1.0f) {
+                ivImage.translationX -= distanceX
+                ivImage.translationY -= distanceY
+                return true
+            }
+            return false
+        }
+    })
+
+    ivImage.setOnTouchListener { _, event ->
+        scaleDetector.onTouchEvent(event)
+        gestureDetector.onTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_UP && scaleFactor <= 1.0f) {
+            ivImage.animate().translationX(0f).translationY(0f).setDuration(150).start()
+        }
+        true
+    }
 
     btnDownload.setOnClickListener {
         saveImageToGallery(requireContext(), ivImage.drawable, imageUrl)
@@ -222,22 +279,73 @@ fun Fragment.showChatImageLightbox(
         dialog.dismiss()
     }
 
-    // Tap image to toggle details visibility
-    ivImage.setOnClickListener {
-        if (detailsLayout != null && (!senderName.isNullOrBlank() || !timeStr.isNullOrBlank())) {
-            detailsLayout.visibility = if (detailsLayout.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        }
-    }
-
     dialog.show()
 }
 
 /**
  * Saves the given image to the device's public Pictures/OurBloom gallery.
- * First tries direct high-speed MediaStore insertion from the cached bitmap,
- * with fallback to Android's DownloadManager.
+ * Prioritizes copying the 100% original full-resolution file from Glide cache/network,
+ * with fallback to bitmap MediaStore insertion and DownloadManager.
  */
 private fun saveImageToGallery(context: Context, drawable: Drawable?, fallbackUrl: String) {
+    var fullUrl = fallbackUrl.trim()
+    if (fullUrl.startsWith("/uploads")) {
+        fullUrl = "https://our-bloom.onrender.com$fullUrl"
+    }
+
+    // 1. Try to copy the 100% original full-resolution file from Glide cache or network
+    try {
+        Glide.with(context.applicationContext)
+            .asFile()
+            .load(fullUrl)
+            .into(object : CustomTarget<File>() {
+                override fun onResourceReady(file: File, transition: Transition<in File>?) {
+                    try {
+                        val filename = "OurBloom_${System.currentTimeMillis()}.jpg"
+                        val resolver = context.contentResolver
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + File.separator + "OurBloom")
+                                put(MediaStore.MediaColumns.IS_PENDING, 1)
+                            }
+                        }
+
+                        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                        if (uri != null) {
+                            resolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input -> input.copyTo(out) }
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                contentValues.clear()
+                                contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                                resolver.update(uri, contentValues, null, null)
+                            }
+                            Toast.makeText(context, "Full-resolution photo saved to Gallery! 🌸", Toast.LENGTH_SHORT).show()
+                            return
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LightboxHelper", "Failed writing cached file to MediaStore: ${e.message}")
+                    }
+                    saveBitmapFallback(context, drawable, fullUrl)
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) {}
+
+                override fun onLoadFailed(errorDrawable: Drawable?) {
+                    saveBitmapFallback(context, drawable, fullUrl)
+                }
+            })
+        return
+    } catch (e: Exception) {
+        Log.e("LightboxHelper", "Error requesting original file from Glide: ${e.message}")
+    }
+
+    saveBitmapFallback(context, drawable, fullUrl)
+}
+
+private fun saveBitmapFallback(context: Context, drawable: Drawable?, fallbackUrl: String) {
     try {
         val bitmap = (drawable as? BitmapDrawable)?.bitmap
         if (bitmap != null) {

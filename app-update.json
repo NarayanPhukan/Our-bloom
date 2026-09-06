@@ -1,8 +1,8 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
+  "versionCode": 8,
+  "versionName": "1.7",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Ultra-HD photo quality in chat (up to 2560px with 92% high fidelity)\n• Full-resolution camera capture with FileProvider\n• Aspect-ratio preserved chat bubbles without forced crop\n• EXIF orientation auto-correction",
+  "changelog": "• Ultra-HD photo quality in chat without recompression loss\n• Full-resolution camera capture with FileProvider\n• Smooth pinch-to-zoom and pan in image lightbox\n• Direct full-resolution photo save to gallery",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

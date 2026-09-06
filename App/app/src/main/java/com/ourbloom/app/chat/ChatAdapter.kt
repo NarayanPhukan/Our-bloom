@@ -327,6 +327,7 @@ class ChatAdapter(
                 cardImage.visibility = View.VISIBLE
                 Glide.with(itemView.context)
                     .load(message.imageUrl)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                     .placeholder(R.drawable.placeholder_memory)
                     .error(R.drawable.placeholder_memory)
                     .fitCenter()
@@ -458,6 +459,7 @@ class ChatAdapter(
                 cardImage.visibility = View.VISIBLE
                 Glide.with(itemView.context)
                     .load(message.imageUrl)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                     .placeholder(R.drawable.placeholder_memory)
                     .error(R.drawable.placeholder_memory)
                     .fitCenter()
