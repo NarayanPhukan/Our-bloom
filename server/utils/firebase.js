@@ -1,11 +1,13 @@
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const path = require('path');
 
 let isInitialized = false;
 let messaging = null;
 let db = null;
+let auth = null;
 
 try {
   let serviceAccount;
@@ -22,6 +24,7 @@ try {
   
   messaging = getMessaging(app);
   db = getFirestore(app);
+  auth = getAuth(app);
   isInitialized = true;
   console.log('✿ Firebase Admin initialized successfully');
 } catch (error) {
@@ -67,7 +70,9 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
 };
 
 module.exports = {
-  admin: { firestore: () => db, messaging: () => messaging },
+  admin: { firestore: () => db, messaging: () => messaging, auth: () => auth },
+  getAuth: () => auth,
+  getFirestore: () => db,
   sendPushNotification,
   isInitialized
 };

@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/bloom_background">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="36dp">
+
+        <!-- Logo & Header -->
+        <ImageView
+            android:id="@+id/iv_setup_logo"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_logo"
+            app:tint="@color/bloom_primary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/tv_setup_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Start Your Garden"
+            android:textAppearance="@style/TextAppearance.OurBloom.HeadlineMd"
+            android:textColor="@color/bloom_on_background"
+            app:layout_constraintTop_toBottomOf="@id/iv_setup_logo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/tv_setup_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Create a new shared space or join your partner."
+            android:textAppearance="@style/TextAppearance.OurBloom.BodyMd"
+            android:textColor="@color/bloom_on_surface_variant"
+            android:gravity="center"
+            app:layout_constraintTop_toBottomOf="@id/tv_setup_title"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Mode Toggle Button Group -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggle_setup_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            app:singleSelection="true"
+            app:selectionRequired="true"
+            app:checkedButton="@id/btn_mode_create"
+            app:layout_constraintTop_toBottomOf="@id/tv_setup_subtitle">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_mode_create"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Create Garden"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_mode_join"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Join with Code"
+                android:textSize="13sp" />
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/pb_setup_loading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/bloom_primary"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/toggle_setup_mode"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Container: Create Garden Form -->
+        <LinearLayout
+            android:id="@+id/layout_create_form"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="24dp"
+            app:layout_constraintTop_toBottomOf="@id/toggle_setup_mode">
+
+            <!-- Anniversary Date -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_start_date"
+                style="@style/Widget.OurBloom.TextInputLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Anniversary Date"
+                app:startIconDrawable="@drawable/ic_calendar"
+                app:startIconTint="@color/bloom_primary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_start_date"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:focusable="false"
+                    android:clickable="true"
+                    android:inputType="none"
+                    android:textColor="@color/bloom_on_background" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Anniversary Time -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_start_time"
+                style="@style/Widget.OurBloom.TextInputLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="Anniversary Time (Optional)"
+                app:startIconDrawable="@android:drawable/ic_menu_recent_history"
+                app:startIconTint="@color/bloom_primary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_start_time"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:focusable="false"
+                    android:clickable="true"
+                    android:inputType="none"
+                    android:text="00:00"
+                    android:textColor="@color/bloom_on_background" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Special Phrase -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_special_phrase"
+                style="@style/Widget.OurBloom.TextInputLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="Special Phrase or Motto (Optional)"
+                app:startIconDrawable="@drawable/ic_favorite"
+                app:startIconTint="@color/bloom_primary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_special_phrase"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapSentences"
+                    android:textColor="@color/bloom_on_background" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_create_garden"
+                style="@style/Widget.OurBloom.Button"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="28dp"
+                android:text="Create Our Garden 🌸" />
+
+        </LinearLayout>
+
+        <!-- Container: Join Garden Form -->
+        <LinearLayout
+            android:id="@+id/layout_join_form"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="24dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/toggle_setup_mode">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_invite_code"
+                style="@style/Widget.OurBloom.TextInputLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Partner's Invite Code"
+                app:startIconDrawable="@drawable/ic_favorite"
+                app:startIconTint="@color/bloom_primary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_invite_code"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters"
+                    android:textColor="@color/bloom_on_background" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Enter the 10-character code shared by your partner (e.g. BLOOM-XXXX)."
+                android:textColor="@color/bloom_on_surface_variant"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_join_garden"
+                style="@style/Widget.OurBloom.Button"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="28dp"
+                android:text="Join Partner's Garden 🌸" />
+
+        </LinearLayout>
+
+        <!-- Container: Garden Created Celebration -->
+        <LinearLayout
+            android:id="@+id/layout_celebration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginTop="24dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/tv_setup_subtitle">
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_favorite"
+                app:tint="@color/bloom_primary"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Your Garden is Blooming!"
+                android:textAppearance="@style/TextAppearance.OurBloom.HeadlineMd"
+                android:textColor="@color/bloom_on_background"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:text="Share this invite code with your partner so they can join:"
+                android:textColor="@color/bloom_on_surface_variant"
+                android:textSize="14sp" />
+
+            <!-- Code Display Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/bloom_primary"
+                app:strokeWidth="1.5dp"
+                app:cardBackgroundColor="@color/bloom_surface_variant">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:id="@+id/tv_celebration_code"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="BLOOM-XXXX"
+                        android:textColor="@color/bloom_primary"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.15" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_share_code"
+                style="@style/Widget.OurBloom.Button.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="20dp"
+                android:text="Copy &amp; Share Code"
+                app:icon="@drawable/ic_content_copy"
+                app:iconGravity="textStart"
+                app:iconTint="@color/bloom_primary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_enter_garden"
+                style="@style/Widget.OurBloom.Button"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="12dp"
+                android:text="Enter Garden 🌸" />
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

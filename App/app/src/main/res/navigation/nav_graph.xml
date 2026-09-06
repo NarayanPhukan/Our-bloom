@@ -14,6 +14,11 @@
             android:id="@+id/action_loginFragment_to_registerFragment"
             app:destination="@id/registerFragment" />
         <action
+            android:id="@+id/action_loginFragment_to_setupCoupleFragment"
+            app:destination="@id/setupCoupleFragment"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
+        <action
             android:id="@+id/action_loginFragment_to_dashboardFragment"
             app:destination="@id/dashboardFragment"
             app:popUpTo="@id/nav_graph"
@@ -30,7 +35,24 @@
             app:popUpTo="@id/loginFragment"
             app:popUpToInclusive="true" />
         <action
+            android:id="@+id/action_registerFragment_to_setupCoupleFragment"
+            app:destination="@id/setupCoupleFragment"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
+        <action
             android:id="@+id/action_registerFragment_to_dashboardFragment"
+            app:destination="@id/dashboardFragment"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/setupCoupleFragment"
+        android:name="com.ourbloom.app.auth.SetupCoupleFragment"
+        android:label="Setup Garden"
+        tools:layout="@layout/fragment_setup_couple">
+        <action
+            android:id="@+id/action_setupCoupleFragment_to_dashboardFragment"
             app:destination="@id/dashboardFragment"
             app:popUpTo="@id/nav_graph"
             app:popUpToInclusive="true" />
@@ -44,6 +66,11 @@
         <action
             android:id="@+id/action_dashboardFragment_to_cameraFragment"
             app:destination="@id/cameraFragment" />
+        <action
+            android:id="@+id/action_dashboardFragment_to_setupCoupleFragment"
+            app:destination="@id/setupCoupleFragment"
+            app:popUpTo="@id/nav_graph"
+            app:popUpToInclusive="true" />
     </fragment>
     
     <fragment

@@ -870,4 +870,179 @@ class FirestoreRepository {
                 onCouple(couple)
             }
     }
+
+    suspend fun loginWithServer(email: String, password: String): ServerAuthResult = withContext(Dispatchers.IO) {
+        try {
+            val url = "$baseUrl/api/auth/login"
+            val json = JSONObject().apply {
+                put("email", email.trim())
+                put("password", password)
+            }
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder().url(url).post(body).build()
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (response.isSuccessful && responseBody != null) {
+                val resJson = JSONObject(responseBody)
+                val customToken = resJson.optString("firebaseCustomToken", "").takeIf { it.isNotEmpty() }
+                val userObj = resJson.optJSONObject("user")
+                val coupleId = userObj?.optString("coupleId", "")?.takeIf { it.isNotEmpty() && it != "null" }
+                ServerAuthResult(success = true, firebaseCustomToken = customToken, coupleId = coupleId)
+            } else {
+                val errorMsg = try {
+                    JSONObject(responseBody ?: "").optString("error", "Login failed")
+                } catch (_: Exception) {
+                    "Login failed"
+                }
+                ServerAuthResult(success = false, error = errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Server login error: ${e.message}")
+            ServerAuthResult(success = false, error = e.message ?: "Network error")
+        }
+    }
+
+    suspend fun registerWithServer(name: String, email: String, password: String): ServerAuthResult = withContext(Dispatchers.IO) {
+        try {
+            val url = "$baseUrl/api/auth/register"
+            val json = JSONObject().apply {
+                put("name", name.trim())
+                put("email", email.trim())
+                put("password", password)
+            }
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder().url(url).post(body).build()
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (response.isSuccessful && responseBody != null) {
+                val resJson = JSONObject(responseBody)
+                val customToken = resJson.optString("firebaseCustomToken", "").takeIf { it.isNotEmpty() }
+                val userObj = resJson.optJSONObject("user")
+                val coupleId = userObj?.optString("coupleId", "")?.takeIf { it.isNotEmpty() && it != "null" }
+                ServerAuthResult(success = true, firebaseCustomToken = customToken, coupleId = coupleId)
+            } else {
+                val errorMsg = try {
+                    JSONObject(responseBody ?: "").optString("error", "Registration failed")
+                } catch (_: Exception) {
+                    "Registration failed"
+                }
+                ServerAuthResult(success = false, error = errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Server register error: ${e.message}")
+            ServerAuthResult(success = false, error = e.message ?: "Network error")
+        }
+    }
+
+    suspend fun createCoupleViaServer(
+        startDate: String,
+        startTime: String = "00:00",
+        specialPhrase: String = ""
+    ): ServerCoupleResult = withContext(Dispatchers.IO) {
+        try {
+            val user = auth.currentUser ?: return@withContext ServerCoupleResult(false, error = "Not authenticated")
+            val idToken = user.getIdToken(true).await()?.token
+                ?: return@withContext ServerCoupleResult(false, error = "Failed to get auth token")
+
+            val url = "$baseUrl/api/couples"
+            val json = JSONObject().apply {
+                put("startDate", startDate)
+                put("startTime", startTime)
+                put("specialPhrase", specialPhrase)
+            }
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $idToken")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (response.isSuccessful && responseBody != null) {
+                val resJson = JSONObject(responseBody)
+                val coupleId = resJson.optString("_id", "")
+                val inviteCode = resJson.optString("inviteCode", "")
+                val slug = resJson.optString("slug", "")
+
+                if (coupleId.isNotEmpty()) {
+                    try {
+                        db.collection("users").document(user.uid).update("coupleId", coupleId).await()
+                    } catch (_: Exception) {}
+                }
+
+                ServerCoupleResult(success = true, coupleId = coupleId, inviteCode = inviteCode, slug = slug)
+            } else {
+                val errorMsg = try {
+                    JSONObject(responseBody ?: "").optString("error", "Failed to create garden")
+                } catch (_: Exception) {
+                    "Failed to create garden"
+                }
+                ServerCoupleResult(success = false, error = errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Create couple error: ${e.message}")
+            ServerCoupleResult(success = false, error = e.message ?: "Network error")
+        }
+    }
+
+    suspend fun joinCoupleViaServer(inviteCode: String): ServerCoupleResult = withContext(Dispatchers.IO) {
+        try {
+            val user = auth.currentUser ?: return@withContext ServerCoupleResult(false, error = "Not authenticated")
+            val idToken = user.getIdToken(true).await()?.token
+                ?: return@withContext ServerCoupleResult(false, error = "Failed to get auth token")
+
+            val url = "$baseUrl/api/couples/join"
+            val json = JSONObject().apply {
+                put("inviteCode", inviteCode.trim().uppercase())
+            }
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $idToken")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (response.isSuccessful && responseBody != null) {
+                val resJson = JSONObject(responseBody)
+                val coupleId = resJson.optString("_id", "")
+                val slug = resJson.optString("slug", "")
+
+                if (coupleId.isNotEmpty()) {
+                    try {
+                        db.collection("users").document(user.uid).update("coupleId", coupleId).await()
+                    } catch (_: Exception) {}
+                }
+
+                ServerCoupleResult(success = true, coupleId = coupleId, slug = slug)
+            } else {
+                val errorMsg = try {
+                    JSONObject(responseBody ?: "").optString("error", "Failed to join garden")
+                } catch (_: Exception) {
+                    "Failed to join garden"
+                }
+                ServerCoupleResult(success = false, error = errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Join couple error: ${e.message}")
+            ServerCoupleResult(success = false, error = e.message ?: "Network error")
+        }
+    }
 }
+
+data class ServerAuthResult(
+    val success: Boolean,
+    val firebaseCustomToken: String? = null,
+    val coupleId: String? = null,
+    val error: String? = null
+)
+
+data class ServerCoupleResult(
+    val success: Boolean,
+    val coupleId: String? = null,
+    val inviteCode: String? = null,
+    val slug: String? = null,
+    val error: String? = null
+)

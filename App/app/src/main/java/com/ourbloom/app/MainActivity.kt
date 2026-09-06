@@ -78,10 +78,10 @@ class MainActivity : AppCompatActivity() {
         
         bottomNav.setupWithNavController(navController)
         
-        // Hide bottom navigation on auth screens
+        // Hide bottom navigation on auth & setup screens
         navController.addOnDestinationChangedListener { _, destination, _ ->
             when (destination.id) {
-                R.id.loginFragment, R.id.registerFragment -> {
+                R.id.loginFragment, R.id.registerFragment, R.id.setupCoupleFragment -> {
                     bottomNav.visibility = View.GONE
                 }
                 else -> {

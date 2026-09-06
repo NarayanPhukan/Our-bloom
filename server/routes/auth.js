@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const User = require('../models/User');
 const authMiddleware = require('../middleware/authMiddleware');
+const { getAuth, getFirestore } = require('../utils/firebase');
 
 function generateToken(user) {
   return jwt.sign(
@@ -37,8 +38,56 @@ router.post('/register', async (req, res) => {
 
     await user.save();
 
+    const idStr = user._id.toString();
+
+    // Dual-sync to Firebase Auth & Cloud Firestore
+    let firebaseCustomToken = null;
+    try {
+      const auth = getAuth();
+      const db = getFirestore();
+      if (auth) {
+        try {
+          await auth.createUser({
+            uid: idStr,
+            email: user.email,
+            password: password,
+            displayName: user.name,
+          });
+        } catch (fbErr) {
+          if (fbErr.code === 'auth/email-already-exists') {
+            const existingFb = await auth.getUserByEmail(user.email).catch(() => null);
+            if (existingFb && existingFb.uid !== idStr) {
+              await auth.deleteUser(existingFb.uid);
+              await auth.createUser({
+                uid: idStr,
+                email: user.email,
+                password: password,
+                displayName: user.name,
+              });
+            }
+          }
+        }
+        firebaseCustomToken = await auth.createCustomToken(idStr);
+      }
+
+      if (db) {
+        await db.collection('users').doc(idStr).set({
+          uid: idStr,
+          email: user.email,
+          name: user.name,
+          coupleId: null,
+          avatarUrl: '',
+          nicknameForPartner: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+    } catch (syncErr) {
+      console.error('Firebase dual-sync error on register:', syncErr.message);
+    }
+
     const token = generateToken(user);
-    res.status(201).json({ token, user: user.toJSON() });
+    res.status(201).json({ token, firebaseCustomToken, user: user.toJSON() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -63,8 +112,62 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    const idStr = user._id.toString();
+
+    // Dual-sync to Firebase Auth & Cloud Firestore
+    let firebaseCustomToken = null;
+    try {
+      const auth = getAuth();
+      const db = getFirestore();
+      if (auth) {
+        try {
+          await auth.getUser(idStr);
+          await auth.updateUser(idStr, { password, displayName: user.name }).catch(() => {});
+        } catch (notFound) {
+          if (notFound.code === 'auth/user-not-found') {
+            try {
+              await auth.createUser({
+                uid: idStr,
+                email: user.email,
+                password: password,
+                displayName: user.name,
+              });
+            } catch (createErr) {
+              if (createErr.code === 'auth/email-already-exists') {
+                const existing = await auth.getUserByEmail(user.email).catch(() => null);
+                if (existing && existing.uid !== idStr) {
+                  await auth.deleteUser(existing.uid);
+                  await auth.createUser({
+                    uid: idStr,
+                    email: user.email,
+                    password: password,
+                    displayName: user.name,
+                  });
+                }
+              }
+            }
+          }
+        }
+        firebaseCustomToken = await auth.createCustomToken(idStr);
+      }
+
+      if (db) {
+        await db.collection('users').doc(idStr).set({
+          uid: idStr,
+          email: user.email,
+          name: user.name || '',
+          coupleId: user.coupleId ? user.coupleId.toString() : null,
+          avatarUrl: user.avatarUrl || '',
+          nicknameForPartner: user.nicknameForPartner || '',
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+    } catch (fbErr) {
+      console.error('Firebase token generation error on login:', fbErr.message);
+    }
+
     const token = generateToken(user);
-    res.json({ token, user: user.toJSON() });
+    res.json({ token, firebaseCustomToken, user: user.toJSON() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

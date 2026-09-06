@@ -2,6 +2,7 @@ package com.ourbloom.app.auth
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,6 +11,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -18,17 +20,37 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.ourbloom.app.R
+import com.ourbloom.app.data.FirestoreRepository
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class LoginFragment : Fragment() {
 
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
+    private val repository = FirestoreRepository()
     private val RC_SIGN_IN = 9001
 
     override fun onStart() {
         super.onStart()
         if (auth.currentUser != null) {
-            findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
+            checkCoupleAndNavigate()
+        }
+    }
+
+    private fun checkCoupleAndNavigate() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val user = repository.getCurrentUser()
+                if (user?.coupleId.isNullOrEmpty()) {
+                    findNavController().navigate(R.id.action_loginFragment_to_setupCoupleFragment)
+                } else {
+                    findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
+                }
+            } catch (e: Exception) {
+                Log.e("LoginFragment", "Error checking couple status", e)
+                findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
+            }
         }
     }
 
@@ -42,7 +64,7 @@ class LoginFragment : Fragment() {
         
         // Configure Google Sign In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id)) // Needs to be added to strings.xml if not generated
+            .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
@@ -54,20 +76,57 @@ class LoginFragment : Fragment() {
         val etPassword = view.findViewById<EditText>(R.id.et_password)
 
         btnLogin.setOnClickListener {
-            val email = etEmail.text.toString()
-            val password = etPassword.text.toString()
+            val email = etEmail.text.toString().trim()
+            val password = etPassword.text.toString().trim()
             
-            if (email.isNotEmpty() && password.isNotEmpty()) {
-                auth.signInWithEmailAndPassword(email, password)
-                    .addOnCompleteListener(requireActivity()) { task ->
-                        if (task.isSuccessful) {
-                            findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
+            if (email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(context, "Please enter both email and password.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            btnLogin.isEnabled = false
+            btnLogin.text = "Signing In..."
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    var signedIn = false
+
+                    // 1. Direct Firebase Auth sign in
+                    try {
+                        auth.signInWithEmailAndPassword(email, password).await()
+                        signedIn = true
+                    } catch (fbEx: Exception) {
+                        Log.d("LoginFragment", "Direct Firebase sign-in failed: ${fbEx.message}. Trying backend fallback...")
+                    }
+
+                    // 2. Server fallback (handles web-created MongoDB accounts and custom token sync)
+                    if (!signedIn) {
+                        val serverRes = repository.loginWithServer(email, password)
+                        if (serverRes.success && !serverRes.firebaseCustomToken.isNullOrEmpty()) {
+                            auth.signInWithCustomToken(serverRes.firebaseCustomToken).await()
+                            signedIn = true
                         } else {
-                            val errorMsg = task.exception?.message ?: "Incorrect email or password."
-                            // For security/UX, we often just say "Incorrect email or password" instead of specific firebase errors
-                            Toast.makeText(context, "Incorrect email or password.", Toast.LENGTH_LONG).show()
+                            val errorMsg = serverRes.error ?: "Incorrect email or password."
+                            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                            btnLogin.isEnabled = true
+                            btnLogin.text = "Sign In"
+                            return@launch
                         }
                     }
+
+                    // 3. User is authenticated, route depending on whether they have a garden
+                    val currentUser = repository.getCurrentUser()
+                    if (currentUser?.coupleId.isNullOrEmpty()) {
+                        findNavController().navigate(R.id.action_loginFragment_to_setupCoupleFragment)
+                    } else {
+                        findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
+                    }
+                } catch (e: Exception) {
+                    Log.e("LoginFragment", "Sign in error", e)
+                    Toast.makeText(context, e.message ?: "Authentication failed.", Toast.LENGTH_SHORT).show()
+                    btnLogin.isEnabled = true
+                    btnLogin.text = "Sign In"
+                }
             }
         }
         
@@ -101,7 +160,7 @@ class LoginFragment : Fragment() {
         auth.signInWithCredential(credential)
             .addOnCompleteListener(requireActivity()) { task ->
                 if (task.isSuccessful) {
-                    findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
+                    checkCoupleAndNavigate()
                 } else {
                     Toast.makeText(context, "Authentication failed.", Toast.LENGTH_SHORT).show()
                 }

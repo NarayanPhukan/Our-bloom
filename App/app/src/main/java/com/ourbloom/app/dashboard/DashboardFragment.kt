@@ -31,6 +31,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.ourbloom.app.R
 import com.ourbloom.app.widget.LoveTimerWidgetProvider
+import androidx.navigation.fragment.findNavController
 
 class DashboardFragment : Fragment() {
 
@@ -228,7 +229,17 @@ class DashboardFragment : Fragment() {
 
         viewModel.error.observe(viewLifecycleOwner) { errorMsg ->
             if (errorMsg != null) {
-                Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_SHORT).show()
+                if (errorMsg.contains("not linked to a partner", ignoreCase = true)) {
+                    try {
+                        findNavController().navigate(R.id.action_dashboardFragment_to_setupCoupleFragment)
+                    } catch (_: Exception) {
+                        try {
+                            findNavController().navigate(R.id.setupCoupleFragment)
+                        } catch (_: Exception) {}
+                    }
+                } else {
+                    Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_SHORT).show()
+                }
             }
         }
 

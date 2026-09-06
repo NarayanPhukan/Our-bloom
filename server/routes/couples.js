@@ -7,6 +7,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const coupleMiddleware = require('../middleware/coupleMiddleware');
 const { upload } = require('../config/upload');
 const { uploadToFirebase } = require('../utils/firebaseStorage');
+const { getFirestore } = require('../utils/firebase');
 
 // Default milestones to seed for new couples
 const defaultMilestoneTemplates = [
@@ -97,6 +98,53 @@ router.post('/', authMiddleware, async (req, res) => {
     // Populate user info before returning
     await couple.populate('user1', 'name email nicknameForPartner');
 
+    // Dual-sync couple to Cloud Firestore
+    try {
+      const db = getFirestore();
+      if (db) {
+        const cIdStr = couple._id.toString();
+        await db.collection('couples').doc(cIdStr).set({
+          id: cIdStr,
+          slug: couple.slug,
+          user1: user._id.toString(),
+          user2: '',
+          inviteCode: couple.inviteCode,
+          startDate: couple.startDate ? new Date(couple.startDate).toISOString() : '',
+          startTime: couple.startTime || '00:00',
+          specialPhrase: couple.specialPhrase || '',
+          spotifyTrackId: couple.spotifyTrackId || '4O2N861eOnF9q8EtpH8IJu',
+          heroImageUrl: couple.heroImageUrl || '/images/journey-bg.jpg',
+          chatBackgroundUrl: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        // Update user1's coupleId in Firestore
+        await db.collection('users').doc(user._id.toString()).update({
+          coupleId: cIdStr,
+        }).catch(() => {});
+
+        // Seed default milestones in Firestore
+        for (const m of milestones) {
+          const mData = {
+            day: m.day,
+            label: m.label,
+            title: m.title,
+            body: m.body,
+            icon: m.icon,
+            iconFill: m.iconFill,
+            colorScheme: m.colorScheme,
+            aspectRatio: m.aspectRatio,
+            coupleId: cIdStr,
+            createdAt: new Date().toISOString(),
+          };
+          await db.collection('milestones').add(mData).catch(() => {});
+        }
+      }
+    } catch (fsErr) {
+      console.error('Firestore sync error in create couple:', fsErr.message);
+    }
+
     res.status(201).json(couple);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -143,6 +191,26 @@ router.post('/join', authMiddleware, async (req, res) => {
     await user.save();
 
     await couple.populate('user1 user2', 'name email nicknameForPartner');
+
+    // Dual-sync join to Cloud Firestore
+    try {
+      const db = getFirestore();
+      if (db) {
+        const cIdStr = couple._id.toString();
+        const user2IdStr = user._id.toString();
+        await db.collection('couples').doc(cIdStr).update({
+          user2: user2IdStr,
+          slug: couple.slug,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => {});
+
+        await db.collection('users').doc(user2IdStr).update({
+          coupleId: cIdStr,
+        }).catch(() => {});
+      }
+    } catch (fsErr) {
+      console.error('Firestore sync error in join couple:', fsErr.message);
+    }
 
     res.json(couple);
   } catch (err) {
