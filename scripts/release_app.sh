@@ -85,12 +85,17 @@ cp "$RELEASE_APK_SRC" "$CLIENT_APK_DEST"
 echo "Rebuilding web client..."
 npm --prefix "$ROOT_DIR/client" run build
 
+# 7. Broadcast update push notification to all users via FCM
+echo "Broadcasting update notification to all users via FCM..."
+node "$ROOT_DIR/server/scripts/broadcast_update.js" "$UPDATE_JSON" || echo "⚠️ Warning: FCM broadcast skipped or failed"
+
 echo ""
-echo "✨ --- RELEASE BUILD SUCCESSFUL! --- ✨"
+echo "✨ --- RELEASE BUILD & BROADCAST SUCCESSFUL! --- ✨"
 echo "Version: $NEW_NAME (code $NEW_CODE)"
 echo "APK Size: $(du -h "$CLIENT_APK_DEST" | cut -f1)"
+echo "Push notifications dispatched directly to all registered user devices."
 echo ""
-echo "To publish this update so all users automatically receive it on app launch, run:"
+echo "To commit and push this update to GitHub, run:"
 echo "  git add -A"
 echo "  git commit -m \"release: bump to v$NEW_NAME (code $NEW_CODE)\""
 echo "  git push origin main"

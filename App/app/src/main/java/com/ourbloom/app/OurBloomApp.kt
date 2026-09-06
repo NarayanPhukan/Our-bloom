@@ -38,5 +38,27 @@ class OurBloomApp : Application() {
         } catch (e: Exception) {
             Log.e("OurBloomApp", "Error scheduling AppUpdateWorker", e)
         }
+
+        // Register update notification channel early so high-priority FCM notifications display reliably
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+                val updateChannel = android.app.NotificationChannel(
+                    com.ourbloom.app.updates.AppUpdateHelper.UPDATE_CHANNEL_ID,
+                    "App Updates",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications when a new version of OurBloom is available"
+                    enableLights(true)
+                    lightColor = android.graphics.Color.parseColor("#FF4D6D")
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 250, 200, 250)
+                    setShowBadge(true)
+                }
+                notificationManager?.createNotificationChannel(updateChannel)
+            } catch (e: Exception) {
+                Log.e("OurBloomApp", "Error initializing update notification channel", e)
+            }
+        }
     }
 }

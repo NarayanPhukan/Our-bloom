@@ -73,6 +73,7 @@ module.exports = {
   admin: { firestore: () => db, messaging: () => messaging, auth: () => auth },
   getAuth: () => auth,
   getFirestore: () => db,
+  getMessaging: () => messaging,
   sendPushNotification,
   isInitialized
 };

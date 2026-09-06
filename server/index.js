@@ -20,6 +20,7 @@ const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 const { initDailyLoveNoteJob, generateDailyNoteForCouple } = require('./jobs/dailyLoveNote');
+const { broadcastAppUpdate } = require('./services/updateBroadcast');
 
 // Initialize Firebase Admin
 const { initializeApp, cert } = require('firebase-admin/app');
@@ -251,6 +252,21 @@ const setupFirestoreListeners = () => {
       }
     });
   });
+
+  // Listen for real-time app update release broadcasts via Firestore
+  db.collection('app_updates').doc('latest').onSnapshot(async (doc) => {
+    if (!doc.exists) return;
+    const data = doc.data();
+    if (data && data.triggerBroadcast === true) {
+      console.log(`✿ Firestore triggered update broadcast for v${data.versionName} (code ${data.versionCode})`);
+      try {
+        await db.collection('app_updates').doc('latest').update({ triggerBroadcast: false });
+        await broadcastAppUpdate(data);
+      } catch (err) {
+        console.error('✿ Error running Firestore-triggered update broadcast:', err.message);
+      }
+    }
+  });
 };
 setupFirestoreListeners();
 
@@ -344,6 +360,29 @@ app.get('/api/app-update', (req, res) => {
     console.error('Error reading app-update.json:', e.message);
   }
   res.status(404).json({ error: 'Update info not available' });
+});
+
+// App update broadcast endpoint
+app.post('/api/app-update/broadcast', async (req, res) => {
+  try {
+    let manifest = req.body;
+    if (!manifest || !manifest.versionCode) {
+      const updatePath = path.join(__dirname, 'public/updates/app-update.json');
+      if (fs.existsSync(updatePath)) {
+        manifest = JSON.parse(fs.readFileSync(updatePath, 'utf8'));
+      }
+    }
+
+    if (!manifest || !manifest.versionCode) {
+      return res.status(400).json({ error: 'No update manifest found or provided' });
+    }
+
+    const result = await broadcastAppUpdate(manifest);
+    res.json(result);
+  } catch (err) {
+    console.error('Error broadcasting update:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Health check

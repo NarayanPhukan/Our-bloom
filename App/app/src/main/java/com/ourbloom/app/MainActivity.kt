@@ -160,12 +160,16 @@ class MainActivity : AppCompatActivity() {
 
         updateBottomNavState()
 
+        val isUpdate = intent?.getStringExtra("action") == "show_update" ||
+                       intent?.action == AppUpdateHelper.ACTION_SHOW_UPDATE ||
+                       intent?.getStringExtra("type") == "app_update"
+
         if (intent?.getStringExtra("action") == "open_chat") {
             try {
                 MyFirebaseMessagingService.dismissChatNotifications(this)
             } catch (_: Exception) {}
             navController.navigate(R.id.chatFragment)
-        } else if (intent?.getStringExtra("action") == "show_update") {
+        } else if (isUpdate) {
             try {
                 AppUpdateHelper.dismissUpdateNotification(this)
                 if (::appUpdateHelper.isInitialized) {
@@ -180,12 +184,16 @@ class MainActivity : AppCompatActivity() {
         setIntent(intent)
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
         val navController = navHostFragment?.navController
+        val isUpdate = intent.getStringExtra("action") == "show_update" ||
+                       intent.action == AppUpdateHelper.ACTION_SHOW_UPDATE ||
+                       intent.getStringExtra("type") == "app_update"
+
         if (intent.getStringExtra("action") == "open_chat") {
             try {
                 MyFirebaseMessagingService.dismissChatNotifications(this)
             } catch (_: Exception) {}
             navController?.navigate(R.id.chatFragment)
-        } else if (intent.getStringExtra("action") == "show_update") {
+        } else if (isUpdate) {
             try {
                 AppUpdateHelper.dismissUpdateNotification(this)
                 if (::appUpdateHelper.isInitialized) {

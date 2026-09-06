@@ -50,13 +50,46 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val type = remoteMessage.data["type"]
         val isHeartbeat = type == "heartbeat"
         val isVideoCall = type == "video_call"
-        val isUpdate = type == "app_update" || type == "update"
+        val isUpdate = type == "app_update" || type == "update" ||
+            remoteMessage.data.containsKey("versionCode")
         val isChat = type == "chat" || 
             remoteMessage.data.containsKey("messageText") || 
             remoteMessage.data.containsKey("audioUrl") || 
             remoteMessage.data.containsKey("imageUrl")
 
         if (isUpdate) {
+            val payloadCode = remoteMessage.data["versionCode"]?.toIntOrNull()
+            val currentCode = com.ourbloom.app.updates.AppUpdateHelper.getCurrentVersionCode(this@MyFirebaseMessagingService)
+
+            if (payloadCode != null) {
+                if (payloadCode > currentCode) {
+                    val versionName = remoteMessage.data["versionName"] ?: "Latest"
+                    val title = remoteMessage.data["title"]
+                        ?: remoteMessage.notification?.title
+                        ?: "New Bloom Update Available! 🌸"
+                    val changelog = remoteMessage.data["changelog"]
+                        ?: "• Performance improvements and bug fixes"
+                    val apkUrl = remoteMessage.data["apkUrl"]
+                        ?: "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk"
+                    val forceUpdate = remoteMessage.data["forceUpdate"]?.toBoolean() ?: false
+
+                    val updateInfo = com.ourbloom.app.updates.AppUpdateHelper.UpdateInfo(
+                        versionCode = payloadCode,
+                        versionName = versionName,
+                        title = title,
+                        changelog = changelog,
+                        apkUrl = apkUrl,
+                        forceUpdate = forceUpdate
+                    )
+                    Log.d(TAG, "Instant FCM update notification for v$versionName (code $payloadCode > current $currentCode)")
+                    com.ourbloom.app.updates.AppUpdateHelper.showUpdateNotification(this@MyFirebaseMessagingService, updateInfo)
+                } else {
+                    Log.d(TAG, "Ignoring FCM update push: payloadCode $payloadCode <= currentCode $currentCode")
+                }
+                return
+            }
+
+            // Fallback to network manifest fetch if payload did not include versionCode
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val client = okhttp3.OkHttpClient.Builder()
@@ -65,7 +98,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         .build()
                     val updateInfo = com.ourbloom.app.updates.AppUpdateHelper.fetchUpdateManifestSync(client)
                     if (updateInfo != null) {
-                        val currentCode = com.ourbloom.app.updates.AppUpdateHelper.getCurrentVersionCode(this@MyFirebaseMessagingService)
                         if (updateInfo.versionCode > currentCode) {
                             com.ourbloom.app.updates.AppUpdateHelper.showUpdateNotification(this@MyFirebaseMessagingService, updateInfo)
                         }

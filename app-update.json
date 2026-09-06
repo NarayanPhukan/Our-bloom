@@ -1,8 +1,8 @@
 {
-  "versionCode": 23,
-  "versionName": "1.22",
+  "versionCode": 24,
+  "versionName": "1.23",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Multi-image selection: select and send multiple photos at once in chat",
+  "changelog": "• Instant update push notification alerts\n• Revamped voice message waveforms & recording\n• Multi-image selection in chat",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
