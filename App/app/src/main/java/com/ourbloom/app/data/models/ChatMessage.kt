@@ -13,6 +13,7 @@ data class ChatMessage(
     val text: String = "",
     @get:PropertyName("imageUrl") @set:PropertyName("imageUrl") var imageUrl: String? = null,
     @get:PropertyName("audioUrl") @set:PropertyName("audioUrl") var audioUrl: String? = null,
+    @get:PropertyName("audioDurationMs") @set:PropertyName("audioDurationMs") var audioDurationMs: Long? = null,
     val timestamp: Long = System.currentTimeMillis(),
     @get:PropertyName("isRead") @set:PropertyName("isRead") var isRead: Boolean = false,
     @get:PropertyName("isDelivered") @set:PropertyName("isDelivered") var isDelivered: Boolean = false,

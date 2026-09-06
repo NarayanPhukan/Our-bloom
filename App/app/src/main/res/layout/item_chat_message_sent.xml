@@ -117,27 +117,30 @@
                 android:scaleType="centerCrop" />
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Audio Voice Note Player Container -->
+        <!-- Audio Voice Note Player Container (WhatsApp / Telegram Waveform Style) -->
         <LinearLayout
             android:id="@+id/layout_chat_audio"
-            android:layout_width="220dp"
+            android:layout_width="235dp"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
             android:visibility="gone">
 
+            <!-- Play / Pause Circular Action Button -->
             <ImageView
                 android:id="@+id/iv_audio_play_pause"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="@drawable/bg_audio_play_sent"
                 android:src="@drawable/ic_play_arrow"
-                android:padding="7dp"
-                app:tint="@android:color/white"
+                android:padding="8dp"
+                app:tint="#E85D75"
+                android:elevation="2dp"
                 android:contentDescription="Play voice note" />
 
+            <!-- Waveform & Duration Container -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -146,20 +149,18 @@
                 android:layout_marginEnd="6dp"
                 android:orientation="vertical">
 
-                <ProgressBar
-                    android:id="@+id/pb_audio_progress"
-                    style="?android:attr/progressBarStyleHorizontal"
+                <!-- Interactive Waveform View -->
+                <com.ourbloom.app.chat.VoiceWaveformView
+                    android:id="@+id/waveform_audio"
                     android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressTint="@android:color/white"
-                    android:progressBackgroundTint="#4DFFFFFF" />
+                    android:layout_height="28dp" />
 
+                <!-- Duration & Controls Row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal">
 
                     <TextView
@@ -168,14 +169,33 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="0:00"
-                        android:textColor="#E0FFFFFF"
-                        android:textSize="11sp" />
+                        android:textColor="#F5FFFFFF"
+                        android:textSize="11sp"
+                        android:fontFamily="sans-serif-medium" />
 
+                    <!-- Playback Speed Pill (1x / 1.5x / 2x) -->
+                    <TextView
+                        android:id="@+id/tv_audio_speed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1x"
+                        android:textColor="#FFFFFF"
+                        android:textSize="10.5sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/bg_speed_pill_sent"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="1.5dp"
+                        android:paddingBottom="1.5dp"
+                        android:layout_marginEnd="6dp"
+                        android:contentDescription="Playback speed" />
+
+                    <!-- Mic Icon Badge -->
                     <ImageView
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_mic_whatsapp"
-                        app:tint="#E0FFFFFF"
+                        app:tint="#F0FFFFFF"
                         android:contentDescription="Voice note" />
                 </LinearLayout>
 

@@ -437,6 +437,127 @@
 
             </LinearLayout>
 
+            <!-- Voice Recording Active Bar (WhatsApp / Telegram style) -->
+            <LinearLayout
+                android:id="@+id/layout_recording_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_whatsapp_pill"
+                android:elevation="3dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:visibility="gone">
+
+                <!-- Trash / Discard Button -->
+                <ImageView
+                    android:id="@+id/btn_recording_trash"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:src="@drawable/ic_delete"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="#888888"
+                    android:padding="7dp"
+                    android:contentDescription="Cancel Recording" />
+
+                <!-- Red Pulsing Recording Dot -->
+                <ImageView
+                    android:id="@+id/iv_recording_pulse_dot"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginStart="4dp"
+                    android:src="@drawable/bg_recording_dot" />
+
+                <!-- Live Timer -->
+                <TextView
+                    android:id="@+id/tv_recording_timer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="0:00"
+                    android:textColor="@color/chat_input_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+
+                <!-- Live 5-bar Equalizer -->
+                <LinearLayout
+                    android:id="@+id/layout_recording_equalizer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:id="@+id/eq_bar_1"
+                        android:layout_width="3dp"
+                        android:layout_height="8dp"
+                        android:layout_marginEnd="3dp"
+                        android:background="@drawable/bg_equalizer_bar" />
+                    <View
+                        android:id="@+id/eq_bar_2"
+                        android:layout_width="3dp"
+                        android:layout_height="14dp"
+                        android:layout_marginEnd="3dp"
+                        android:background="@drawable/bg_equalizer_bar" />
+                    <View
+                        android:id="@+id/eq_bar_3"
+                        android:layout_width="3dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="3dp"
+                        android:background="@drawable/bg_equalizer_bar" />
+                    <View
+                        android:id="@+id/eq_bar_4"
+                        android:layout_width="3dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="3dp"
+                        android:background="@drawable/bg_equalizer_bar" />
+                    <View
+                        android:id="@+id/eq_bar_5"
+                        android:layout_width="3dp"
+                        android:layout_height="6dp"
+                        android:background="@drawable/bg_equalizer_bar" />
+                </LinearLayout>
+
+                <!-- Spacer -->
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!-- Slide to cancel text + chevron -->
+                <LinearLayout
+                    android:id="@+id/layout_slide_cancel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/iv_slide_chevron"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/ic_chevron_left"
+                        app:tint="#888888" />
+
+                    <TextView
+                        android:id="@+id/tv_slide_cancel_hint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="2dp"
+                        android:text="Slide to cancel"
+                        android:textColor="#888888"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium" />
+                </LinearLayout>
+
+            </LinearLayout>
+
         </LinearLayout>
 
         <!-- WhatsApp Circular Action Button (Mic / Send) -->

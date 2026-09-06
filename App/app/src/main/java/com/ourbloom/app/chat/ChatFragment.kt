@@ -56,6 +56,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import com.ourbloom.app.fcm.MyFirebaseMessagingService
 
 import android.Manifest
@@ -147,6 +149,25 @@ class ChatFragment : Fragment() {
     private var audioRecordingFile: File? = null
     private var isRecordingAudio = false
     private var recordingStartTime = 0L
+
+    // Voice recording UI views & animation state
+    private lateinit var layoutWhatsappPill: View
+    private lateinit var layoutRecordingPanel: View
+    private lateinit var btnRecordingTrash: ImageView
+    private lateinit var ivRecordingPulseDot: ImageView
+    private lateinit var tvRecordingTimer: TextView
+    private lateinit var layoutSlideCancel: View
+    private lateinit var tvSlideCancelHint: TextView
+    private var eqBar1: View? = null
+    private var eqBar2: View? = null
+    private var eqBar3: View? = null
+    private var eqBar4: View? = null
+    private var eqBar5: View? = null
+
+    private val recordingHandler = Handler(Looper.getMainLooper())
+    private var recordingTimerRunnable: Runnable? = null
+    private var recordStartX = 0f
+    private var isSlideCancelled = false
 
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -474,6 +495,24 @@ class ChatFragment : Fragment() {
         cardReplyPreviewThumb = view.findViewById(R.id.card_reply_preview_thumb)
         ivReplyPreviewThumb = view.findViewById(R.id.iv_reply_preview_thumb)
         btnCancelReply = view.findViewById(R.id.btn_cancel_reply)
+
+        // Voice Recording Panel Views
+        layoutWhatsappPill = view.findViewById(R.id.layout_whatsapp_pill)
+        layoutRecordingPanel = view.findViewById(R.id.layout_recording_panel)
+        btnRecordingTrash = view.findViewById(R.id.btn_recording_trash)
+        ivRecordingPulseDot = view.findViewById(R.id.iv_recording_pulse_dot)
+        tvRecordingTimer = view.findViewById(R.id.tv_recording_timer)
+        layoutSlideCancel = view.findViewById(R.id.layout_slide_cancel)
+        tvSlideCancelHint = view.findViewById(R.id.tv_slide_cancel_hint)
+        eqBar1 = view.findViewById(R.id.eq_bar_1)
+        eqBar2 = view.findViewById(R.id.eq_bar_2)
+        eqBar3 = view.findViewById(R.id.eq_bar_3)
+        eqBar4 = view.findViewById(R.id.eq_bar_4)
+        eqBar5 = view.findViewById(R.id.eq_bar_5)
+
+        btnRecordingTrash.setOnClickListener {
+            stopVoiceRecording(send = false)
+        }
 
         // WhatsApp-style header back button
         view.findViewById<ImageButton>(R.id.btn_chat_back)?.setOnClickListener {
@@ -852,8 +891,11 @@ class ChatFragment : Fragment() {
                 return@setOnTouchListener false
             }
 
+            val density = resources.displayMetrics.density
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    recordStartX = event.rawX
+                    isSlideCancelled = false
                     if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         startVoiceRecording()
                     } else {
@@ -861,12 +903,43 @@ class ChatFragment : Fragment() {
                     }
                     true
                 }
+                MotionEvent.ACTION_MOVE -> {
+                    if (isRecordingAudio) {
+                        val deltaX = event.rawX - recordStartX
+                        if (deltaX < -90f * density) {
+                            if (!isSlideCancelled) {
+                                isSlideCancelled = true
+                                tvSlideCancelHint.text = "Release to cancel"
+                                tvSlideCancelHint.setTextColor(0xFFE85D75.toInt())
+                                btnRecordingTrash.setColorFilter(0xFFE85D75.toInt())
+                                triggerSendHaptic()
+                            }
+                        } else {
+                            if (isSlideCancelled) {
+                                isSlideCancelled = false
+                                tvSlideCancelHint.text = "Slide to cancel"
+                                tvSlideCancelHint.setTextColor(0xFF888888.toInt())
+                                btnRecordingTrash.setColorFilter(0xFF888888.toInt())
+                            }
+                            layoutSlideCancel.translationX = (deltaX * 0.35f).coerceIn(-35f * density, 0f)
+                        }
+                    }
+                    true
+                }
                 MotionEvent.ACTION_UP -> {
-                    stopVoiceRecording(send = true)
+                    if (isRecordingAudio) {
+                        if (isSlideCancelled) {
+                            stopVoiceRecording(send = false)
+                        } else {
+                            stopVoiceRecording(send = true)
+                        }
+                    }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    stopVoiceRecording(send = false)
+                    if (isRecordingAudio) {
+                        stopVoiceRecording(send = false)
+                    }
                     true
                 }
                 else -> false
@@ -1077,6 +1150,19 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun resetRecordingUi() {
+        recordingTimerRunnable?.let { recordingHandler.removeCallbacks(it) }
+        recordingTimerRunnable = null
+        ivRecordingPulseDot.clearAnimation()
+        btnSend.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+        layoutRecordingPanel.visibility = View.GONE
+        layoutWhatsappPill.visibility = View.VISIBLE
+        layoutSlideCancel.translationX = 0f
+        tvSlideCancelHint.text = "Slide to cancel"
+        tvSlideCancelHint.setTextColor(0xFF888888.toInt())
+        btnRecordingTrash.setColorFilter(0xFF888888.toInt())
+    }
+
     private fun startVoiceRecording() {
         val coupleId = currentCouple?.id ?: return
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -1101,18 +1187,80 @@ class ChatFragment : Fragment() {
                 start()
             }
             isRecordingAudio = true
+            isSlideCancelled = false
             triggerSendHaptic()
+
+            // Visual UI transition
+            layoutWhatsappPill.visibility = View.GONE
+            layoutRecordingPanel.visibility = View.VISIBLE
+            tvRecordingTimer.text = "0:00"
+            layoutSlideCancel.translationX = 0f
+            tvSlideCancelHint.text = "Slide to cancel"
+            tvSlideCancelHint.setTextColor(0xFF888888.toInt())
+            btnRecordingTrash.setColorFilter(0xFF888888.toInt())
+
+            // Pulsing Red Dot Animation
+            val pulse = AlphaAnimation(1f, 0.2f).apply {
+                duration = 450
+                repeatMode = Animation.REVERSE
+                repeatCount = Animation.INFINITE
+            }
+            ivRecordingPulseDot.startAnimation(pulse)
+
+            // Tactile scaling animation on mic button
+            btnSend.animate().scaleX(1.22f).scaleY(1.22f).setDuration(150).start()
+
+            // Live Timer & Equalizer Waveform Animation
+            val density = resources.displayMetrics.density
+            val minHeightPx = (4f * density).toInt()
+            val maxDynamicPx = (18f * density).toInt()
+
+            recordingTimerRunnable?.let { recordingHandler.removeCallbacks(it) }
+            recordingTimerRunnable = object : Runnable {
+                override fun run() {
+                    if (!isRecordingAudio) return
+                    val elapsedMs = System.currentTimeMillis() - recordingStartTime
+                    val totalSec = elapsedMs / 1000
+                    tvRecordingTimer.text = String.format(Locale.getDefault(), "%d:%02d", totalSec / 60, totalSec % 60)
+
+                    // Amplitude sampling for live 5-bar equalizer
+                    try {
+                        val maxAmp = mediaRecorder?.maxAmplitude ?: 0
+                        val norm = (maxAmp / 32767f).coerceIn(0f, 1f)
+
+                        val h1 = (minHeightPx + (norm * 0.7f + 0.15f) * maxDynamicPx).toInt().coerceIn(minHeightPx, (22f * density).toInt())
+                        val h2 = (minHeightPx + (norm * 1.0f + 0.35f) * maxDynamicPx).toInt().coerceIn(minHeightPx, (22f * density).toInt())
+                        val h3 = (minHeightPx + (norm * 1.2f + 0.50f) * maxDynamicPx).toInt().coerceIn(minHeightPx, (22f * density).toInt())
+                        val h4 = (minHeightPx + (norm * 0.9f + 0.28f) * maxDynamicPx).toInt().coerceIn(minHeightPx, (22f * density).toInt())
+                        val h5 = (minHeightPx + (norm * 0.6f + 0.18f) * maxDynamicPx).toInt().coerceIn(minHeightPx, (22f * density).toInt())
+
+                        eqBar1?.layoutParams?.height = h1
+                        eqBar1?.requestLayout()
+                        eqBar2?.layoutParams?.height = h2
+                        eqBar2?.requestLayout()
+                        eqBar3?.layoutParams?.height = h3
+                        eqBar3?.requestLayout()
+                        eqBar4?.layoutParams?.height = h4
+                        eqBar4?.requestLayout()
+                        eqBar5?.layoutParams?.height = h5
+                        eqBar5?.requestLayout()
+                    } catch (_: Exception) {}
+
+                    recordingHandler.postDelayed(this, 90)
+                }
+            }
+            recordingHandler.post(recordingTimerRunnable!!)
 
             // Broadcast recording status to partner
             viewLifecycleOwner.lifecycleScope.launch {
                 repository.setUserPresence(coupleId, uid, "recording", System.currentTimeMillis())
             }
-            Toast.makeText(requireContext(), "Recording voice note... 🎙️", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e("ChatFragment", "Failed to start audio recording", e)
             isRecordingAudio = false
             try { mediaRecorder?.release() } catch (_: Exception) {}
             mediaRecorder = null
+            resetRecordingUi()
         }
     }
 
@@ -1183,6 +1331,7 @@ class ChatFragment : Fragment() {
     private fun stopVoiceRecording(send: Boolean) {
         if (!isRecordingAudio) return
         isRecordingAudio = false
+        resetRecordingUi()
 
         val coupleId = currentCouple?.id
         val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -1240,6 +1389,7 @@ class ChatFragment : Fragment() {
                         text = "🎙️ Voice note",
                         imageUrl = null,
                         audioUrl = uploadedUrl,
+                        audioDurationMs = durationMs,
                         senderName = mySenderName,
                         replyToId = replyId,
                         replyToText = replyText,
@@ -1252,6 +1402,9 @@ class ChatFragment : Fragment() {
             }
         } else {
             file?.delete()
+            if (!send) {
+                triggerSendHaptic()
+            }
         }
         audioRecordingFile = null
 
@@ -1680,6 +1833,7 @@ class ChatFragment : Fragment() {
             }
         }
         chatAdapter.releaseAudioPlayer()
+        recordingTimerRunnable?.let { recordingHandler.removeCallbacks(it) }
         typingHandler.removeCallbacks(stopTypingRunnable)
         messagesListener?.remove()
         messagesListener = null

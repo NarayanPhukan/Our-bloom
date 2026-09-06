@@ -655,6 +655,7 @@ class FirestoreRepository {
         text: String,
         imageUrl: String? = null,
         audioUrl: String? = null,
+        audioDurationMs: Long? = null,
         senderName: String,
         replyToId: String? = null,
         replyToText: String? = null,
@@ -670,6 +671,7 @@ class FirestoreRepository {
                 "text" to text,
                 "imageUrl" to (imageUrl ?: ""),
                 "audioUrl" to (audioUrl ?: ""),
+                "audioDurationMs" to (audioDurationMs ?: 0L),
                 "timestamp" to System.currentTimeMillis(),
                 "isRead" to false,
                 "read" to false,
@@ -973,6 +975,10 @@ class FirestoreRepository {
                     val rawAudioUrl = doc.getString("audioUrl")
                     if (!rawAudioUrl.isNullOrBlank()) {
                         msg.audioUrl = rawAudioUrl
+                    }
+                    val rawDuration = doc.getLong("audioDurationMs")
+                    if (rawDuration != null && rawDuration > 0L) {
+                        msg.audioDurationMs = rawDuration
                     }
                     val rawReplyToImageUrl = doc.getString("replyToImageUrl")
                     if (!rawReplyToImageUrl.isNullOrBlank()) {

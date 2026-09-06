@@ -1,8 +1,8 @@
 {
-  "versionCode": 21,
-  "versionName": "1.20",
+  "versionCode": 22,
+  "versionName": "1.21",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix video call reconnection after disconnect\n• Fix in-call WebRTC errors & stabilize video streaming\n• Update chat call record to show start and end time",
+  "changelog": "• Modern voice message UI: interactive waveform scrubbing, 1x/1.5x/2x speed toggle, precomputed durations & WhatsApp-style live recording bar",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
