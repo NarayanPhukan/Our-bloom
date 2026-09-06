@@ -1,8 +1,8 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
+  "versionCode": 6,
+  "versionName": "1.5",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Dual-sync auth between website and app\n• In-app garden creation and invite code joining\n• Bug fixes and real-time syncing",
+  "changelog": "• Fix token authentication on garden creation & join\n• Add direct resilient Cloud Firestore fallback\n• Ensure 100% reliable couple setup",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

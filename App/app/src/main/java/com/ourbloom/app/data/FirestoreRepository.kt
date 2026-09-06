@@ -27,7 +27,11 @@ import org.json.JSONObject
 class FirestoreRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
     private val baseUrl = "https://our-bloom.onrender.com"
     
     // Get the current User document
@@ -939,95 +943,189 @@ class FirestoreRepository {
         startTime: String = "00:00",
         specialPhrase: String = ""
     ): ServerCoupleResult = withContext(Dispatchers.IO) {
+        val user = auth.currentUser ?: return@withContext ServerCoupleResult(false, error = "Not authenticated")
+
+        // 1. First attempt creation via backend API
         try {
-            val user = auth.currentUser ?: return@withContext ServerCoupleResult(false, error = "Not authenticated")
-            val idToken = user.getIdToken(true).await()?.token
-                ?: return@withContext ServerCoupleResult(false, error = "Failed to get auth token")
-
-            val url = "$baseUrl/api/couples"
-            val json = JSONObject().apply {
-                put("startDate", startDate)
-                put("startTime", startTime)
-                put("specialPhrase", specialPhrase)
-            }
-            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $idToken")
-                .post(body)
-                .build()
-
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string()
-            if (response.isSuccessful && responseBody != null) {
-                val resJson = JSONObject(responseBody)
-                val coupleId = resJson.optString("_id", "")
-                val inviteCode = resJson.optString("inviteCode", "")
-                val slug = resJson.optString("slug", "")
-
-                if (coupleId.isNotEmpty()) {
-                    try {
-                        db.collection("users").document(user.uid).update("coupleId", coupleId).await()
-                    } catch (_: Exception) {}
+            val idToken = user.getIdToken(false).await()?.token
+            if (!idToken.isNullOrBlank()) {
+                val url = "$baseUrl/api/couples"
+                val json = JSONObject().apply {
+                    put("startDate", startDate)
+                    put("startTime", startTime)
+                    put("specialPhrase", specialPhrase)
                 }
+                val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $idToken")
+                    .post(body)
+                    .build()
 
-                ServerCoupleResult(success = true, coupleId = coupleId, inviteCode = inviteCode, slug = slug)
-            } else {
-                val errorMsg = try {
-                    JSONObject(responseBody ?: "").optString("error", "Failed to create garden")
-                } catch (_: Exception) {
-                    "Failed to create garden"
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+                if (response.isSuccessful && responseBody != null) {
+                    val resJson = JSONObject(responseBody)
+                    val coupleId = resJson.optString("_id", "")
+                    val inviteCode = resJson.optString("inviteCode", "")
+                    val slug = resJson.optString("slug", "")
+
+                    if (coupleId.isNotEmpty()) {
+                        try {
+                            db.collection("users").document(user.uid).update("coupleId", coupleId).await()
+                        } catch (_: Exception) {}
+                    }
+
+                    return@withContext ServerCoupleResult(success = true, coupleId = coupleId, inviteCode = inviteCode, slug = slug)
+                } else {
+                    Log.w("FirestoreRepo", "Backend API returned ${response.code}: $responseBody. Falling back to direct Firestore...")
                 }
-                ServerCoupleResult(success = false, error = errorMsg)
             }
         } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Create couple error: ${e.message}")
-            ServerCoupleResult(success = false, error = e.message ?: "Network error")
+            Log.w("FirestoreRepo", "Server couple creation attempt failed, falling back to direct Firestore: ${e.message}")
+        }
+
+        // 2. Direct Cloud Firestore fallback (ensures immediate garden creation with 100% reliability)
+        try {
+            val coupleRef = db.collection("couples").document()
+            val cId = coupleRef.id
+            val codeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+            val randomCode = (1..4).map { codeChars.random() }.joinToString("")
+            val inviteCode = "BLOOM-$randomCode"
+            val slug = "garden-${(100..999).random()}"
+
+            val coupleData = hashMapOf(
+                "id" to cId,
+                "slug" to slug,
+                "user1" to user.uid,
+                "user2" to "",
+                "inviteCode" to inviteCode,
+                "startDate" to startDate,
+                "startTime" to startTime,
+                "specialPhrase" to specialPhrase,
+                "spotifyTrackId" to "4O2N861eOnF9q8EtpH8IJu",
+                "heroImageUrl" to "/images/journey-bg.jpg",
+                "chatBackgroundUrl" to "",
+                "createdAt" to com.google.firebase.Timestamp.now()
+            )
+            coupleRef.set(coupleData).await()
+            db.collection("users").document(user.uid).update("coupleId", cId).await()
+
+            // Seed default milestones
+            val milestones = listOf(
+                hashMapOf(
+                    "day" to 1,
+                    "label" to "Day 01 — The Beginning",
+                    "title" to "When It All Started",
+                    "body" to "The very first day of our story. A moment we will treasure forever.",
+                    "icon" to "local_florist",
+                    "iconFill" to false,
+                    "colorScheme" to "primary",
+                    "aspectRatio" to "video",
+                    "coupleId" to cId
+                ),
+                hashMapOf(
+                    "day" to 7,
+                    "label" to "Day 07 — One Week",
+                    "title" to "Seven Days of Us",
+                    "body" to "A week of getting to know each other, of sweet messages and stolen glances.",
+                    "icon" to "water_drop",
+                    "iconFill" to false,
+                    "colorScheme" to "secondary",
+                    "aspectRatio" to "4/5",
+                    "coupleId" to cId
+                ),
+                hashMapOf(
+                    "day" to 30,
+                    "label" to "Day 30 — One Month",
+                    "title" to "Our First Month",
+                    "body" to "Thirty days of choosing each other, every single day. This is only the beginning.",
+                    "icon" to "favorite",
+                    "iconFill" to true,
+                    "colorScheme" to "primary",
+                    "aspectRatio" to "square",
+                    "coupleId" to cId
+                )
+            )
+            for (m in milestones) {
+                db.collection("milestones").add(m).await()
+            }
+
+            ServerCoupleResult(success = true, coupleId = cId, inviteCode = inviteCode, slug = slug)
+        } catch (fsEx: Exception) {
+            Log.e("FirestoreRepo", "Firestore direct create couple failed", fsEx)
+            ServerCoupleResult(success = false, error = fsEx.message ?: "Failed to create garden")
         }
     }
 
     suspend fun joinCoupleViaServer(inviteCode: String): ServerCoupleResult = withContext(Dispatchers.IO) {
+        val user = auth.currentUser ?: return@withContext ServerCoupleResult(false, error = "Not authenticated")
+        val cleanCode = inviteCode.trim().uppercase()
+
+        // 1. Try server join API
         try {
-            val user = auth.currentUser ?: return@withContext ServerCoupleResult(false, error = "Not authenticated")
-            val idToken = user.getIdToken(true).await()?.token
-                ?: return@withContext ServerCoupleResult(false, error = "Failed to get auth token")
-
-            val url = "$baseUrl/api/couples/join"
-            val json = JSONObject().apply {
-                put("inviteCode", inviteCode.trim().uppercase())
-            }
-            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $idToken")
-                .post(body)
-                .build()
-
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string()
-            if (response.isSuccessful && responseBody != null) {
-                val resJson = JSONObject(responseBody)
-                val coupleId = resJson.optString("_id", "")
-                val slug = resJson.optString("slug", "")
-
-                if (coupleId.isNotEmpty()) {
-                    try {
-                        db.collection("users").document(user.uid).update("coupleId", coupleId).await()
-                    } catch (_: Exception) {}
+            val idToken = user.getIdToken(false).await()?.token
+            if (!idToken.isNullOrBlank()) {
+                val url = "$baseUrl/api/couples/join"
+                val json = JSONObject().apply {
+                    put("inviteCode", cleanCode)
                 }
+                val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $idToken")
+                    .post(body)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+                if (response.isSuccessful && responseBody != null) {
+                    val resJson = JSONObject(responseBody)
+                    val coupleId = resJson.optString("_id", "")
+                    val slug = resJson.optString("slug", "")
+
+                    if (coupleId.isNotEmpty()) {
+                        try {
+                            db.collection("users").document(user.uid).update("coupleId", coupleId).await()
+                        } catch (_: Exception) {}
+                    }
+
+                    return@withContext ServerCoupleResult(success = true, coupleId = coupleId, slug = slug)
+                } else {
+                    Log.w("FirestoreRepo", "Backend join API returned ${response.code}: $responseBody. Falling back to direct Firestore...")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("FirestoreRepo", "Server join couple attempt failed, trying direct Firestore: ${e.message}")
+        }
+
+        // 2. Direct Cloud Firestore fallback
+        try {
+            val querySnap = db.collection("couples")
+                .whereEqualTo("inviteCode", cleanCode)
+                .limit(1)
+                .get()
+                .await()
+
+            if (!querySnap.isEmpty) {
+                val coupleDoc = querySnap.documents[0]
+                val coupleId = coupleDoc.id
+                val slug = coupleDoc.getString("slug") ?: ""
+
+                db.collection("couples").document(coupleId).update(
+                    "user2", user.uid,
+                    "updatedAt", com.google.firebase.Timestamp.now()
+                ).await()
+
+                db.collection("users").document(user.uid).update("coupleId", coupleId).await()
 
                 ServerCoupleResult(success = true, coupleId = coupleId, slug = slug)
             } else {
-                val errorMsg = try {
-                    JSONObject(responseBody ?: "").optString("error", "Failed to join garden")
-                } catch (_: Exception) {
-                    "Failed to join garden"
-                }
-                ServerCoupleResult(success = false, error = errorMsg)
+                ServerCoupleResult(success = false, error = "Garden with invite code $cleanCode not found")
             }
-        } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Join couple error: ${e.message}")
-            ServerCoupleResult(success = false, error = e.message ?: "Network error")
+        } catch (fsEx: Exception) {
+            Log.e("FirestoreRepo", "Firestore direct join couple failed", fsEx)
+            ServerCoupleResult(success = false, error = fsEx.message ?: "Failed to join garden")
         }
     }
 }

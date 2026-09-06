@@ -123,6 +123,11 @@ router.post('/', authMiddleware, async (req, res) => {
         await db.collection('users').doc(user._id.toString()).update({
           coupleId: cIdStr,
         }).catch(() => {});
+        if (req.user?.firebaseUid && req.user.firebaseUid !== user._id.toString()) {
+          await db.collection('users').doc(req.user.firebaseUid).update({
+            coupleId: cIdStr,
+          }).catch(() => {});
+        }
 
         // Seed default milestones in Firestore
         for (const m of milestones) {
@@ -207,6 +212,11 @@ router.post('/join', authMiddleware, async (req, res) => {
         await db.collection('users').doc(user2IdStr).update({
           coupleId: cIdStr,
         }).catch(() => {});
+        if (req.user?.firebaseUid && req.user.firebaseUid !== user2IdStr) {
+          await db.collection('users').doc(req.user.firebaseUid).update({
+            coupleId: cIdStr,
+          }).catch(() => {});
+        }
       }
     } catch (fsErr) {
       console.error('Firestore sync error in join couple:', fsErr.message);
