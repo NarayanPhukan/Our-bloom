@@ -230,7 +230,15 @@ class DashboardFragment : Fragment() {
 
         viewModel.error.observe(viewLifecycleOwner) { errorMsg ->
             if (errorMsg != null) {
-                if (errorMsg.contains("not linked to a partner", ignoreCase = true)) {
+                if (errorMsg == "SESSION_EXPIRED") {
+                    try {
+                        findNavController().navigate(R.id.action_dashboardFragment_to_loginFragment)
+                    } catch (_: Exception) {
+                        try {
+                            findNavController().navigate(R.id.loginFragment)
+                        } catch (_: Exception) {}
+                    }
+                } else if (errorMsg.contains("not linked to a partner", ignoreCase = true)) {
                     try {
                         findNavController().navigate(R.id.action_dashboardFragment_to_setupCoupleFragment)
                     } catch (_: Exception) {

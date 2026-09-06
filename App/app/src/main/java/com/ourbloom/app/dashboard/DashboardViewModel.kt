@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.firebase.auth.FirebaseAuth
 
 class DashboardViewModel : ViewModel() {
 
@@ -58,6 +59,12 @@ class DashboardViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             
+            if (FirebaseAuth.getInstance().currentUser == null) {
+                _error.value = "SESSION_EXPIRED"
+                _isLoading.value = false
+                return@launch
+            }
+
             val user = repository.getCurrentUser()
             if (user == null || user.coupleId.isNullOrEmpty()) {
                 _error.value = "User not found or not linked to a partner"

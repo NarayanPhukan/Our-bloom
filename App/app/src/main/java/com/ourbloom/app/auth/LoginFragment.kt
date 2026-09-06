@@ -62,6 +62,9 @@ class LoginFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_login, container, false)
 
         auth = FirebaseAuth.getInstance()
+        if (auth.currentUser != null) {
+            view.visibility = View.INVISIBLE
+        }
         
         // Configure Google Sign In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)

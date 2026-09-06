@@ -105,8 +105,23 @@ class MainActivity : AppCompatActivity() {
     private fun setupNavigation() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
+
+        // Dynamically set start destination based on current authentication state
+        // This ensures authenticated users go directly to DashboardFragment with ZERO flash of the Login screen!
+        if (navController.currentDestination == null) {
+            val navInflater = navController.navInflater
+            val graph = navInflater.inflate(R.navigation.nav_graph)
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val startDest = if (currentUser != null) {
+                R.id.dashboardFragment
+            } else {
+                R.id.loginFragment
+            }
+            graph.setStartDestination(startDest)
+            navController.graph = graph
+        }
+
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-        
         bottomNav.setupWithNavController(navController)
 
         // Automatically hide floating bottom navigation bar whenever the soft keyboard opens
@@ -140,6 +155,8 @@ class MainActivity : AppCompatActivity() {
             isNavExplicitlyHidden = false
             updateBottomNavState()
         }
+
+        updateBottomNavState()
 
         if (intent?.getStringExtra("action") == "open_chat") {
             navController.navigate(R.id.chatFragment)
