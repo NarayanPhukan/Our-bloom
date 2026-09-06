@@ -1,11 +1,10 @@
 package com.ourbloom.app.data.models
 
-import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
 
 @IgnoreExtraProperties
 data class Couple(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val user1: String = "",
     val user2: String = "",
     val startDate: String = "",

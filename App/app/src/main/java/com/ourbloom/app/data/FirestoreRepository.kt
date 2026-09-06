@@ -236,7 +236,9 @@ class FirestoreRepository {
     suspend fun getUser(userId: String): User? {
         return try {
             val doc = db.collection("users").document(userId).get().await()
-            doc.toObject(User::class.java)
+            val user = doc.toObject(User::class.java)
+            // Fallback: if uid field was not stored in the document, use the document ID
+            if (user != null && user.uid.isBlank()) user.copy(uid = doc.id) else user
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error fetching user $userId", e)
             null
@@ -273,7 +275,9 @@ class FirestoreRepository {
     suspend fun getCouple(coupleId: String): Couple? {
         return try {
             val doc = db.collection("couples").document(coupleId).get().await()
-            doc.toObject(Couple::class.java)
+            val couple = doc.toObject(Couple::class.java)
+            // Fallback: if id field was not stored in the document, use the document ID
+            if (couple != null && couple.id.isBlank()) couple.copy(id = doc.id) else couple
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error fetching couple", e)
             null
