@@ -33,6 +33,7 @@
       background-color: #0d0f14;
       display: block;
       transform: scaleX(1);
+      image-rendering: -webkit-optimize-contrast;
     }
     /* Local Video - Floating Picture-in-Picture */
     #localVideoContainer {
@@ -111,8 +112,9 @@
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: currentFacingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 30, min: 24 }
           },
           audio: {
             echoCancellation: true,
@@ -137,6 +139,9 @@
       }
 
       peerConnection = new RTCPeerConnection(configuration);
+
+      // Prioritize hardware accelerated codecs (H.264 / VP9)
+      prioritizeHighQualityCodecs();
 
       // Add local tracks to peer connection
       if (localStream) {
@@ -200,6 +205,67 @@
       }
     }
 
+    // Boost video bitrate & disable downscaling for crystal clear quality
+    async function optimizeSenderVideoQuality() {
+      if (!peerConnection) return;
+      try {
+        const senders = peerConnection.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          const parameters = videoSender.getParameters();
+          if (!parameters.encodings || parameters.encodings.length === 0) {
+            parameters.encodings = [{}];
+          }
+          parameters.encodings[0].maxBitrate = 4000000; // 4.0 Mbps for crystal clear 1080p
+          parameters.encodings[0].minBitrate = 1200000; // 1.2 Mbps baseline
+          parameters.encodings[0].scaleResolutionDownBy = 1.0; // 0 downsampling
+          parameters.encodings[0].maxFramerate = 30;
+          await videoSender.setParameters(parameters);
+          console.log("✿ Video encoder optimized for 4 Mbps crystal-clear resolution");
+        }
+      } catch (e) {
+        console.warn("Could not set sender parameters:", e);
+      }
+    }
+
+    function prioritizeHighQualityCodecs() {
+      if (!peerConnection || typeof RTCRtpSender.getCapabilities !== 'function') return;
+      try {
+        const transceivers = peerConnection.getTransceivers();
+        const videoTransceiver = transceivers.find(t => t.sender && t.sender.track && t.sender.track.kind === 'video');
+        if (videoTransceiver && typeof videoTransceiver.setCodecPreferences === 'function') {
+          const capabilities = RTCRtpSender.getCapabilities('video');
+          if (capabilities && capabilities.codecs) {
+            const sortedCodecs = [...capabilities.codecs].sort((a, b) => {
+              const aScore = a.mimeType.includes('H264') ? 2 : (a.mimeType.includes('VP9') ? 1 : 0);
+              const bScore = b.mimeType.includes('H264') ? 2 : (b.mimeType.includes('VP9') ? 1 : 0);
+              return bScore - aScore;
+            });
+            videoTransceiver.setCodecPreferences(sortedCodecs);
+            console.log("✿ Prioritized high-fidelity video codecs (H.264/VP9)");
+          }
+        }
+      } catch (e) {
+        console.warn("Could not set codec preferences:", e);
+      }
+    }
+
+    function enhanceSdpForHighQuality(sdp) {
+      if (!sdp) return sdp;
+      let lines = sdp.split('\r\n');
+      let videoLineIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('m=video')) {
+          videoLineIndex = i;
+          break;
+        }
+      }
+      if (videoLineIndex !== -1) {
+        lines.splice(videoLineIndex + 1, 0, 'b=AS:4000', 'b=TIAS:4000000');
+      }
+      return lines.join('\r\n');
+    }
+
     // Called by Android when initiating a call
     async function startCall() {
       try {
@@ -209,11 +275,13 @@
         }
         createPeerConnection();
 
-        const offer = await peerConnection.createOffer({
+        let offer = await peerConnection.createOffer({
           offerToReceiveAudio: true,
           offerToReceiveVideo: true
         });
+        offer.sdp = enhanceSdpForHighQuality(offer.sdp);
         await peerConnection.setLocalDescription(offer);
+        await optimizeSenderVideoQuality();
 
         bridgeCall('onLocalDescription', 'offer', JSON.stringify(offer));
       } catch (err) {
@@ -245,8 +313,10 @@
           }
         }
 
-        const answer = await peerConnection.createAnswer();
+        let answer = await peerConnection.createAnswer();
+        answer.sdp = enhanceSdpForHighQuality(answer.sdp);
         await peerConnection.setLocalDescription(answer);
+        await optimizeSenderVideoQuality();
 
         bridgeCall('onLocalDescription', 'answer', JSON.stringify(answer));
       } catch (err) {
@@ -259,9 +329,10 @@
     async function handleAnswer(answerJson) {
       try {
         if (!peerConnection) return;
-        const answer = safeParseJson(answerJson);
+        let answer = safeParseJson(answerJson);
         if (!answer) return;
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        await optimizeSenderVideoQuality();
 
         // Process queued ICE candidates
         while (queuedCandidates.length > 0) {
@@ -326,8 +397,9 @@
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: currentFacingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 30, min: 24 }
           },
           audio: false
         });
@@ -373,20 +445,22 @@
           return;
         }
 
-        const width = targetVideo.videoWidth || 1280;
-        const height = targetVideo.videoHeight || 720;
+        const width = targetVideo.videoWidth || 1920;
+        const height = targetVideo.videoHeight || 1080;
 
         snapshotCanvas.width = width;
         snapshotCanvas.height = height;
 
-        const ctx = snapshotCanvas.getContext('2d');
+        const ctx = snapshotCanvas.getContext('2d', { alpha: false, desynchronized: true });
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.clearRect(0, 0, width, height);
 
         // Draw the video frame at full pixel resolution
         ctx.drawImage(targetVideo, 0, 0, width, height);
 
-        // Export high-quality JPEG base64 data
-        const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.96);
+        // Export maximum-quality JPEG base64 data (0.98 for near-lossless clarity)
+        const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.98);
         // Strip data:image/jpeg;base64, prefix for efficient Kotlin Base64 decode
         const base64Data = dataUrl.split(',')[1];
 

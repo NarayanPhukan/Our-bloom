@@ -256,11 +256,14 @@ class VideoCallActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         val settings = webView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.allowFileAccess = true
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
         settings.cacheMode = WebSettings.LOAD_NO_CACHE
 
         webView.webChromeClient = object : WebChromeClient() {

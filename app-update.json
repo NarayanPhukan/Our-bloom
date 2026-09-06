@@ -1,8 +1,8 @@
 {
-  "versionCode": 16,
-  "versionName": "1.15",
+  "versionCode": 17,
+  "versionName": "1.16",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• 1-on-1 Romantic Video Calling directly in chat\n• Dedicated 'Capture Moment 📸' shutter button saves snapshots to phone Gallery\n• Tap to save Moments into OurBloom Shared Memories\n• Real-time incoming call alerts and push ringing",
+  "changelog": "• Crystal clear Full HD 1080p video calling with 4 Mbps high-bitrate encoding\n• Prioritized H.264/VP9 hardware accelerated video codecs\n• Ultra high-resolution snapshot clarity for 'Capture Moment 📸' with gallery saving\n• Hardware accelerated rendering with zero downsampling",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
