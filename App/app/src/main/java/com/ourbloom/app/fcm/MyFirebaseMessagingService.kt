@@ -50,10 +50,32 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val type = remoteMessage.data["type"]
         val isHeartbeat = type == "heartbeat"
         val isVideoCall = type == "video_call"
+        val isUpdate = type == "app_update" || type == "update"
         val isChat = type == "chat" || 
             remoteMessage.data.containsKey("messageText") || 
             remoteMessage.data.containsKey("audioUrl") || 
             remoteMessage.data.containsKey("imageUrl")
+
+        if (isUpdate) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val client = okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+                    val updateInfo = com.ourbloom.app.updates.AppUpdateHelper.fetchUpdateManifestSync(client)
+                    if (updateInfo != null) {
+                        val currentCode = com.ourbloom.app.updates.AppUpdateHelper.getCurrentVersionCode(this@MyFirebaseMessagingService)
+                        if (updateInfo.versionCode > currentCode) {
+                            com.ourbloom.app.updates.AppUpdateHelper.showUpdateNotification(this@MyFirebaseMessagingService, updateInfo)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error handling FCM update message", e)
+                }
+            }
+            return
+        }
 
         val title = if (isHeartbeat) {
             val sender = remoteMessage.data["senderName"] ?: "Your Love"
@@ -356,6 +378,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val replyIntent = Intent(this, NotificationActionReceiver::class.java).apply {
                 action = NotificationActionReceiver.ACTION_REPLY
                 putExtra("notificationId", notifId)
+                putExtra("notificationTag", TAG_CHAT)
                 putExtra("coupleId", coupleId)
                 putExtra("senderId", senderId)
                 putExtra("currentUid", currentUid)
@@ -387,6 +410,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val markReadIntent = Intent(this, NotificationActionReceiver::class.java).apply {
                 action = NotificationActionReceiver.ACTION_MARK_AS_READ
                 putExtra("notificationId", notifId)
+                putExtra("notificationTag", TAG_CHAT)
                 putExtra("coupleId", coupleId)
                 putExtra("senderId", senderId)
                 putExtra("currentUid", currentUid)
@@ -412,6 +436,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val muteIntent = Intent(this, NotificationActionReceiver::class.java).apply {
                 action = NotificationActionReceiver.ACTION_MUTE
                 putExtra("notificationId", notifId)
+                putExtra("notificationTag", TAG_CHAT)
                 putExtra("coupleId", coupleId)
             }
 
@@ -436,7 +461,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             notificationBuilder.addAction(muteAction)
         }
 
-        notificationManager.notify(notifId, notificationBuilder.build())
+        if (isChat) {
+            recordChatNotificationId(this, notifId)
+            notificationManager.notify(TAG_CHAT, notifId, notificationBuilder.build())
+        } else {
+            notificationManager.notify(notifId, notificationBuilder.build())
+        }
     }
 
     private fun createCircularAvatar(name: String): Bitmap {
@@ -477,5 +507,61 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "FCMService"
+        const val TAG_CHAT = "chat_message"
+        const val CHAT_CHANNEL_ID = "ourbloom_chat_heads_up_v3"
+        private const val PREFS_NOTIFS = "ourbloom_active_chat_notifs"
+        private const val KEY_ACTIVE_CHAT_IDS = "active_chat_notif_ids"
+
+        fun recordChatNotificationId(context: Context, notifId: Int) {
+            try {
+                val prefs = context.getSharedPreferences(PREFS_NOTIFS, Context.MODE_PRIVATE)
+                val existing = prefs.getStringSet(KEY_ACTIVE_CHAT_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+                existing.add(notifId.toString())
+                prefs.edit().putStringSet(KEY_ACTIVE_CHAT_IDS, existing).apply()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error recording chat notification ID", e)
+            }
+        }
+
+        fun dismissChatNotifications(context: Context) {
+            try {
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+                // 1. API 23+: Query active notifications and cancel any matching TAG_CHAT or CHAT_CHANNEL_ID
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val activeList = notificationManager.activeNotifications
+                    for (sbn in activeList) {
+                        val isTagMatch = sbn.tag == TAG_CHAT
+                        val isChannelMatch = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            sbn.notification.channelId == CHAT_CHANNEL_ID
+                        } else false
+
+                        if (isTagMatch || isChannelMatch) {
+                            if (sbn.tag != null) {
+                                notificationManager.cancel(sbn.tag, sbn.id)
+                            } else {
+                                notificationManager.cancel(sbn.id)
+                            }
+                        }
+                    }
+                }
+
+                // 2. Cancel all IDs tracked in SharedPreferences (for API < 23 or as fail-safe)
+                val prefs = context.getSharedPreferences(PREFS_NOTIFS, Context.MODE_PRIVATE)
+                val ids = prefs.getStringSet(KEY_ACTIVE_CHAT_IDS, null)
+                if (!ids.isNullOrEmpty()) {
+                    for (idStr in ids) {
+                        val id = idStr.toIntOrNull() ?: continue
+                        notificationManager.cancel(TAG_CHAT, id)
+                        notificationManager.cancel(id)
+                    }
+                    prefs.edit().remove(KEY_ACTIVE_CHAT_IDS).apply()
+                }
+
+                Log.d(TAG, "Chat notifications successfully dismissed")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error dismissing chat notifications", e)
+            }
+        }
     }
 }

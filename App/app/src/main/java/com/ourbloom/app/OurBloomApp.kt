@@ -4,6 +4,12 @@ import android.app.Application
 import android.util.Log
 import com.ourbloom.app.util.ErrorReporter
 
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.ourbloom.app.workers.AppUpdateWorker
+import java.util.concurrent.TimeUnit
+
 class OurBloomApp : Application() {
 
     override fun onCreate() {
@@ -20,6 +26,17 @@ class OurBloomApp : Application() {
             } finally {
                 defaultHandler?.uncaughtException(thread, throwable)
             }
+        }
+
+        try {
+            val updateRequest = PeriodicWorkRequestBuilder<AppUpdateWorker>(2, TimeUnit.HOURS).build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "AppUpdateWork",
+                ExistingPeriodicWorkPolicy.KEEP,
+                updateRequest
+            )
+        } catch (e: Exception) {
+            Log.e("OurBloomApp", "Error scheduling AppUpdateWorker", e)
         }
     }
 }

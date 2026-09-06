@@ -1,8 +1,11 @@
 {
-  "versionCode": 19,
-  "versionName": "1.18",
+  "versionCode": 20,
+  "versionName": "1.19",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix chat image visibility and rendering\n• Upgrade chat image layout with WhatsApp-style rounded card containers\n• Integrate OkHttp networking for Glide CDN loading\n• Direct Firestore property mapping for image and audio URLs",
+  "changelog": "• Fix premature blue ticks: messages are only marked as read when partner actively views the chat screen
+• Auto-dismiss chat notifications when messages are read in chat
+• System status bar notifications when app updates are available
+• Background periodic update checks",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

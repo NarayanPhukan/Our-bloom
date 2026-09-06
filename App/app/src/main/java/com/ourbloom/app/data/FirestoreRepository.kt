@@ -682,9 +682,6 @@ class FirestoreRepository {
                 "deletedFor" to emptyList<String>()
             )
             db.collection("chat_messages").add(messageData).await()
-            try {
-                markMessagesAsRead(coupleId, uid)
-            } catch (_: Exception) {}
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error sending chat message", e)

@@ -24,6 +24,8 @@ import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.updates.AppUpdateHelper
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.ourbloom.app.fcm.MyFirebaseMessagingService
+import com.ourbloom.app.workers.AppUpdateWorker
 import com.ourbloom.app.workers.PingServerWorker
 import com.ourbloom.app.workers.ReminderWorker
 import kotlinx.coroutines.CoroutineScope
@@ -159,7 +161,17 @@ class MainActivity : AppCompatActivity() {
         updateBottomNavState()
 
         if (intent?.getStringExtra("action") == "open_chat") {
+            try {
+                MyFirebaseMessagingService.dismissChatNotifications(this)
+            } catch (_: Exception) {}
             navController.navigate(R.id.chatFragment)
+        } else if (intent?.getStringExtra("action") == "show_update") {
+            try {
+                AppUpdateHelper.dismissUpdateNotification(this)
+                if (::appUpdateHelper.isInitialized) {
+                    appUpdateHelper.checkForUpdates(manualCheck = true)
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -169,7 +181,17 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
         val navController = navHostFragment?.navController
         if (intent.getStringExtra("action") == "open_chat") {
+            try {
+                MyFirebaseMessagingService.dismissChatNotifications(this)
+            } catch (_: Exception) {}
             navController?.navigate(R.id.chatFragment)
+        } else if (intent.getStringExtra("action") == "show_update") {
+            try {
+                AppUpdateHelper.dismissUpdateNotification(this)
+                if (::appUpdateHelper.isInitialized) {
+                    appUpdateHelper.checkForUpdates(manualCheck = true)
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -179,6 +201,13 @@ class MainActivity : AppCompatActivity() {
             "PingServerWork",
             ExistingPeriodicWorkPolicy.KEEP,
             pingRequest
+        )
+
+        val updateRequest = PeriodicWorkRequestBuilder<AppUpdateWorker>(2, TimeUnit.HOURS).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "AppUpdateWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            updateRequest
         )
     }
 

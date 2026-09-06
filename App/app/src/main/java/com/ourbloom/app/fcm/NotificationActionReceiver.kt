@@ -57,8 +57,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                             // Dismiss the notification once replied
                             if (notificationId != -1) {
+                                NotificationManagerCompat.from(context).cancel(MyFirebaseMessagingService.TAG_CHAT, notificationId)
                                 NotificationManagerCompat.from(context).cancel(notificationId)
                             }
+                            MyFirebaseMessagingService.dismissChatNotifications(context)
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to send inline notification reply", e)
                         } finally {
@@ -70,8 +72,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
             ACTION_MARK_AS_READ -> {
                 if (notificationId != -1) {
+                    NotificationManagerCompat.from(context).cancel(MyFirebaseMessagingService.TAG_CHAT, notificationId)
                     NotificationManagerCompat.from(context).cancel(notificationId)
                 }
+                MyFirebaseMessagingService.dismissChatNotifications(context)
                 if (coupleId.isNotBlank() && currentUid.isNotBlank()) {
                     val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
@@ -89,8 +93,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
             ACTION_MUTE -> {
                 if (notificationId != -1) {
+                    NotificationManagerCompat.from(context).cancel(MyFirebaseMessagingService.TAG_CHAT, notificationId)
                     NotificationManagerCompat.from(context).cancel(notificationId)
                 }
+                MyFirebaseMessagingService.dismissChatNotifications(context)
                 if (coupleId.isNotBlank()) {
                     val prefs = context.getSharedPreferences("ourbloom_notif_prefs", Context.MODE_PRIVATE)
                     // Mute chat popups for 8 hours (WhatsApp standard)

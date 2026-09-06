@@ -56,6 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.ourbloom.app.fcm.MyFirebaseMessagingService
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -1057,14 +1058,20 @@ class ChatFragment : Fragment() {
                 layoutEmpty.visibility = View.VISIBLE
             }
 
-            // Real-time WhatsApp double blue ticks: mark partner messages as read & delivered
+            // Real-time WhatsApp double blue ticks: ONLY mark partner messages as read
+            // if the user is ACTUALLY present and actively viewing the chat screen!
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val unreadPartnerIds = messages.filter { 
-                it.senderId.isNotBlank() && it.senderId != currentUid && (!it.isRead || !it.isDelivered) 
-            }.map { it.id }
-            if (unreadPartnerIds.isNotEmpty()) {
-                viewLifecycleOwner.lifecycleScope.launch {
-                    repository.markMessagesReadByIds(unreadPartnerIds)
+            if (currentUid.isNotBlank() && isChatVisible && isResumed && isAdded) {
+                val unreadPartnerIds = messages.filter { 
+                    it.senderId.isNotBlank() && it.senderId != currentUid && !it.isRead
+                }.map { it.id }
+                if (unreadPartnerIds.isNotEmpty()) {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        repository.markMessagesReadByIds(unreadPartnerIds)
+                        try {
+                            MyFirebaseMessagingService.dismissChatNotifications(requireContext())
+                        } catch (_: Exception) {}
+                    }
                 }
             }
         }
@@ -1620,11 +1627,20 @@ class ChatFragment : Fragment() {
         super.onResume()
         isChatVisible = true
         startPresenceHeartbeat()
+        try {
+            MyFirebaseMessagingService.dismissChatNotifications(requireContext())
+        } catch (_: Exception) {}
         val cId = currentCouple?.id
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
+            if (messagesListener == null) {
+                setupMessagesListener(cId)
+            }
             viewLifecycleOwner.lifecycleScope.launch {
                 repository.markMessagesAsRead(cId, uid)
+                try {
+                    MyFirebaseMessagingService.dismissChatNotifications(requireContext())
+                } catch (_: Exception) {}
             }
         }
     }
@@ -1632,6 +1648,8 @@ class ChatFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         isChatVisible = false
+        messagesListener?.remove()
+        messagesListener = null
         heartbeatJob?.cancel()
         val cId = currentCouple?.id
         val uid = FirebaseAuth.getInstance().currentUser?.uid

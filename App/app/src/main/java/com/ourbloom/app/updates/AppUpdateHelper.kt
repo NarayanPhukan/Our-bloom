@@ -1,6 +1,9 @@
 package com.ourbloom.app.updates
 
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -14,10 +17,12 @@ import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.ourbloom.app.MainActivity
 import com.ourbloom.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +67,12 @@ class AppUpdateHelper(private val activity: Activity) {
     private var lastAutoCheckTime = 0L
 
     companion object {
-        private const val TAG = "AppUpdateHelper"
+        const val TAG = "AppUpdateHelper"
+        const val UPDATE_CHANNEL_ID = "ourbloom_update_channel"
+        const val NOTIFICATION_ID_UPDATE = 9999
+        const val ACTION_SHOW_UPDATE = "com.ourbloom.app.ACTION_SHOW_UPDATE"
+        const val EXTRA_ACTION_SHOW_UPDATE = "show_update"
+
         private const val UPDATE_MANIFEST_GITHUB_API =
             "https://api.github.com/repos/NarayanPhukan/Our-bloom/contents/app-update.json"
         private const val UPDATE_MANIFEST_GITHUB =
@@ -74,40 +84,191 @@ class AppUpdateHelper(private val activity: Activity) {
 
         // Holds downloaded APK reference across activity pauses (e.g. going to settings)
         private var pendingApkFile: File? = null
-    }
 
-    private fun getCurrentVersionCode(): Long {
-        return try {
-            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                activity.packageManager.getPackageInfo(activity.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                activity.packageManager.getPackageInfo(activity.packageName, 0)
+        fun getCurrentVersionCode(context: Context): Long {
+            return try {
+                val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    pInfo.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    pInfo.versionCode.toLong()
+                }
+            } catch (e: Exception) {
+                1L
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                pInfo.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                pInfo.versionCode.toLong()
+        }
+
+        fun getCurrentVersionName(context: Context): String {
+            return try {
+                val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
+                pInfo.versionName ?: "1.0"
+            } catch (e: Exception) {
+                "1.0"
             }
-        } catch (e: Exception) {
-            1L
+        }
+
+        fun fetchUpdateManifestSync(client: OkHttpClient): UpdateInfo? {
+            val timestamp = System.currentTimeMillis()
+
+            // 1. Primary: GitHub API with raw accept header (zero Fastly CDN caching delay on push)
+            try {
+                val apiRequest = Request.Builder()
+                    .url(UPDATE_MANIFEST_GITHUB_API)
+                    .header("Accept", "application/vnd.github.v3.raw")
+                    .header("User-Agent", "OurBloomApp")
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
+                    .build()
+
+                client.newCall(apiRequest).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string()
+                        if (!bodyString.isNullOrBlank()) {
+                            val json = JSONObject(bodyString)
+                            return UpdateInfo(
+                                versionCode = json.optInt("versionCode", 0),
+                                versionName = json.optString("versionName", "1.0"),
+                                title = json.optString("title", "New Bloom Update Available! 🌸"),
+                                changelog = json.optString("changelog", "• New features and performance improvements."),
+                                apkUrl = json.optString("apkUrl", ""),
+                                forceUpdate = json.optBoolean("forceUpdate", false)
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "GitHub API manifest fetch failed: ${e.message}")
+            }
+
+            // 2. Fallbacks: raw GitHub with timestamp query, Render server endpoints
+            val urls = listOf(
+                "$UPDATE_MANIFEST_GITHUB?t=$timestamp",
+                UPDATE_MANIFEST_SERVER,
+                UPDATE_MANIFEST_SERVER_STATIC
+            )
+
+            for (urlStr in urls) {
+                try {
+                    val request = Request.Builder()
+                        .url(urlStr)
+                        .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                        .header("Pragma", "no-cache")
+                        .build()
+
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val bodyString = response.body?.string()
+                            if (!bodyString.isNullOrBlank()) {
+                                val json = JSONObject(bodyString)
+                                return UpdateInfo(
+                                    versionCode = json.optInt("versionCode", 0),
+                                    versionName = json.optString("versionName", "1.0"),
+                                    title = json.optString("title", "New Bloom Update Available! 🌸"),
+                                    changelog = json.optString("changelog", "• New features and performance improvements."),
+                                    apkUrl = json.optString("apkUrl", ""),
+                                    forceUpdate = json.optBoolean("forceUpdate", false)
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Manifest fetch failed for $urlStr: ${e.message}")
+                }
+            }
+            return null
+        }
+
+        fun showUpdateNotification(context: Context, info: UpdateInfo) {
+            try {
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val channel = NotificationChannel(
+                        UPDATE_CHANNEL_ID,
+                        "App Updates",
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = "Notifications when a new version of OurBloom is available"
+                        enableLights(true)
+                        lightColor = Color.parseColor("#FF4D6D")
+                        enableVibration(true)
+                        vibrationPattern = longArrayOf(0, 250, 200, 250)
+                        setShowBadge(true)
+                    }
+                    notificationManager.createNotificationChannel(channel)
+                }
+
+                val intent = Intent(context, MainActivity::class.java).apply {
+                    action = ACTION_SHOW_UPDATE
+                    putExtra("action", EXTRA_ACTION_SHOW_UPDATE)
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    NOTIFICATION_ID_UPDATE,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+
+                val title = info.title?.takeIf { it.isNotBlank() } ?: "New Bloom Update Available! 🌸"
+                val shortText = "Version ${info.versionName} is ready to install. Tap to update!"
+                val changelogText = info.changelog?.takeIf { it.isNotBlank() } ?: "• Performance improvements and bug fixes"
+
+                val bigTextStyle = NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(title)
+                    .setSummaryText("v${info.versionName} available")
+                    .bigText("Version ${info.versionName} is ready! 🌸\n\n$changelogText\n\nTap to download and install now.")
+
+                val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle(title)
+                    .setContentText(shortText)
+                    .setStyle(bigTextStyle)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setCategory(NotificationCompat.CATEGORY_STATUS)
+                    .setAutoCancel(true)
+                    .setContentIntent(pendingIntent)
+                    .setColor(Color.parseColor("#FF4D6D"))
+                    .addAction(
+                        R.drawable.ic_system_update,
+                        "Update Now",
+                        pendingIntent
+                    )
+                    .build()
+
+                notificationManager.notify(NOTIFICATION_ID_UPDATE, notification)
+                Log.d(TAG, "Update notification displayed for v${info.versionName}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error displaying update notification", e)
+            }
+        }
+
+        fun dismissUpdateNotification(context: Context) {
+            try {
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.cancel(NOTIFICATION_ID_UPDATE)
+                Log.d(TAG, "Update notification dismissed")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error dismissing update notification", e)
+            }
         }
     }
 
-    private fun getCurrentVersionName(): String {
-        return try {
-            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                activity.packageManager.getPackageInfo(activity.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                activity.packageManager.getPackageInfo(activity.packageName, 0)
-            }
-            pInfo.versionName ?: "1.0"
-        } catch (e: Exception) {
-            "1.0"
-        }
-    }
+    private fun getCurrentVersionCode(): Long = getCurrentVersionCode(activity)
+
+    private fun getCurrentVersionName(): String = getCurrentVersionName(activity)
 
     /**
      * Checks if a newer version is available.
@@ -132,6 +293,7 @@ class AppUpdateHelper(private val activity: Activity) {
                     Log.d(TAG, "Current versionCode=$currentVersionCode, Remote versionCode=${updateInfo.versionCode}")
 
                     if (updateInfo.versionCode > currentVersionCode) {
+                        showUpdateNotification(activity, updateInfo)
                         withContext(Dispatchers.Main) {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 showUpdatePrompt(updateInfo)
@@ -279,6 +441,7 @@ class AppUpdateHelper(private val activity: Activity) {
 
         btnInstall.setOnClickListener {
             dialog.dismiss()
+            dismissUpdateNotification(activity)
             startApkDownload(info)
         }
 
