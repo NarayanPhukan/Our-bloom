@@ -696,10 +696,12 @@ class FirestoreRepository {
 
             if (toUpdate.isNotEmpty()) {
                 val batch = db.batch()
+                val now = System.currentTimeMillis()
                 toUpdate.forEach { doc ->
                     batch.update(doc.reference, mapOf(
                         "isDelivered" to true,
-                        "delivered" to true
+                        "delivered" to true,
+                        "deliveredAt" to now
                     ))
                 }
                 batch.commit().await()
@@ -715,7 +717,8 @@ class FirestoreRepository {
         try {
             db.collection("chat_messages").document(messageId).update(mapOf(
                 "isDelivered" to true,
-                "delivered" to true
+                "delivered" to true,
+                "deliveredAt" to System.currentTimeMillis()
             )).await()
             Log.d("FirestoreRepo", "Marked single message $messageId as delivered")
         } catch (e: Exception) {
@@ -727,12 +730,14 @@ class FirestoreRepository {
         if (ids.isEmpty()) return
         try {
             val batch = db.batch()
+            val now = System.currentTimeMillis()
             ids.take(500).forEach { id ->
                 if (id.isNotBlank()) {
                     val ref = db.collection("chat_messages").document(id)
                     batch.update(ref, mapOf(
                         "isDelivered" to true,
-                        "delivered" to true
+                        "delivered" to true,
+                        "deliveredAt" to now
                     ))
                 }
             }
@@ -747,6 +752,7 @@ class FirestoreRepository {
         if (ids.isEmpty()) return
         try {
             val batch = db.batch()
+            val now = System.currentTimeMillis()
             ids.take(500).forEach { id ->
                 if (id.isNotBlank()) {
                     val ref = db.collection("chat_messages").document(id)
@@ -754,7 +760,8 @@ class FirestoreRepository {
                         "isRead" to true,
                         "read" to true,
                         "isDelivered" to true,
-                        "delivered" to true
+                        "delivered" to true,
+                        "readAt" to now
                     ))
                 }
             }
@@ -781,10 +788,12 @@ class FirestoreRepository {
 
             if (toUpdate.isNotEmpty()) {
                 val batch = db.batch()
+                val now = System.currentTimeMillis()
                 toUpdate.forEach { doc ->
                     batch.update(doc.reference, mapOf(
                         "isDelivered" to true,
-                        "delivered" to true
+                        "delivered" to true,
+                        "deliveredAt" to now
                     ))
                 }
                 batch.commit().await()
@@ -812,6 +821,7 @@ class FirestoreRepository {
 
             if (toUpdate.isNotEmpty()) {
                 val batch = db.batch()
+                val now = System.currentTimeMillis()
                 toUpdate.forEach { doc ->
                     batch.update(
                         doc.reference,
@@ -819,7 +829,8 @@ class FirestoreRepository {
                             "isRead" to true,
                             "read" to true,
                             "isDelivered" to true,
-                            "delivered" to true
+                            "delivered" to true,
+                            "readAt" to now
                         )
                     )
                 }
@@ -831,21 +842,60 @@ class FirestoreRepository {
         }
     }
 
-    suspend fun setTypingStatus(coupleId: String, userId: String, status: String) {
+    data class PartnerPresence(
+        val status: String = "offline", // "typing", "recording", "online", "offline"
+        val lastSeen: Long = 0L
+    )
+
+    suspend fun setUserPresence(coupleId: String, userId: String, status: String, lastSeen: Long = System.currentTimeMillis()) {
         if (coupleId.isBlank() || userId.isBlank()) return
         try {
             val statusData = hashMapOf<String, Any>(
                 userId to hashMapOf(
                     "status" to status,
-                    "timestamp" to System.currentTimeMillis()
+                    "timestamp" to System.currentTimeMillis(),
+                    "lastSeen" to lastSeen
                 )
             )
             db.collection("typing_status").document(coupleId)
                 .set(statusData, com.google.firebase.firestore.SetOptions.merge())
                 .await()
         } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Error setting typing status", e)
+            Log.e("FirestoreRepo", "Error setting user presence", e)
         }
+    }
+
+    suspend fun setTypingStatus(coupleId: String, userId: String, status: String) {
+        setUserPresence(coupleId, userId, status, System.currentTimeMillis())
+    }
+
+    fun listenPresenceAndTyping(
+        coupleId: String,
+        partnerId: String,
+        onUpdate: (PartnerPresence) -> Unit
+    ): ListenerRegistration {
+        return db.collection("typing_status").document(coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) {
+                    onUpdate(PartnerPresence("offline", 0L))
+                    return@addSnapshotListener
+                }
+                val data = snapshot.data
+                @Suppress("UNCHECKED_CAST")
+                val partnerMap = data?.get(partnerId) as? Map<String, Any>
+                val rawStatus = partnerMap?.get("status") as? String ?: "offline"
+                val timestamp = (partnerMap?.get("timestamp") as? Number)?.toLong() ?: 0L
+                val lastSeen = (partnerMap?.get("lastSeen") as? Number)?.toLong() ?: timestamp
+                val timeDiff = System.currentTimeMillis() - timestamp
+
+                val resolvedStatus = when {
+                    rawStatus == "typing" && timeDiff < 6000L -> "typing"
+                    rawStatus == "recording" && timeDiff < 15000L -> "recording"
+                    rawStatus == "online" && timeDiff < 40000L -> "online"
+                    else -> "offline"
+                }
+                onUpdate(PartnerPresence(resolvedStatus, lastSeen))
+            }
     }
 
     fun listenTypingStatus(
@@ -853,27 +903,9 @@ class FirestoreRepository {
         partnerId: String,
         onStatusChange: (status: String) -> Unit
     ): ListenerRegistration {
-        return db.collection("typing_status").document(coupleId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null || !snapshot.exists()) {
-                    onStatusChange("idle")
-                    return@addSnapshotListener
-                }
-                val data = snapshot.data
-                @Suppress("UNCHECKED_CAST")
-                val partnerMap = data?.get(partnerId) as? Map<String, Any>
-                val status = partnerMap?.get("status") as? String ?: "idle"
-                val timestamp = (partnerMap?.get("timestamp") as? Number)?.toLong() ?: 0L
-                val timeDiff = System.currentTimeMillis() - timestamp
-
-                // Consider active if within last 6 seconds (or 15s for recording)
-                val maxDiff = if (status == "recording") 15000L else 6000L
-                if (timeDiff < maxDiff && (status == "typing" || status == "recording")) {
-                    onStatusChange(status)
-                } else {
-                    onStatusChange("idle")
-                }
-            }
+        return listenPresenceAndTyping(coupleId, partnerId) { presence ->
+            onStatusChange(presence.status)
+        }
     }
 
     fun getChatMessagesListener(

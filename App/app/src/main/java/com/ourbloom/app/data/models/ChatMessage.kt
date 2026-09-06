@@ -20,7 +20,9 @@ data class ChatMessage(
     val replyToText: String? = null,
     val replyToSenderName: String? = null,
     val replyToImageUrl: String? = null,
-    val deletedFor: List<String> = emptyList()
+    val deletedFor: List<String> = emptyList(),
+    val readAt: Long? = null,
+    val deliveredAt: Long? = null
 ) {
     val isSeen: Boolean
         get() = isRead

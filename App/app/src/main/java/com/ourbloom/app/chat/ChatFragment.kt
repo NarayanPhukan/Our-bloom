@@ -43,9 +43,16 @@ import com.ourbloom.app.data.models.User
 import com.ourbloom.app.dashboard.showChatImageLightbox
 import com.ourbloom.app.util.ErrorReporter
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import android.content.res.ColorStateList
+import androidx.core.widget.ImageViewCompat
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -89,6 +96,7 @@ class ChatFragment : Fragment() {
     private lateinit var btnActionReply: ImageButton
     private lateinit var btnActionCopy: ImageButton
     private lateinit var btnActionDelete: ImageButton
+    private lateinit var btnActionInfo: ImageButton
 
     // Reply preview views
     private lateinit var layoutReplyPreview: View
@@ -116,6 +124,7 @@ class ChatFragment : Fragment() {
 
     private var pendingBackupJson: String? = null
     private var settingsDialog: BottomSheetDialog? = null
+    private var heartbeatJob: Job? = null
 
     // Typing debounce handler
     private val typingHandler = Handler(Looper.getMainLooper())
@@ -126,7 +135,7 @@ class ChatFragment : Fragment() {
             val cId = currentCouple?.id ?: return@Runnable
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@Runnable
             viewLifecycleOwner.lifecycleScope.launch {
-                repository.setTypingStatus(cId, uid, "idle")
+                repository.setUserPresence(cId, uid, "online", System.currentTimeMillis())
             }
         }
     }
@@ -411,6 +420,7 @@ class ChatFragment : Fragment() {
         btnActionReply = view.findViewById(R.id.btn_action_reply)
         btnActionCopy = view.findViewById(R.id.btn_action_copy)
         btnActionDelete = view.findViewById(R.id.btn_action_delete)
+        btnActionInfo = view.findViewById(R.id.btn_action_info)
 
         layoutReplyPreview = view.findViewById(R.id.layout_reply_preview)
         viewReplyPreviewStripe = view.findViewById(R.id.view_reply_preview_stripe)
@@ -636,6 +646,12 @@ class ChatFragment : Fragment() {
             clearSelection()
         }
 
+        btnActionInfo.setOnClickListener {
+            val msg = selectedMessage ?: return@setOnClickListener
+            clearSelection()
+            showMessageInfoBottomSheet(msg)
+        }
+
         btnActionReply.setOnClickListener {
             val msg = selectedMessage
             clearSelection()
@@ -755,7 +771,7 @@ class ChatFragment : Fragment() {
                         if (!isCurrentlyTyping) {
                             isCurrentlyTyping = true
                             viewLifecycleOwner.lifecycleScope.launch {
-                                repository.setTypingStatus(cId, uid, "typing")
+                                repository.setUserPresence(cId, uid, "typing", System.currentTimeMillis())
                             }
                         }
                         typingHandler.postDelayed(stopTypingRunnable, 3000)
@@ -769,7 +785,7 @@ class ChatFragment : Fragment() {
                         typingHandler.removeCallbacks(stopTypingRunnable)
                         if (cId != null && uid != null) {
                             viewLifecycleOwner.lifecycleScope.launch {
-                                repository.setTypingStatus(cId, uid, "idle")
+                                repository.setUserPresence(cId, uid, "online", System.currentTimeMillis())
                             }
                         }
                     }
@@ -901,7 +917,7 @@ class ChatFragment : Fragment() {
 
                     setupMessagesListener(cId)
                     if (partnerId.isNotBlank()) {
-                        setupTypingListener(cId, partnerId)
+                        setupPresenceListener(cId, partnerId)
                     }
 
                     // Apply and listen to shared chat wallpaper in real time
@@ -923,10 +939,11 @@ class ChatFragment : Fragment() {
         }
     }
 
-    private fun setupTypingListener(coupleId: String, partnerId: String) {
+    private fun setupPresenceListener(coupleId: String, partnerId: String) {
         typingListener?.remove()
-        typingListener = repository.listenTypingStatus(coupleId, partnerId) { status ->
-            when (status) {
+        typingListener = repository.listenPresenceAndTyping(coupleId, partnerId) { presence ->
+            if (!isAdded) return@listenPresenceAndTyping
+            when (presence.status) {
                 "typing" -> {
                     tvChatStatus.text = "typing..."
                     tvChatStatus.setTextColor(0xFF25D366.toInt()) // WhatsApp green
@@ -935,12 +952,49 @@ class ChatFragment : Fragment() {
                     tvChatStatus.text = "🎙️ recording audio..."
                     tvChatStatus.setTextColor(0xFFE85D75.toInt()) // Rose accent
                 }
+                "online" -> {
+                    tvChatStatus.text = "online"
+                    tvChatStatus.setTextColor(0xFF25D366.toInt()) // WhatsApp green
+                }
                 else -> {
-                    tvChatStatus.text = "Forever blooming together 🌸"
+                    tvChatStatus.text = formatLastSeenTime(presence.lastSeen)
                     tvChatStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.chat_header_subtitle))
                 }
             }
         }
+    }
+
+    private fun formatLastSeenTime(lastSeen: Long): String {
+        if (lastSeen <= 0L) return "Forever blooming together 🌸"
+        val now = System.currentTimeMillis()
+        val diff = now - lastSeen
+        if (diff < 60_000L) {
+            return "last seen just now"
+        }
+
+        val calNow = Calendar.getInstance().apply { timeInMillis = now }
+        val calSeen = Calendar.getInstance().apply { timeInMillis = lastSeen }
+
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val formattedTime = timeFormat.format(Date(lastSeen)).lowercase(Locale.getDefault())
+
+        val isToday = calNow.get(Calendar.YEAR) == calSeen.get(Calendar.YEAR) &&
+                calNow.get(Calendar.DAY_OF_YEAR) == calSeen.get(Calendar.DAY_OF_YEAR)
+
+        if (isToday) {
+            return "last seen today at $formattedTime"
+        }
+
+        calNow.add(Calendar.DAY_OF_YEAR, -1)
+        val isYesterday = calNow.get(Calendar.YEAR) == calSeen.get(Calendar.YEAR) &&
+                calNow.get(Calendar.DAY_OF_YEAR) == calSeen.get(Calendar.DAY_OF_YEAR)
+
+        if (isYesterday) {
+            return "last seen yesterday at $formattedTime"
+        }
+
+        val dateFormat = SimpleDateFormat("d MMM 'at' h:mm a", Locale.getDefault())
+        return "last seen " + dateFormat.format(Date(lastSeen)).lowercase(Locale.getDefault())
     }
 
     private fun setupMessagesListener(coupleId: String) {
@@ -995,7 +1049,7 @@ class ChatFragment : Fragment() {
 
             // Broadcast recording status to partner
             viewLifecycleOwner.lifecycleScope.launch {
-                repository.setTypingStatus(coupleId, uid, "recording")
+                repository.setUserPresence(coupleId, uid, "recording", System.currentTimeMillis())
             }
             Toast.makeText(requireContext(), "Recording voice note... 🎙️", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
@@ -1012,12 +1066,15 @@ class ChatFragment : Fragment() {
         layoutActionBar.visibility = View.VISIBLE
         chatHeader.visibility = View.GONE
         tvActionCount.text = "1"
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        btnActionInfo.visibility = if (message.senderId == currentUid) View.VISIBLE else View.GONE
         triggerSendHaptic()
     }
 
     private fun clearSelection() {
         selectedMessage = null
         chatAdapter.setSelectedMessage(null)
+        btnActionInfo.visibility = View.GONE
         layoutActionBar.visibility = View.GONE
         chatHeader.visibility = View.VISIBLE
     }
@@ -1141,6 +1198,14 @@ class ChatFragment : Fragment() {
             file?.delete()
         }
         audioRecordingFile = null
+
+        val cId = currentCouple?.id
+        val uId = FirebaseAuth.getInstance().currentUser?.uid
+        if (cId != null && uId != null) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.setUserPresence(cId, uId, "online", System.currentTimeMillis())
+            }
+        }
     }
 
     private fun sendMessage() {
@@ -1169,7 +1234,7 @@ class ChatFragment : Fragment() {
             isCurrentlyTyping = false
             typingHandler.removeCallbacks(stopTypingRunnable)
             viewLifecycleOwner.lifecycleScope.launch {
-                repository.setTypingStatus(coupleId, currentUid, "idle")
+                repository.setUserPresence(coupleId, currentUid, "online", System.currentTimeMillis())
             }
         }
 
@@ -1416,9 +1481,96 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun startPresenceHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (isActive) {
+                val cId = currentCouple?.id
+                val uid = FirebaseAuth.getInstance().currentUser?.uid
+                if (!cId.isNullOrBlank() && !uid.isNullOrBlank() && !isCurrentlyTyping && !isRecordingAudio) {
+                    repository.setUserPresence(cId, uid, "online", System.currentTimeMillis())
+                }
+                delay(25000L)
+            }
+        }
+    }
+
+    private fun showMessageInfoBottomSheet(message: ChatMessage) {
+        val dialog = BottomSheetDialog(requireContext())
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_message_info, null)
+        dialog.setContentView(sheetView)
+        dialog.setOnShowListener {
+            val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.setBackgroundResource(android.R.color.transparent)
+        }
+
+        val ivPreviewImage = sheetView.findViewById<ImageView>(R.id.iv_info_preview_image)
+        val tvPreviewText = sheetView.findViewById<TextView>(R.id.tv_info_preview_text)
+        val tvReadTime = sheetView.findViewById<TextView>(R.id.tv_info_read_time)
+        val tvDeliveredTime = sheetView.findViewById<TextView>(R.id.tv_info_delivered_time)
+        val tvSentTime = sheetView.findViewById<TextView>(R.id.tv_info_sent_time)
+        val ivReadTick = sheetView.findViewById<ImageView>(R.id.iv_info_read_tick)
+        val ivDeliveredTick = sheetView.findViewById<ImageView>(R.id.iv_info_delivered_tick)
+
+        if (!message.imageUrl.isNullOrBlank()) {
+            ivPreviewImage.visibility = View.VISIBLE
+            Glide.with(this)
+                .load(message.imageUrl)
+                .centerCrop()
+                .into(ivPreviewImage)
+        } else {
+            ivPreviewImage.visibility = View.GONE
+        }
+
+        tvPreviewText.text = when {
+            message.text.isNotBlank() -> message.text
+            !message.audioUrl.isNullOrBlank() -> "🎙️ Voice note"
+            !message.imageUrl.isNullOrBlank() -> "📷 Photo"
+            else -> "Message"
+        }
+
+        val fullDateFormat = SimpleDateFormat("d MMMM yyyy, h:mm a", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+
+        fun formatTimestamp(ts: Long?): String {
+            if (ts == null || ts <= 0L) return ""
+            val now = System.currentTimeMillis()
+            val calNow = Calendar.getInstance().apply { timeInMillis = now }
+            val calTs = Calendar.getInstance().apply { timeInMillis = ts }
+            val isToday = calNow.get(Calendar.YEAR) == calTs.get(Calendar.YEAR) &&
+                    calNow.get(Calendar.DAY_OF_YEAR) == calTs.get(Calendar.DAY_OF_YEAR)
+            return if (isToday) "Today, ${timeFormat.format(Date(ts))}" else fullDateFormat.format(Date(ts))
+        }
+
+        tvSentTime.text = formatTimestamp(message.timestamp)
+
+        val hasDelivered = message.hasDelivered || (message.deliveredAt != null && message.deliveredAt > 0L)
+        if (hasDelivered) {
+            val delTimeStr = formatTimestamp(message.deliveredAt?.takeIf { it > 0L } ?: message.timestamp)
+            tvDeliveredTime.text = delTimeStr
+            ImageViewCompat.setImageTintList(ivDeliveredTick, ColorStateList.valueOf(0xFF9E9E9E.toInt()))
+        } else {
+            tvDeliveredTime.text = "Not delivered yet"
+            ImageViewCompat.setImageTintList(ivDeliveredTick, ColorStateList.valueOf(0xFFBDBDBD.toInt()))
+        }
+
+        val hasRead = message.isSeen || (message.readAt != null && message.readAt > 0L)
+        if (hasRead) {
+            val readTimeStr = formatTimestamp(message.readAt?.takeIf { it > 0L } ?: (message.deliveredAt?.takeIf { it > 0L } ?: message.timestamp))
+            tvReadTime.text = readTimeStr
+            ImageViewCompat.setImageTintList(ivReadTick, ColorStateList.valueOf(0xFF34B7F1.toInt()))
+        } else {
+            tvReadTime.text = "Not read yet"
+            ImageViewCompat.setImageTintList(ivReadTick, ColorStateList.valueOf(0xFFBDBDBD.toInt()))
+        }
+
+        dialog.show()
+    }
+
     override fun onResume() {
         super.onResume()
         isChatVisible = true
+        startPresenceHeartbeat()
         val cId = currentCouple?.id
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
@@ -1431,16 +1583,17 @@ class ChatFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         isChatVisible = false
+        heartbeatJob?.cancel()
+        val cId = currentCouple?.id
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                repository.setUserPresence(cId, uid, "offline", System.currentTimeMillis())
+            }
+        }
         if (isCurrentlyTyping) {
             isCurrentlyTyping = false
             typingHandler.removeCallbacks(stopTypingRunnable)
-            val cId = currentCouple?.id
-            val uid = FirebaseAuth.getInstance().currentUser?.uid
-            if (cId != null && uid != null) {
-                viewLifecycleOwner.lifecycleScope.launch {
-                    repository.setTypingStatus(cId, uid, "idle")
-                }
-            }
         }
         if (isRecordingAudio) {
             stopVoiceRecording(send = false)
@@ -1451,6 +1604,14 @@ class ChatFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         isChatVisible = false
+        heartbeatJob?.cancel()
+        val cId = currentCouple?.id
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (!cId.isNullOrBlank() && !uid.isNullOrBlank()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                repository.setUserPresence(cId, uid, "offline", System.currentTimeMillis())
+            }
+        }
         chatAdapter.releaseAudioPlayer()
         typingHandler.removeCallbacks(stopTypingRunnable)
         messagesListener?.remove()

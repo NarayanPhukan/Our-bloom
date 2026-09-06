@@ -1,10 +1,10 @@
 {
-  "versionCode": 14,
-  "versionName": "1.13",
+  "versionCode": 15,
+  "versionName": "1.14",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Eliminate login screen flash on launch for logged-in users
-• Direct instant routing to DashboardFragment on app start
-• Enhanced session expiration and navigation handling",
+  "changelog": "• WhatsApp-style Last Seen and Online presence in chat header
+• Message Info sheet with exact Read and Delivered timestamps
+• Real-time delivery and read status sync",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
