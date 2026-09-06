@@ -237,26 +237,43 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        val callIntent = Intent(this, com.ourbloom.app.call.VideoCallActivity::class.java).apply {
-            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_COUPLE_ID, coupleId)
-            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_NAME, callerName)
-            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_AVATAR, callerAvatar)
-            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_ID, callerId)
-            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_IS_CALLER, false)
+        // Full-screen intent → IncomingCallActivity (ringing screen with ringtone + vibration)
+        val incomingCallIntent = Intent(this, com.ourbloom.app.call.IncomingCallActivity::class.java).apply {
+            putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_COUPLE_ID, coupleId)
+            putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_NAME, callerName)
+            putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatar)
+            putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_ID, callerId)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
-        val pendingCallIntent = PendingIntent.getActivity(
+        val fullScreenPendingIntent = PendingIntent.getActivity(
             this,
             9999,
-            callIntent,
+            incomingCallIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val acceptAction = NotificationCompat.Action.Builder(
             R.drawable.ic_videocam,
             "Accept",
-            pendingCallIntent
+            fullScreenPendingIntent
+        ).build()
+
+        // Decline action: writes "declined" to Firestore via a broadcast receiver
+        val declineIntent = Intent(this, com.ourbloom.app.fcm.CallActionReceiver::class.java).apply {
+            action = "com.ourbloom.app.ACTION_DECLINE_CALL"
+            putExtra("coupleId", coupleId)
+        }
+        val declinePendingIntent = PendingIntent.getBroadcast(
+            this,
+            9998,
+            declineIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val declineAction = NotificationCompat.Action.Builder(
+            R.drawable.ic_call_end,
+            "Decline",
+            declinePendingIntent
         ).build()
 
         val notification = NotificationCompat.Builder(this, channelId)
@@ -266,11 +283,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
-            .setContentIntent(pendingCallIntent)
-            .setFullScreenIntent(pendingCallIntent, true)
+            .setContentIntent(fullScreenPendingIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .addAction(acceptAction)
+            .addAction(declineAction)
             .setColor(Color.parseColor("#FF4D6D"))
             .setOngoing(true)
+            .setTimeoutAfter(45000) // Auto-dismiss after 45 seconds
             .build()
 
         notificationManager.notify(7777, notification)

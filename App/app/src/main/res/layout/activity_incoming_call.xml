@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_incoming_call">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="120dp"
+        android:paddingBottom="80dp">
+
+        <!-- Pulsing Avatar Ring -->
+        <FrameLayout
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:layout_gravity="center_horizontal">
+
+            <!-- Outer pulse ring (animated in code) -->
+            <View
+                android:id="@+id/view_pulse_ring"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_translucent" />
+
+            <!-- Avatar Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_gravity="center"
+                app:cardCornerRadius="60dp"
+                app:cardElevation="12dp"
+                app:strokeWidth="3dp"
+                app:strokeColor="#FF4D6D"
+                app:cardBackgroundColor="#2D3139">
+
+                <ImageView
+                    android:id="@+id/iv_incoming_avatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_favorite"
+                    app:tint="#FF4D6D"
+                    android:padding="28dp" />
+            </com.google.android.material.card.MaterialCardView>
+        </FrameLayout>
+
+        <!-- Partner Name -->
+        <TextView
+            android:id="@+id/tv_incoming_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="My Love"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:fontFamily="@font/playfair_display"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <!-- Call Status -->
+        <TextView
+            android:id="@+id/tv_incoming_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Incoming Video Call 📹"
+            android:textColor="#FF8FA3"
+            android:textSize="16sp"
+            android:gravity="center" />
+
+        <!-- Spacer to push buttons to bottom -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Accept & Decline Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingStart="48dp"
+            android:paddingEnd="48dp">
+
+            <!-- Decline -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/btn_decline_incoming"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:src="@drawable/ic_call_end"
+                    app:tint="#FFFFFF"
+                    android:background="@drawable/bg_call_btn_red"
+                    android:contentDescription="Decline Call"
+                    android:padding="20dp"
+                    android:elevation="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Decline"
+                    android:textColor="#B0B7C3"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <!-- Accept -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/btn_accept_incoming"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:src="@drawable/ic_videocam"
+                    app:tint="#FFFFFF"
+                    android:background="@drawable/bg_call_btn_green"
+                    android:contentDescription="Accept Call"
+                    android:padding="20dp"
+                    android:elevation="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Accept"
+                    android:textColor="#B0B7C3"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>
