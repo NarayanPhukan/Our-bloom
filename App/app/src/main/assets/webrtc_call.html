@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OurBloom Video Call</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #0d0f14;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #call-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #0d0f14;
+    }
+    /* Remote Video - Full Screen */
+    #remoteVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background-color: #0d0f14;
+      display: block;
+      transform: scaleX(1);
+    }
+    /* Local Video - Floating Picture-in-Picture */
+    #localVideoContainer {
+      position: absolute;
+      top: 64px;
+      right: 16px;
+      width: 105px;
+      height: 150px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      background-color: #1a1d24;
+      z-index: 20;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+    #localVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror selfie cam */
+    }
+    #localVideo.rear-camera {
+      transform: scaleX(1); /* don't mirror rear cam */
+    }
+    /* Hidden snapshot canvas */
+    #snapshotCanvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="call-container">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <div id="localVideoContainer">
+      <video id="localVideo" autoplay playsinline muted></video>
+    </div>
+    <canvas id="snapshotCanvas"></canvas>
+  </div>
+
+  <script>
+    let localStream = null;
+    let remoteStream = null;
+    let peerConnection = null;
+    let currentFacingMode = 'user'; // 'user' or 'environment'
+    let isMicMuted = false;
+    let isCameraMuted = false;
+    let queuedCandidates = [];
+
+    const configuration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+      ]
+    };
+
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const snapshotCanvas = document.getElementById('snapshotCanvas');
+
+    // Notify Android bridge safely
+    function bridgeCall(method, ...args) {
+      if (window.AndroidCallBridge && typeof window.AndroidCallBridge[method] === 'function') {
+        try {
+          window.AndroidCallBridge[method](...args);
+        } catch (e) {
+          console.error("Bridge call error:", method, e);
+        }
+      }
+    }
+
+    // Initialize media streams
+    async function initMedia() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: currentFacingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+        localStream = stream;
+        localVideo.srcObject = stream;
+        bridgeCall('onCameraReady');
+        return true;
+      } catch (err) {
+        console.error("Error accessing camera/mic:", err);
+        bridgeCall('onError', "Camera/Mic access failed: " + err.message);
+        return false;
+      }
+    }
+
+    function createPeerConnection() {
+      if (peerConnection) {
+        return;
+      }
+
+      peerConnection = new RTCPeerConnection(configuration);
+
+      // Add local tracks to peer connection
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          peerConnection.addTrack(track, localStream);
+        });
+      }
+
+      // Handle ICE candidate generation
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidateStr = JSON.stringify(event.candidate);
+          bridgeCall('onIceCandidate', candidateStr);
+        }
+      };
+
+      // Remote stream received
+      peerConnection.ontrack = (event) => {
+        console.log("Remote track received:", event.streams);
+        if (event.streams && event.streams[0]) {
+          remoteStream = event.streams[0];
+          remoteVideo.srcObject = remoteStream;
+          bridgeCall('onCallConnected');
+        }
+      };
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log("ICE Connection State:", peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+          bridgeCall('onCallConnected');
+        } else if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
+          bridgeCall('onCallDisconnected', peerConnection.iceConnectionState);
+        }
+      };
+
+      peerConnection.onconnectionstatechange = () => {
+        console.log("Connection State:", peerConnection.connectionState);
+        if (peerConnection.connectionState === 'connected') {
+          bridgeCall('onCallConnected');
+        } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'closed') {
+          bridgeCall('onCallDisconnected', peerConnection.connectionState);
+        }
+      };
+    }
+
+    function safeParseJson(data) {
+      if (!data) return null;
+      if (typeof data !== 'string') return data;
+      try {
+        if (data.includes('%')) {
+          data = decodeURIComponent(data);
+        }
+        return JSON.parse(data);
+      } catch (e) {
+        try {
+          return JSON.parse(data);
+        } catch (err) {
+          console.error("JSON parse error:", err, data);
+          return null;
+        }
+      }
+    }
+
+    // Called by Android when initiating a call
+    async function startCall() {
+      try {
+        if (!localStream) {
+          const ready = await initMedia();
+          if (!ready) return;
+        }
+        createPeerConnection();
+
+        const offer = await peerConnection.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true
+        });
+        await peerConnection.setLocalDescription(offer);
+
+        bridgeCall('onLocalDescription', 'offer', JSON.stringify(offer));
+      } catch (err) {
+        console.error("Failed to start call:", err);
+        bridgeCall('onError', "Offer creation error: " + err.message);
+      }
+    }
+
+    // Called by Android when receiving an offer
+    async function handleOffer(offerJson) {
+      try {
+        if (!localStream) {
+          const ready = await initMedia();
+          if (!ready) return;
+        }
+        createPeerConnection();
+
+        const offer = safeParseJson(offerJson);
+        if (!offer) return;
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+        // Process queued ICE candidates
+        while (queuedCandidates.length > 0) {
+          const cand = queuedCandidates.shift();
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {
+            console.warn("Failed to add queued candidate:", e);
+          }
+        }
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        bridgeCall('onLocalDescription', 'answer', JSON.stringify(answer));
+      } catch (err) {
+        console.error("Failed to handle offer:", err);
+        bridgeCall('onError', "Answer creation error: " + err.message);
+      }
+    }
+
+    // Called by Android when caller receives answer
+    async function handleAnswer(answerJson) {
+      try {
+        if (!peerConnection) return;
+        const answer = safeParseJson(answerJson);
+        if (!answer) return;
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+
+        // Process queued ICE candidates
+        while (queuedCandidates.length > 0) {
+          const cand = queuedCandidates.shift();
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {
+            console.warn("Failed to add queued candidate:", e);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to handle answer:", err);
+        bridgeCall('onError', "Answer handling error: " + err.message);
+      }
+    }
+
+    // Called by Android when an ICE candidate is received from Firestore
+    async function handleCandidate(candidateJson) {
+      try {
+        const candidate = safeParseJson(candidateJson);
+        if (!candidate) return;
+        if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          queuedCandidates.push(candidate);
+        }
+      } catch (err) {
+        console.warn("Error adding candidate:", err);
+      }
+    }
+
+    // Toggle Microphone
+    function setMicMuted(muted) {
+      isMicMuted = muted;
+      if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+          track.enabled = !muted;
+        });
+      }
+    }
+
+    // Toggle Camera On/Off
+    function setCameraMuted(muted) {
+      isCameraMuted = muted;
+      if (localStream) {
+        localStream.getVideoTracks().forEach(track => {
+          track.enabled = !muted;
+        });
+      }
+    }
+
+    // Flip Camera between front & rear
+    async function switchCamera() {
+      try {
+        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+        if (currentFacingMode === 'user') {
+          localVideo.classList.remove('rear-camera');
+        } else {
+          localVideo.classList.add('rear-camera');
+        }
+
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: currentFacingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const oldVideoTrack = localStream.getVideoTracks()[0];
+
+        if (oldVideoTrack) {
+          oldVideoTrack.stop();
+          localStream.removeTrack(oldVideoTrack);
+        }
+        localStream.addTrack(newVideoTrack);
+        localVideo.srcObject = localStream;
+
+        if (peerConnection) {
+          const senders = peerConnection.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(newVideoTrack);
+          }
+        }
+      } catch (err) {
+        console.error("Camera switch error:", err);
+        bridgeCall('onError', "Switch camera error: " + err.message);
+      }
+    }
+
+    // ==========================================
+    // CAPTURE MOMENT 📸 (High-Res Snapshot)
+    // ==========================================
+    function captureMoment() {
+      try {
+        // Choose source: Prefer remote video if streaming, fallback to local video
+        let targetVideo = null;
+        if (remoteVideo && remoteVideo.readyState >= 2 && remoteVideo.videoWidth > 0) {
+          targetVideo = remoteVideo;
+        } else if (localVideo && localVideo.readyState >= 2 && localVideo.videoWidth > 0) {
+          targetVideo = localVideo;
+        }
+
+        if (!targetVideo) {
+          bridgeCall('onError', "Video not ready for capture yet.");
+          return;
+        }
+
+        const width = targetVideo.videoWidth || 1280;
+        const height = targetVideo.videoHeight || 720;
+
+        snapshotCanvas.width = width;
+        snapshotCanvas.height = height;
+
+        const ctx = snapshotCanvas.getContext('2d');
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw the video frame at full pixel resolution
+        ctx.drawImage(targetVideo, 0, 0, width, height);
+
+        // Export high-quality JPEG base64 data
+        const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.96);
+        // Strip data:image/jpeg;base64, prefix for efficient Kotlin Base64 decode
+        const base64Data = dataUrl.split(',')[1];
+
+        bridgeCall('onMomentCaptured', base64Data);
+      } catch (err) {
+        console.error("Moment capture failed:", err);
+        bridgeCall('onError', "Snapshot capture failed: " + err.message);
+      }
+    }
+
+    // Clean up call
+    function endCall() {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      localVideo.srcObject = null;
+      remoteVideo.srcObject = null;
+    }
+
+    // Auto initialize camera preview on load
+    window.addEventListener('DOMContentLoaded', () => {
+      initMedia();
+    });
+  </script>
+</body>
+</html>

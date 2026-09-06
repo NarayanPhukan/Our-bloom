@@ -64,9 +64,10 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
     if (userDoc.exists && userDoc.data().fcmToken) {
       const isHeartbeat = data.type === 'heartbeat';
       const isChat = data.type === 'chat';
+      const isVideoCall = data.type === 'video_call';
       const channelId = isHeartbeat 
         ? 'ourbloom_heartbeat_channel' 
-        : (isChat ? 'ourbloom_chat_channel' : 'ourbloom_fcm_channel');
+        : (isChat ? 'ourbloom_chat_channel' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
 
       const message = {
         data: {
@@ -216,6 +217,36 @@ const setupFirestoreListeners = () => {
           }
         }
         coupleAnthems.set(coupleId, newTrack);
+      }
+    });
+  });
+
+  db.collection('video_calls').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      const callData = change.doc.data();
+      if (!callData) return;
+      const coupleId = change.doc.id;
+      // When a call is initiated: status === 'calling'
+      if ((change.type === 'added' || change.type === 'modified') && callData.status === 'calling') {
+        const age = Date.now() - (callData.timestamp || 0);
+        if (age < 60000) { // Call created within 60s
+          const callerName = callData.callerName || 'Your Love';
+          notifyPartner(
+            coupleId,
+            callData.callerId,
+            callerName,
+            'Incoming Video Call 📹',
+            {
+              type: 'video_call',
+              coupleId: coupleId,
+              callerId: callData.callerId || '',
+              callerName: callerName,
+              callerAvatar: callData.callerAvatar || '',
+              status: 'calling',
+              timestamp: String(callData.timestamp || Date.now())
+            }
+          );
+        }
       }
     });
   });

@@ -197,11 +197,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var deliveryListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var incomingCallListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var incomingCallDialog: androidx.appcompat.app.AlertDialog? = null
 
     override fun onPause() {
         super.onPause()
         deliveryListener?.remove()
         deliveryListener = null
+        incomingCallListener?.remove()
+        incomingCallListener = null
+        incomingCallDialog?.dismiss()
+        incomingCallDialog = null
         val reminderRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
             .setInitialDelay(4, TimeUnit.DAYS)
             .build()
@@ -216,6 +222,10 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         deliveryListener?.remove()
         deliveryListener = null
+        incomingCallListener?.remove()
+        incomingCallListener = null
+        incomingCallDialog?.dismiss()
+        incomingCallDialog = null
     }
 
     override fun onResume() {
@@ -246,6 +256,7 @@ class MainActivity : AppCompatActivity() {
                         repo.markMessagesDelivered(cId, uid)
                         withContext(Dispatchers.Main) {
                             startDeliveryListener(cId, uid)
+                            startIncomingCallListener(cId, uid)
                         }
                     }
                 } catch (_: Exception) {}
@@ -272,5 +283,89 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+    }
+
+    private fun startIncomingCallListener(cId: String, currentUid: String) {
+        incomingCallListener?.remove()
+        incomingCallListener = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("video_calls")
+            .document(cId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+                val status = snapshot.getString("status") ?: ""
+                val receiverId = snapshot.getString("receiverId") ?: ""
+                val callerId = snapshot.getString("callerId") ?: ""
+                val callerName = snapshot.getString("callerName") ?: "Your Love"
+                val callerAvatar = snapshot.getString("callerAvatar") ?: ""
+                val offer = snapshot.getString("offer") ?: ""
+                val timestamp = snapshot.getLong("timestamp") ?: 0L
+
+                val isRecent = (System.currentTimeMillis() - timestamp) < 60000L
+
+                if (status == "calling" && receiverId == currentUid && isRecent) {
+                    if (incomingCallDialog?.isShowing != true) {
+                        showIncomingCallDialog(cId, callerId, callerName, callerAvatar, offer)
+                    }
+                } else if (status == "ended" || status == "declined") {
+                    incomingCallDialog?.dismiss()
+                    incomingCallDialog = null
+                }
+            }
+    }
+
+    private fun showIncomingCallDialog(
+        cId: String,
+        callerId: String,
+        callerName: String,
+        callerAvatar: String,
+        offer: String
+    ) {
+        val view = layoutInflater.inflate(R.layout.dialog_incoming_call, null)
+        val tvName = view.findViewById<android.widget.TextView>(R.id.tv_incoming_partner_name)
+        val ivAvatar = view.findViewById<android.widget.ImageView>(R.id.iv_incoming_avatar)
+        val btnAccept = view.findViewById<android.widget.ImageButton>(R.id.btn_accept_call)
+        val btnDecline = view.findViewById<android.widget.ImageButton>(R.id.btn_decline_call)
+
+        tvName?.text = callerName
+        if (callerAvatar.isNotBlank()) {
+            com.bumptech.glide.Glide.with(this)
+                .load(callerAvatar)
+                .placeholder(R.drawable.ic_favorite)
+                .circleCrop()
+                .into(ivAvatar)
+        }
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setView(view)
+            .setCancelable(false)
+            .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        btnDecline?.setOnClickListener {
+            dialog.dismiss()
+            incomingCallDialog = null
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("video_calls")
+                .document(cId)
+                .update("status", "declined")
+        }
+
+        btnAccept?.setOnClickListener {
+            dialog.dismiss()
+            incomingCallDialog = null
+            val intent = Intent(this, com.ourbloom.app.call.VideoCallActivity::class.java).apply {
+                putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_COUPLE_ID, cId)
+                putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_NAME, callerName)
+                putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_AVATAR, callerAvatar)
+                putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_ID, callerId)
+                putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_IS_CALLER, false)
+                putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_OFFER_SDP, offer)
+            }
+            startActivity(intent)
+        }
+
+        incomingCallDialog = dialog
+        dialog.show()
     }
 }

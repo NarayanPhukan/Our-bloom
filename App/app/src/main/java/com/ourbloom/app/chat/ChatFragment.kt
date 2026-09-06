@@ -2,6 +2,7 @@ package com.ourbloom.app.chat
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -153,6 +154,19 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "Microphone ready! Hold mic to record.", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(requireContext(), "Microphone permission needed to record audio.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Video call permissions launcher (Camera + Microphone)
+    private val callPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[android.Manifest.permission.CAMERA] == true
+        val audioGranted = permissions[android.Manifest.permission.RECORD_AUDIO] == true
+        if (cameraGranted && audioGranted) {
+            launchVideoCall()
+        } else {
+            Toast.makeText(requireContext(), "Camera and Microphone permissions are required for video calls", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -386,6 +400,36 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun startVideoCallFlow() {
+        val hasCamera = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val hasAudio = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (hasCamera && hasAudio) {
+            launchVideoCall()
+        } else {
+            callPermissionsLauncher.launch(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO))
+        }
+    }
+
+    private fun launchVideoCall() {
+        val coupleId = currentCouple?.id ?: run {
+            Toast.makeText(requireContext(), "Couple connection not loaded yet", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val pUser = partnerUser
+        val partnerName = tvPartnerName?.text?.toString()?.takeIf { it.isNotBlank() } ?: pUser?.name ?: "My Love"
+        val partnerAvatar = pUser?.avatarUrl ?: ""
+        val partnerId = pUser?.uid ?: (if (currentCouple?.user1 == FirebaseAuth.getInstance().currentUser?.uid) currentCouple?.user2 else currentCouple?.user1) ?: ""
+
+        val intent = Intent(requireContext(), com.ourbloom.app.call.VideoCallActivity::class.java).apply {
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_COUPLE_ID, coupleId)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_NAME, partnerName)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_AVATAR, partnerAvatar)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_ID, partnerId)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_IS_CALLER, true)
+        }
+        startActivity(intent)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -433,6 +477,11 @@ class ChatFragment : Fragment() {
         // WhatsApp-style header back button
         view.findViewById<ImageButton>(R.id.btn_chat_back)?.setOnClickListener {
             findNavController().navigateUp()
+        }
+
+        // WhatsApp-style header Video Call button
+        view.findViewById<ImageButton>(R.id.btn_video_call)?.setOnClickListener {
+            startVideoCallFlow()
         }
 
         val btnEmoji = view.findViewById<ImageButton>(R.id.btn_chat_emoji)

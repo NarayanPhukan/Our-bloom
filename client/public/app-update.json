@@ -1,10 +1,8 @@
 {
-  "versionCode": 15,
-  "versionName": "1.14",
+  "versionCode": 16,
+  "versionName": "1.15",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• WhatsApp-style Last Seen and Online presence in chat header
-• Message Info sheet with exact Read and Delivered timestamps
-• Real-time delivery and read status sync",
+  "changelog": "• 1-on-1 Romantic Video Calling directly in chat\n• Dedicated 'Capture Moment 📸' shutter button saves snapshots to phone Gallery\n• Tap to save Moments into OurBloom Shared Memories\n• Real-time incoming call alerts and push ringing",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

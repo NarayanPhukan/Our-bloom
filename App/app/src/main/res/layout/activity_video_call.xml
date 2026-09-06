@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root_video_call"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0D0F14">
+
+    <!-- WebRTC Engine WebView (Displays Remote Video Fullscreen & Local PiP) -->
+    <WebView
+        android:id="@+id/web_view_call"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Connecting / Calling Overlay Screen -->
+    <LinearLayout
+        android:id="@+id/layout_calling_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#E60D0F14"
+        android:visibility="visible">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            app:cardCornerRadius="60dp"
+            app:cardElevation="12dp"
+            app:strokeWidth="3dp"
+            app:strokeColor="#FF4D6D"
+            app:cardBackgroundColor="#1F242E">
+
+            <ImageView
+                android:id="@+id/iv_calling_avatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_favorite"
+                app:tint="#FF4D6D"
+                android:padding="28dp" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:id="@+id/tv_calling_partner_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="My Love"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:fontFamily="@font/playfair_display"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_calling_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Connecting video call..."
+            android:textColor="#B0B7C3"
+            android:textSize="14sp" />
+
+        <ProgressBar
+            android:id="@+id/pb_calling"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="#FF4D6D" />
+    </LinearLayout>
+
+    <!-- Camera Shutter Flash View (briefly animates on snapshot) -->
+    <View
+        android:id="@+id/view_shutter_flash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF"
+        android:alpha="0"
+        android:clickable="false"
+        android:focusable="false" />
+
+    <!-- Top Romantic Glass Header (Partner Name + Call Duration) -->
+    <LinearLayout
+        android:id="@+id/layout_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="36dp"
+        android:paddingBottom="14dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="@drawable/bg_lightbox_gradient">
+
+        <ImageButton
+            android:id="@+id/btn_top_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="#FFFFFF"
+            android:background="@drawable/bg_call_btn_round"
+            android:contentDescription="Minimize Call"
+            android:padding="8dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="14dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_call_partner_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="My Love"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/playfair_display" />
+
+            <TextView
+                android:id="@+id/tv_call_timer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Calling..."
+                android:textColor="#FF8FA3"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Speakerphone Toggle Button -->
+        <ImageButton
+            android:id="@+id/btn_call_speaker"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_music"
+            app:tint="#FFFFFF"
+            android:background="@drawable/bg_call_btn_round"
+            android:contentDescription="Toggle Speaker"
+            android:padding="10dp" />
+    </LinearLayout>
+
+    <!-- Floating Banner for Captured Moment -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_moment_saved"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="120dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="10dp"
+        app:cardBackgroundColor="#D91A1D24"
+        app:strokeWidth="1.5dp"
+        app:strokeColor="#FF4D6D"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_favorite"
+                app:tint="#FF4D6D" />
+
+            <TextView
+                android:id="@+id/tv_moment_banner_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Moment saved to Gallery! 📸"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Bottom Floating Action Bar -->
+    <LinearLayout
+        android:id="@+id/layout_bottom_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="36dp"
+        android:paddingTop="16dp">
+
+        <!-- Mute / Unmute Mic -->
+        <ImageButton
+            android:id="@+id/btn_call_mute_mic"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:src="@drawable/ic_mic_whatsapp"
+            app:tint="#FFFFFF"
+            android:background="@drawable/bg_call_btn_round"
+            android:contentDescription="Mute Microphone"
+            android:padding="14dp" />
+
+        <!-- Flip Camera (Front / Back) -->
+        <ImageButton
+            android:id="@+id/btn_call_switch_cam"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="20dp"
+            android:src="@drawable/ic_switch_camera"
+            app:tint="#FFFFFF"
+            android:background="@drawable/bg_call_btn_round"
+            android:contentDescription="Switch Camera"
+            android:padding="14dp" />
+
+        <!-- CAPTURE MOMENT 📸 (Shutter Button) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageButton
+                android:id="@+id/btn_capture_moment"
+                android:layout_width="66dp"
+                android:layout_height="66dp"
+                android:src="@drawable/ic_moment_shutter"
+                android:background="@drawable/bg_call_moment_btn"
+                android:contentDescription="Capture Moment"
+                android:scaleType="centerInside"
+                android:elevation="6dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Moment"
+                android:textColor="#FF8FA3"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- End Call (Hang Up) -->
+        <ImageButton
+            android:id="@+id/btn_call_end"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="20dp"
+            android:src="@drawable/ic_call_end"
+            app:tint="#FFFFFF"
+            android:background="@drawable/bg_call_btn_red"
+            android:contentDescription="End Call"
+            android:padding="15dp"
+            android:elevation="6dp" />
+    </LinearLayout>
+
+</FrameLayout>

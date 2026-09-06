@@ -49,6 +49,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val type = remoteMessage.data["type"]
         val isHeartbeat = type == "heartbeat"
+        val isVideoCall = type == "video_call"
         val isChat = type == "chat" || 
             remoteMessage.data.containsKey("messageText") || 
             remoteMessage.data.containsKey("audioUrl") || 
@@ -57,6 +58,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val title = if (isHeartbeat) {
             val sender = remoteMessage.data["senderName"] ?: "Your Love"
             "$sender sent you a Heartbeat ❤️"
+        } else if (isVideoCall) {
+            remoteMessage.data["callerName"] ?: "Your Love"
         } else if (isChat) {
             // WhatsApp style: Partner's name is the title
             remoteMessage.data["senderName"] ?: remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Your Love"
@@ -66,6 +69,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val body = if (isHeartbeat) {
             "Thinking of you right now... tap to send one back!"
+        } else if (isVideoCall) {
+            "Incoming Video Call 📹"
         } else if (isChat) {
             // WhatsApp style: exact message preview
             val messageText = remoteMessage.data["messageText"]
@@ -125,6 +130,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             }
         }
 
+        if (isVideoCall) {
+            val callerAvatar = remoteMessage.data["callerAvatar"] ?: ""
+            sendCallNotification(
+                callerName = title,
+                coupleId = coupleId,
+                callerId = remoteMessage.data["callerId"] ?: "",
+                callerAvatar = callerAvatar
+            )
+            return
+        }
+
         sendNotification(
             title = title,
             messageBody = body,
@@ -134,6 +150,76 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             senderId = senderId,
             messageId = messageId
         )
+    }
+
+    private fun sendCallNotification(
+        callerName: String,
+        coupleId: String,
+        callerId: String,
+        callerAvatar: String
+    ) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "ourbloom_call_channel"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .build()
+
+            val channel = NotificationChannel(
+                channelId,
+                "Video Calls",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Incoming video call alerts"
+                enableLights(true)
+                lightColor = Color.parseColor("#FF4D6D")
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 1000, 1000, 1000)
+                setSound(ringtoneUri, audioAttributes)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val callIntent = Intent(this, com.ourbloom.app.call.VideoCallActivity::class.java).apply {
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_COUPLE_ID, coupleId)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_NAME, callerName)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_AVATAR, callerAvatar)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_ID, callerId)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_IS_CALLER, false)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        val pendingCallIntent = PendingIntent.getActivity(
+            this,
+            9999,
+            callIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val acceptAction = NotificationCompat.Action.Builder(
+            R.drawable.ic_videocam,
+            "Accept",
+            pendingCallIntent
+        ).build()
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.drawable.ic_videocam)
+            .setContentTitle(callerName)
+            .setContentText("Incoming Video Call 📹")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setAutoCancel(true)
+            .setContentIntent(pendingCallIntent)
+            .setFullScreenIntent(pendingCallIntent, true)
+            .addAction(acceptAction)
+            .setColor(Color.parseColor("#FF4D6D"))
+            .setOngoing(true)
+            .build()
+
+        notificationManager.notify(7777, notification)
     }
 
     private fun triggerHeartbeatHaptic() {
