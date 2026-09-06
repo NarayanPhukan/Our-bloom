@@ -270,6 +270,7 @@
 
                 <!-- Vertical Accent Stripe -->
                 <View
+                    android:id="@+id/view_reply_preview_stripe"
                     android:layout_width="4dp"
                     android:layout_height="36dp"
                     android:background="@color/chat_quote_accent"
@@ -304,6 +305,23 @@
                         android:layout_marginTop="2dp" />
 
                 </LinearLayout>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_reply_preview_thumb"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="8dp"
+                    app:cardCornerRadius="4dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:id="@+id/iv_reply_preview_thumb"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop" />
+                </com.google.android.material.card.MaterialCardView>
 
                 <ImageButton
                     android:id="@+id/btn_cancel_reply"

@@ -35,6 +35,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import com.ourbloom.app.R
+import com.ourbloom.app.MainActivity
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.User
@@ -89,8 +90,11 @@ class ChatFragment : Fragment() {
 
     // Reply preview views
     private lateinit var layoutReplyPreview: View
+    private var viewReplyPreviewStripe: View? = null
     private lateinit var tvReplyPreviewName: TextView
     private lateinit var tvReplyPreviewText: TextView
+    private var cardReplyPreviewThumb: View? = null
+    private var ivReplyPreviewThumb: ImageView? = null
     private lateinit var btnCancelReply: ImageButton
 
     // Selection & Reply State
@@ -241,6 +245,7 @@ class ChatFragment : Fragment() {
         val replySenderName = replyingToMessage?.let {
             if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
         }
+        val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
 
         Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
@@ -258,7 +263,8 @@ class ChatFragment : Fragment() {
                     senderName = mySenderName,
                     replyToId = replyId,
                     replyToText = replyText,
-                    replyToSenderName = replySenderName
+                    replyToSenderName = replySenderName,
+                    replyToImageUrl = replyImageUrl
                 )
                 triggerSendHaptic()
             } else {
@@ -402,9 +408,16 @@ class ChatFragment : Fragment() {
         btnActionDelete = view.findViewById(R.id.btn_action_delete)
 
         layoutReplyPreview = view.findViewById(R.id.layout_reply_preview)
+        viewReplyPreviewStripe = view.findViewById(R.id.view_reply_preview_stripe)
         tvReplyPreviewName = view.findViewById(R.id.tv_reply_preview_name)
         tvReplyPreviewText = view.findViewById(R.id.tv_reply_preview_text)
+        cardReplyPreviewThumb = view.findViewById(R.id.card_reply_preview_thumb)
+        ivReplyPreviewThumb = view.findViewById(R.id.iv_reply_preview_thumb)
         btnCancelReply = view.findViewById(R.id.btn_cancel_reply)
+
+        etInput.setOnFocusChangeListener { _, hasFocus ->
+            (activity as? MainActivity)?.setBottomNavVisibility(!hasFocus)
+        }
 
         val btnEmoji = view.findViewById<ImageButton>(R.id.btn_chat_emoji)
         val btnCamera = view.findViewById<ImageButton>(R.id.btn_chat_camera)
@@ -437,6 +450,7 @@ class ChatFragment : Fragment() {
             val pos = chatAdapter.getMessagePosition(targetMsgId)
             if (pos != -1) {
                 rvMessages.smoothScrollToPosition(pos)
+                chatAdapter.flashHighlightMessage(targetMsgId)
             }
         }
 
@@ -491,14 +505,18 @@ class ChatFragment : Fragment() {
                 isCurrentlyActive: Boolean
             ) {
                 val itemView = viewHolder.itemView
+                val bubbleContainer: View? = itemView.findViewById(R.id.layout_bubble_container) ?: itemView
                 val density = resources.displayMetrics.density
-                val maxSwipe = 85f * density
-                val triggerThreshold = 46f * density
+                val maxSwipe = 75f * density
+                val triggerThreshold = 42f * density
 
                 // Smooth elastic translation
                 val translationX = if (dX > 0) {
-                    (dX * 0.6f).coerceAtMost(maxSwipe)
+                    (dX * 0.5f).coerceAtMost(maxSwipe)
                 } else 0f
+
+                // Translate ONLY the bubble container so avatar stays pinned
+                bubbleContainer?.translationX = translationX
 
                 if (isCurrentlyActive) {
                     wasActive = true
@@ -528,51 +546,61 @@ class ChatFragment : Fragment() {
                             }
                         }
                     }
+                    if (translationX == 0f) {
+                        bubbleContainer?.translationX = 0f
+                    }
                 }
 
-                // Draw WhatsApp reply indicator icon behind the sliding message
-                if (translationX > 4f && replyIcon != null) {
-                    val circleRadius = 18f * density
-                    val iconSize = (20f * density).toInt()
-                    val marginStart = 16f * density
-                    val centerY = itemView.top + (itemView.height / 2f)
-                    val circleCenterX = itemView.left + marginStart + circleRadius
+                // Draw WhatsApp reply indicator icon behind the sliding message bubble
+                if (translationX > 3f && replyIcon != null && bubbleContainer != null) {
+                    val circleRadius = 17f * density
+                    val iconSize = (18f * density).toInt()
+                    val bubbleLeft = bubbleContainer.left.toFloat()
+                    val centerY = itemView.top + bubbleContainer.top + (bubbleContainer.height / 2f)
+                    
+                    // Position circle directly behind the sliding edge of the bubble
+                    val circleCenterX = itemView.left + bubbleLeft + (translationX * 0.5f) - (2f * density)
 
                     val progress = (translationX / triggerThreshold).coerceIn(0f, 1f)
 
                     // Circular background
                     val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = if (progress >= 1f) {
-                            ContextCompat.getColor(requireContext(), R.color.chat_quote_accent)
+                            0xFFE85D75.toInt() // Primary accent rose
                         } else {
-                            ContextCompat.getColor(requireContext(), R.color.bloom_surface_variant)
+                            0x25000000.toInt() // Soft translucent
                         }
-                        alpha = (progress * 240).toInt()
+                        alpha = (progress * 255).toInt()
                     }
-                    c.drawCircle(circleCenterX, centerY, circleRadius * (0.6f + 0.4f * progress), circlePaint)
+                    val scaledRadius = circleRadius * (0.4f + 0.6f * progress)
+                    c.drawCircle(circleCenterX, centerY, scaledRadius, circlePaint)
 
-                    // Reply arrow icon inside circle
+                    // Reply arrow icon inside circle with rotation
                     val iconLeft = (circleCenterX - iconSize / 2f).toInt()
                     val iconTop = (centerY - iconSize / 2f).toInt()
                     val iconRight = iconLeft + iconSize
                     val iconBottom = iconTop + iconSize
 
                     replyIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom)
-                    replyIcon.setTint(if (progress >= 1f) Color.WHITE else ContextCompat.getColor(requireContext(), R.color.chat_header_subtitle))
+                    replyIcon.setTint(if (progress >= 1f) Color.WHITE else 0xFF65676B.toInt())
                     replyIcon.alpha = (progress * 255).toInt()
 
                     c.save()
-                    c.scale(0.7f + 0.3f * progress, 0.7f + 0.3f * progress, circleCenterX, centerY)
+                    c.scale(0.5f + 0.5f * progress, 0.5f + 0.5f * progress, circleCenterX, centerY)
+                    c.rotate(-30f * (1f - progress), circleCenterX, centerY)
                     replyIcon.draw(c)
                     c.restore()
                 }
 
-                getDefaultUIUtil().onDraw(c, recyclerView, itemView, translationX, dY, actionState, isCurrentlyActive)
+                // Pass dX = 0f so ItemTouchHelper does NOT move the entire row
+                getDefaultUIUtil().onDraw(c, recyclerView, itemView, 0f, dY, actionState, isCurrentlyActive)
             }
 
             override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
                 super.clearView(recyclerView, viewHolder)
                 getDefaultUIUtil().clearView(viewHolder.itemView)
+                viewHolder.itemView.findViewById<View>(R.id.layout_bubble_container)
+                    ?.animate()?.translationX(0f)?.setDuration(180)?.start()
 
                 if (isSwipeTriggered) {
                     isSwipeTriggered = false
@@ -982,15 +1010,37 @@ class ChatFragment : Fragment() {
     private fun enterReplyMode(message: ChatMessage) {
         replyingToMessage = message
         layoutReplyPreview.visibility = View.VISIBLE
+        (activity as? MainActivity)?.setBottomNavVisibility(false)
+
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-        val senderLabel = if (message.senderId == currentUid) "You" else message.senderName.ifBlank { "My Love" }
+        val isSenderYou = message.senderId == currentUid
+        val senderLabel = if (isSenderYou) "You" else message.senderName.ifBlank { "My Love" }
         tvReplyPreviewName.text = "Replying to $senderLabel"
+
+        // Dynamic WhatsApp accent colors:
+        // You -> Rose (#E85D75), Partner -> Emerald Green (#00A884)
+        val accentColor = if (isSenderYou) 0xFFE85D75.toInt() else 0xFF00A884.toInt()
+        viewReplyPreviewStripe?.setBackgroundColor(accentColor)
+        tvReplyPreviewName.setTextColor(accentColor)
+
         tvReplyPreviewText.text = when {
             message.text.isNotBlank() -> message.text
             !message.imageUrl.isNullOrBlank() -> "📷 Photo"
             !message.audioUrl.isNullOrBlank() -> "🎙️ Voice note"
             else -> "Message"
         }
+
+        val imgUrl = message.imageUrl
+        if (!imgUrl.isNullOrBlank() && cardReplyPreviewThumb != null && ivReplyPreviewThumb != null) {
+            cardReplyPreviewThumb?.visibility = View.VISIBLE
+            Glide.with(this)
+                .load(imgUrl)
+                .centerCrop()
+                .into(ivReplyPreviewThumb!!)
+        } else {
+            cardReplyPreviewThumb?.visibility = View.GONE
+        }
+
         etInput.requestFocus()
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
         imm?.showSoftInput(etInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
@@ -1000,6 +1050,10 @@ class ChatFragment : Fragment() {
     private fun clearReplyMode() {
         replyingToMessage = null
         layoutReplyPreview.visibility = View.GONE
+        cardReplyPreviewThumb?.visibility = View.GONE
+        if (!etInput.hasFocus()) {
+            (activity as? MainActivity)?.setBottomNavVisibility(true)
+        }
     }
 
     private fun stopVoiceRecording(send: Boolean) {
@@ -1048,6 +1102,7 @@ class ChatFragment : Fragment() {
             val replySenderName = replyingToMessage?.let {
                 if (it.senderId == uid) "You" else it.senderName.ifBlank { "My Love" }
             }
+            val replyImageUrl = replyingToMessage?.imageUrl
             clearReplyMode()
 
             triggerSendHaptic()
@@ -1064,7 +1119,8 @@ class ChatFragment : Fragment() {
                         senderName = mySenderName,
                         replyToId = replyId,
                         replyToText = replyText,
-                        replyToSenderName = replySenderName
+                        replyToSenderName = replySenderName,
+                        replyToImageUrl = replyImageUrl
                     )
                 } else {
                     Toast.makeText(requireContext(), "Failed to send voice note. Check connection.", Toast.LENGTH_SHORT).show()
@@ -1092,6 +1148,7 @@ class ChatFragment : Fragment() {
         val replySenderName = replyingToMessage?.let {
             if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
         }
+        val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
 
         etInput.setText("")
@@ -1114,7 +1171,8 @@ class ChatFragment : Fragment() {
                 senderName = mySenderName,
                 replyToId = replyId,
                 replyToText = replyText,
-                replyToSenderName = replySenderName
+                replyToSenderName = replySenderName,
+                replyToImageUrl = replyImageUrl
             )
         }
     }
@@ -1132,6 +1190,7 @@ class ChatFragment : Fragment() {
         val replySenderName = replyingToMessage?.let {
             if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
         }
+        val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
 
         Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
@@ -1146,7 +1205,8 @@ class ChatFragment : Fragment() {
                     senderName = mySenderName,
                     replyToId = replyId,
                     replyToText = replyText,
-                    replyToSenderName = replySenderName
+                    replyToSenderName = replySenderName,
+                    replyToImageUrl = replyImageUrl
                 )
                 triggerSendHaptic()
             } else {

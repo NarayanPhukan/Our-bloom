@@ -44,6 +44,29 @@ class ChatAdapter(
     var selectedMessageId: String? = null
         private set
 
+    var highlightedMessageId: String? = null
+        private set
+
+    fun flashHighlightMessage(messageId: String) {
+        val oldHighlighted = highlightedMessageId
+        highlightedMessageId = messageId
+        if (oldHighlighted != null) {
+            val oldIdx = messages.indexOfFirst { it.id == oldHighlighted }
+            if (oldIdx != -1) notifyItemChanged(oldIdx)
+        }
+        val newIdx = messages.indexOfFirst { it.id == messageId }
+        if (newIdx != -1) {
+            notifyItemChanged(newIdx)
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (highlightedMessageId == messageId) {
+                    highlightedMessageId = null
+                    val idx = messages.indexOfFirst { it.id == messageId }
+                    if (idx != -1) notifyItemChanged(idx)
+                }
+            }, 1200)
+        }
+    }
+
     var onMessageLongClick: ((ChatMessage) -> Unit)? = null
     var onMessageClick: ((ChatMessage) -> Unit)? = null
     var onQuoteClick: ((String) -> Unit)? = null
@@ -220,8 +243,11 @@ class ChatAdapter(
         private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
         private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
+        private val viewQuoteStripe: View? = itemView.findViewById(R.id.view_quote_stripe)
         private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
         private val tvQuoteText: TextView? = itemView.findViewById(R.id.tv_quote_text)
+        private val cardQuoteThumb: View? = itemView.findViewById(R.id.card_quote_thumb)
+        private val ivQuoteThumb: ImageView? = itemView.findViewById(R.id.iv_quote_thumb)
         private val layoutAudio: View? = itemView.findViewById(R.id.layout_chat_audio)
         private val ivPlayPause: ImageView? = itemView.findViewById(R.id.iv_audio_play_pause)
         private val pbAudioProgress: ProgressBar? = itemView.findViewById(R.id.pb_audio_progress)
@@ -229,7 +255,14 @@ class ChatAdapter(
 
         fun bind(message: ChatMessage) {
             val isSelected = message.id == selectedMessageId
-            rootLayout.setBackgroundResource(if (isSelected) R.drawable.bg_msg_selected else 0)
+            val isHighlighted = message.id == highlightedMessageId
+            if (isSelected) {
+                rootLayout.setBackgroundResource(R.drawable.bg_msg_selected)
+            } else if (isHighlighted) {
+                rootLayout.setBackgroundColor(0x35E85D75.toInt())
+            } else {
+                rootLayout.setBackgroundResource(0)
+            }
 
             val longClickListener = View.OnLongClickListener {
                 onMessageLongClick?.invoke(message)
@@ -246,11 +279,31 @@ class ChatAdapter(
             bubbleContainer?.setOnLongClickListener(longClickListener)
             bubbleContainer?.setOnClickListener(clickListener)
 
-            // Quoted reply binding
+            // Quoted reply binding (WhatsApp Style)
             if (message.isReply) {
                 layoutQuote?.visibility = View.VISIBLE
-                tvQuoteSender?.text = message.replyToSenderName?.ifBlank { "You" } ?: "You"
+                val isSenderYou = message.replyToSenderName.isNullOrBlank() || message.replyToSenderName == "You"
+                val senderLabel = if (isSenderYou) "You" else message.replyToSenderName ?: "Partner"
+                tvQuoteSender?.text = senderLabel
                 tvQuoteText?.text = message.replyToText ?: ""
+
+                val accentColor = if (isSenderYou) 0xFFFF859A.toInt() else 0xFF25D366.toInt()
+                viewQuoteStripe?.setBackgroundColor(accentColor)
+                tvQuoteSender?.setTextColor(accentColor)
+
+                val quoteImgUrl = message.replyToImageUrl?.takeIf { it.isNotBlank() }
+                    ?: messages.find { it.id == message.replyToId }?.imageUrl?.takeIf { it.isNotBlank() }
+
+                if (!quoteImgUrl.isNullOrBlank() && cardQuoteThumb != null && ivQuoteThumb != null) {
+                    cardQuoteThumb.visibility = View.VISIBLE
+                    Glide.with(itemView.context)
+                        .load(quoteImgUrl)
+                        .centerCrop()
+                        .into(ivQuoteThumb)
+                } else {
+                    cardQuoteThumb?.visibility = View.GONE
+                }
+
                 layoutQuote?.setOnClickListener {
                     val targetId = message.replyToId
                     if (!targetId.isNullOrBlank()) {
@@ -360,8 +413,11 @@ class ChatAdapter(
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
         private val ivPartnerAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
         private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
+        private val viewQuoteStripe: View? = itemView.findViewById(R.id.view_quote_stripe)
         private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
         private val tvQuoteText: TextView? = itemView.findViewById(R.id.tv_quote_text)
+        private val cardQuoteThumb: View? = itemView.findViewById(R.id.card_quote_thumb)
+        private val ivQuoteThumb: ImageView? = itemView.findViewById(R.id.iv_quote_thumb)
         private val layoutAudio: View? = itemView.findViewById(R.id.layout_chat_audio)
         private val ivPlayPause: ImageView? = itemView.findViewById(R.id.iv_audio_play_pause)
         private val pbAudioProgress: ProgressBar? = itemView.findViewById(R.id.pb_audio_progress)
@@ -369,7 +425,14 @@ class ChatAdapter(
 
         fun bind(message: ChatMessage, partnerAvatarUrl: String?) {
             val isSelected = message.id == selectedMessageId
-            rootLayout.setBackgroundResource(if (isSelected) R.drawable.bg_msg_selected else 0)
+            val isHighlighted = message.id == highlightedMessageId
+            if (isSelected) {
+                rootLayout.setBackgroundResource(R.drawable.bg_msg_selected)
+            } else if (isHighlighted) {
+                rootLayout.setBackgroundColor(0x35E85D75.toInt())
+            } else {
+                rootLayout.setBackgroundResource(0)
+            }
 
             val longClickListener = View.OnLongClickListener {
                 onMessageLongClick?.invoke(message)
@@ -386,11 +449,34 @@ class ChatAdapter(
             bubbleContainer?.setOnLongClickListener(longClickListener)
             bubbleContainer?.setOnClickListener(clickListener)
 
-            // Quoted reply binding
+            // Quoted reply binding (WhatsApp Style)
             if (message.isReply) {
                 layoutQuote?.visibility = View.VISIBLE
-                tvQuoteSender?.text = message.replyToSenderName?.ifBlank { "Message" } ?: "Message"
+                val isSenderYou = message.replyToSenderName == "You"
+                val senderLabel = if (isSenderYou) "You" else message.replyToSenderName ?: "Partner"
+                tvQuoteSender?.text = senderLabel
                 tvQuoteText?.text = message.replyToText ?: ""
+
+                // WhatsApp dynamic quote colors:
+                // If replying to You -> Rose (#E85D75)
+                // If replying to Partner -> WhatsApp Emerald Green (#00A884)
+                val accentColor = if (isSenderYou) 0xFFE85D75.toInt() else 0xFF00A884.toInt()
+                viewQuoteStripe?.setBackgroundColor(accentColor)
+                tvQuoteSender?.setTextColor(accentColor)
+
+                val quoteImgUrl = message.replyToImageUrl?.takeIf { it.isNotBlank() }
+                    ?: messages.find { it.id == message.replyToId }?.imageUrl?.takeIf { it.isNotBlank() }
+
+                if (!quoteImgUrl.isNullOrBlank() && cardQuoteThumb != null && ivQuoteThumb != null) {
+                    cardQuoteThumb.visibility = View.VISIBLE
+                    Glide.with(itemView.context)
+                        .load(quoteImgUrl)
+                        .centerCrop()
+                        .into(ivQuoteThumb)
+                } else {
+                    cardQuoteThumb?.visibility = View.GONE
+                }
+
                 layoutQuote?.setOnClickListener {
                     val targetId = message.replyToId
                     if (!targetId.isNullOrBlank()) {

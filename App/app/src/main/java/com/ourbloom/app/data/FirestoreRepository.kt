@@ -482,7 +482,8 @@ class FirestoreRepository {
         senderName: String,
         replyToId: String? = null,
         replyToText: String? = null,
-        replyToSenderName: String? = null
+        replyToSenderName: String? = null,
+        replyToImageUrl: String? = null
     ): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {
@@ -501,6 +502,7 @@ class FirestoreRepository {
                 "replyToId" to (replyToId ?: ""),
                 "replyToText" to (replyToText ?: ""),
                 "replyToSenderName" to (replyToSenderName ?: ""),
+                "replyToImageUrl" to (replyToImageUrl ?: ""),
                 "deletedFor" to emptyList<String>()
             )
             db.collection("chat_messages").add(messageData).await()

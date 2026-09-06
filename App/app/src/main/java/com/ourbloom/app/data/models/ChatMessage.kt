@@ -19,6 +19,7 @@ data class ChatMessage(
     val replyToId: String? = null,
     val replyToText: String? = null,
     val replyToSenderName: String? = null,
+    val replyToImageUrl: String? = null,
     val deletedFor: List<String> = emptyList()
 ) {
     val isSeen: Boolean
