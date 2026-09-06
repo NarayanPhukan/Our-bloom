@@ -23,6 +23,7 @@ import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.ourbloom.app.MainActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
@@ -550,6 +551,11 @@ class DashboardFragment : Fragment() {
                 Toast.makeText(requireContext(), "Nickname saved as $newNick! ❤️", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
+        }
+
+        val btnCheckUpdates = sheetView.findViewById<MaterialButton>(R.id.btn_check_updates)
+        btnCheckUpdates?.setOnClickListener {
+            (activity as? MainActivity)?.getAppUpdateHelper()?.checkForUpdates(manualCheck = true)
         }
 
         val btnReportIssue = sheetView.findViewById<MaterialButton>(R.id.btn_report_issue)

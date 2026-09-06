@@ -59,8 +59,12 @@ class AppUpdateHelper(private val activity: Activity) {
     private var updateDialog: AlertDialog? = null
     private var progressDialog: AlertDialog? = null
 
+    private var lastAutoCheckTime = 0L
+
     companion object {
         private const val TAG = "AppUpdateHelper"
+        private const val UPDATE_MANIFEST_GITHUB_API =
+            "https://api.github.com/repos/NarayanPhukan/Our-bloom/contents/app-update.json"
         private const val UPDATE_MANIFEST_GITHUB =
             "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/app-update.json"
         private const val UPDATE_MANIFEST_SERVER =
@@ -106,11 +110,19 @@ class AppUpdateHelper(private val activity: Activity) {
     }
 
     /**
-     * Checks if a newer version is available. Can be invoked during app start (onCreate or onResume).
+     * Checks if a newer version is available.
+     * @param manualCheck If true, displays a toast when the app is already on the latest version or if network check fails.
      */
-    fun checkForUpdates() {
+    fun checkForUpdates(manualCheck: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!manualCheck && now - lastAutoCheckTime < 60_000) return
         if (isCheckInProgress || activity.isFinishing || activity.isDestroyed) return
         isCheckInProgress = true
+        lastAutoCheckTime = now
+
+        if (manualCheck) {
+            Toast.makeText(activity, "Checking for Bloom updates... 🌸", Toast.LENGTH_SHORT).show()
+        }
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -127,10 +139,24 @@ class AppUpdateHelper(private val activity: Activity) {
                         }
                     } else {
                         Log.d(TAG, "App is on the latest version ($currentVersionCode)")
+                        if (manualCheck) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(activity, "OurBloom is up to date (v${getCurrentVersionName()}) 🌸", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } else if (manualCheck) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(activity, "Unable to reach update server. Please try again later.", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Update check failed: ${e.message}")
+                if (manualCheck) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(activity, "Update check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             } finally {
                 isCheckInProgress = false
             }
@@ -155,8 +181,39 @@ class AppUpdateHelper(private val activity: Activity) {
     }
 
     private fun fetchUpdateManifest(): UpdateInfo? {
-        // 1. Try GitHub raw first (appends timestamp to prevent CDN caching)
         val timestamp = System.currentTimeMillis()
+
+        // 1. Primary: GitHub API with raw accept header (zero Fastly CDN caching delay on push)
+        try {
+            val apiRequest = Request.Builder()
+                .url(UPDATE_MANIFEST_GITHUB_API)
+                .header("Accept", "application/vnd.github.v3.raw")
+                .header("User-Agent", "OurBloomApp")
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .build()
+
+            client.newCall(apiRequest).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyString = response.body?.string()
+                    if (!bodyString.isNullOrBlank()) {
+                        val json = JSONObject(bodyString)
+                        return UpdateInfo(
+                            versionCode = json.optInt("versionCode", 0),
+                            versionName = json.optString("versionName", "1.0"),
+                            title = json.optString("title", "New Bloom Update Available! 🌸"),
+                            changelog = json.optString("changelog", "• New features and performance improvements."),
+                            apkUrl = json.optString("apkUrl", ""),
+                            forceUpdate = json.optBoolean("forceUpdate", false)
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "GitHub API manifest fetch failed: ${e.message}")
+        }
+
+        // 2. Fallbacks: raw GitHub with timestamp query, Render server endpoints
         val urls = listOf(
             "$UPDATE_MANIFEST_GITHUB?t=$timestamp",
             UPDATE_MANIFEST_SERVER,
@@ -167,7 +224,8 @@ class AppUpdateHelper(private val activity: Activity) {
             try {
                 val request = Request.Builder()
                     .url(urlStr)
-                    .header("Cache-Control", "no-cache")
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
                     .build()
 
                 client.newCall(request).execute().use { response ->

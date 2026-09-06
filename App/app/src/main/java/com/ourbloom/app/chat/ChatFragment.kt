@@ -24,6 +24,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.ByteArrayOutputStream
@@ -158,6 +159,9 @@ class ChatFragment : Fragment() {
                 if (!email.isNullOrBlank()) {
                     driveHelper.setConnectedAccountEmail(email)
                     updateSettingsAccountUi(email)
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        repository.updateConnectedGoogleEmail(email)
+                    }
                     Toast.makeText(requireContext(), "Connected to $email", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
@@ -416,8 +420,9 @@ class ChatFragment : Fragment() {
         ivReplyPreviewThumb = view.findViewById(R.id.iv_reply_preview_thumb)
         btnCancelReply = view.findViewById(R.id.btn_cancel_reply)
 
-        etInput.setOnFocusChangeListener { _, hasFocus ->
-            (activity as? MainActivity)?.setBottomNavVisibility(!hasFocus)
+        // WhatsApp-style header back button
+        view.findViewById<ImageButton>(R.id.btn_chat_back)?.setOnClickListener {
+            findNavController().navigateUp()
         }
 
         val btnEmoji = view.findViewById<ImageButton>(R.id.btn_chat_emoji)
@@ -507,6 +512,7 @@ class ChatFragment : Fragment() {
             ) {
                 val itemView = viewHolder.itemView
                 val bubbleContainer: View? = itemView.findViewById(R.id.layout_bubble_container) ?: itemView
+                val partnerAvatar: View? = itemView.findViewById(R.id.iv_chat_partner_avatar)
                 val density = resources.displayMetrics.density
                 val maxSwipe = 75f * density
                 val triggerThreshold = 42f * density
@@ -552,15 +558,20 @@ class ChatFragment : Fragment() {
                     }
                 }
 
-                // Draw WhatsApp reply indicator icon behind the sliding message bubble
+                // Draw WhatsApp reply indicator icon behind or beside the sliding message bubble
                 if (translationX > 3f && replyIcon != null && bubbleContainer != null) {
                     val circleRadius = 17f * density
                     val iconSize = (18f * density).toInt()
-                    val bubbleLeft = bubbleContainer.left.toFloat()
                     val centerY = itemView.top + bubbleContainer.top + (bubbleContainer.height / 2f)
-                    
-                    // Position circle directly behind the sliding edge of the bubble
-                    val circleCenterX = itemView.left + bubbleLeft + (translationX * 0.5f) - (2f * density)
+                    val currentBubbleLeft = itemView.left + bubbleContainer.left + translationX
+
+                    // Position circle cleanly for both received messages (in expanding gap) and sent messages (beside bubble)
+                    val circleCenterX = if (partnerAvatar != null) {
+                        val avatarRight = itemView.left + (partnerAvatar.parent as? View ?: partnerAvatar).right.toFloat()
+                        (avatarRight + currentBubbleLeft) / 2f
+                    } else {
+                        currentBubbleLeft - circleRadius - (8f * density)
+                    }
 
                     val progress = (translationX / triggerThreshold).coerceIn(0f, 1f)
 
@@ -849,6 +860,9 @@ class ChatFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val user = repository.getCurrentUser()
             currentUser = user
+            if (user != null && !user.connectedGoogleEmail.isNullOrBlank() && driveHelper.getConnectedAccountEmail().isNullOrBlank()) {
+                driveHelper.setConnectedAccountEmail(user.connectedGoogleEmail)
+            }
             val cId = user?.coupleId
             if (user != null && !cId.isNullOrEmpty()) {
                 val couple = repository.getCouple(cId)
@@ -1011,7 +1025,6 @@ class ChatFragment : Fragment() {
     private fun enterReplyMode(message: ChatMessage) {
         replyingToMessage = message
         layoutReplyPreview.visibility = View.VISIBLE
-        (activity as? MainActivity)?.setBottomNavVisibility(false)
 
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         val isSenderYou = message.senderId == currentUid
@@ -1052,9 +1065,6 @@ class ChatFragment : Fragment() {
         replyingToMessage = null
         layoutReplyPreview.visibility = View.GONE
         cardReplyPreviewThumb?.visibility = View.GONE
-        if (!etInput.hasFocus()) {
-            (activity as? MainActivity)?.setBottomNavVisibility(true)
-        }
     }
 
     private fun stopVoiceRecording(send: Boolean) {
@@ -1306,6 +1316,11 @@ class ChatFragment : Fragment() {
 
         btnResetWallpaper?.setOnClickListener {
             resetChatWallpaper()
+        }
+
+        val btnCheckUpdates = sheetView.findViewById<MaterialButton>(R.id.btn_check_updates)
+        btnCheckUpdates?.setOnClickListener {
+            (activity as? MainActivity)?.getAppUpdateHelper()?.checkForUpdates(manualCheck = true)
         }
 
         val btnReportChatIssue = sheetView.findViewById<MaterialButton>(R.id.btn_report_chat_issue)

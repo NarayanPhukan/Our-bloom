@@ -86,14 +86,16 @@ class MainActivity : AppCompatActivity() {
         updateBottomNavState()
     }
 
+    fun getAppUpdateHelper(): AppUpdateHelper = appUpdateHelper
+
     private fun updateBottomNavState() {
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation) ?: return
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
         val currentDestId = navHostFragment?.navController?.currentDestination?.id
-        val isAuthOrSetup = currentDestId in listOf(
-            R.id.loginFragment, R.id.registerFragment, R.id.setupCoupleFragment
+        val isExcluded = currentDestId in listOf(
+            R.id.loginFragment, R.id.registerFragment, R.id.setupCoupleFragment, R.id.chatFragment
         )
-        if (isAuthOrSetup || isNavExplicitlyHidden || isKeyboardOpen) {
+        if (isExcluded || isNavExplicitlyHidden || isKeyboardOpen) {
             bottomNav.visibility = View.GONE
         } else {
             bottomNav.visibility = View.VISIBLE
@@ -202,7 +204,10 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try {
-            appUpdateHelper.resumeUpdates()
+            if (::appUpdateHelper.isInitialized) {
+                appUpdateHelper.resumeUpdates()
+                appUpdateHelper.checkForUpdates()
+            }
         } catch (e: Exception) {
             Log.e("MainActivity", "Error resuming updates: ${e.message}")
         }

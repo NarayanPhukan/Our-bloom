@@ -196,6 +196,17 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun updateConnectedGoogleEmail(email: String): Boolean {
+        val fbUser = auth.currentUser ?: return false
+        return try {
+            db.collection("users").document(fbUser.uid).update("connectedGoogleEmail", email).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating connected Google email", e)
+            false
+        }
+    }
+
     suspend fun sendHeartbeat(coupleId: String, senderName: String, coupleSlug: String? = null): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {

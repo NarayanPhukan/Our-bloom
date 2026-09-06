@@ -1,8 +1,12 @@
 {
-  "versionCode": 12,
-  "versionName": "1.11",
+  "versionCode": 13,
+  "versionName": "1.12",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix garden loading for existing couples\n• Resolve Firestore deserialization error\n• Auto-detect errors with 1-tap developer reporting",
+  "changelog": "• Restore & persist chat wallpaper, profile photos, and Google Drive account
+• Fix bottom navigation bar jump while typing in Chat
+• Add WhatsApp-style top-left back navigation arrow in Chat header
+• Perfect WhatsApp swipe-to-reply alignment on sent & received messages
+• Instant GitHub API update detection (bypassing CDN cache) + 1-tap manual update checking",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

@@ -337,6 +337,19 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Check for App Updates -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_check_updates"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="10dp"
+        android:text="Check for App Updates 🚀"
+        android:textColor="#E85D75"
+        android:textSize="13sp"
+        app:cornerRadius="16dp"
+        app:strokeColor="#E85D75" />
+
     <!-- Report an Issue / Help -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_report_chat_issue"

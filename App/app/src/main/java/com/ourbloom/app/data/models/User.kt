@@ -10,5 +10,6 @@ data class User(
     val coupleId: String? = null,
     val isPremium: Boolean = false,
     val avatarUrl: String = "",
-    val nicknameForPartner: String = ""
+    val nicknameForPartner: String = "",
+    val connectedGoogleEmail: String = ""
 )
