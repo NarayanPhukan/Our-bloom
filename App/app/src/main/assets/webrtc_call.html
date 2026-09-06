@@ -121,9 +121,12 @@
         };
         if (withAudio) {
           constraints.audio = {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            channelCount: { ideal: 1 },
+            sampleRate: { ideal: 48000 },
+            sampleSize: { ideal: 16 }
           };
         }
         return await navigator.mediaDevices.getUserMedia(constraints);
@@ -131,7 +134,11 @@
         console.warn("High-res constraints failed, falling back to basic:", err);
         return await navigator.mediaDevices.getUserMedia({
           video: { facingMode: facing },
-          audio: withAudio
+          audio: withAudio ? {
+            echoCancellation: true,
+            noiseSuppression: true,
+            channelCount: 1
+          } : false
         });
       }
     }
@@ -181,6 +188,15 @@
         if (event.streams && event.streams[0]) {
           remoteStream = event.streams[0];
           remoteVideo.srcObject = remoteStream;
+
+          // Smooth jitter buffer playout delay (40ms prevents crackles/pops without latency)
+          if (event.receiver && typeof event.receiver.playoutDelayHint !== 'undefined') {
+            try {
+              event.receiver.playoutDelayHint = 0.04;
+            } catch (_) {}
+          }
+
+          remoteVideo.play().catch(e => console.log("Remote play note:", e.message));
           bridgeCall('onCallConnected');
         }
       };
@@ -251,25 +267,103 @@
       }
     }
 
-    // Boost video bitrate & disable downscaling for crystal clear HD quality
-    async function optimizeSenderVideoQuality() {
+    // Optimize Opus SDP parameters for studio-grade, crackle-free audio
+    function enhanceOpusSdp(sdp) {
+      if (!sdp || typeof sdp !== 'string') return sdp;
+      try {
+        const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000\/2/i);
+        if (!opusMatch) return sdp;
+        const pt = opusMatch[1];
+
+        // Optimal parameters for clear, crackle-free VoIP:
+        // - useinbandfec=1: in-band Forward Error Correction to recover lost packets
+        // - usedtx=0: disables discontinuous transmission to eliminate voice clipping/gate clicking
+        // - minptime=10: lower audio packetization latency
+        // - maxaveragebitrate=64000: 64 kbps wideband voice (studio clarity)
+        // - stereo=0;sprop-stereo=0: clean mono speech without phase cancellation
+        // - cbr=1: constant bitrate for jitter buffer stability
+        const opusParams = [
+          'useinbandfec=1',
+          'usedtx=0',
+          'minptime=10',
+          'maxaveragebitrate=64000',
+          'stereo=0',
+          'sprop-stereo=0',
+          'cbr=1'
+        ];
+
+        const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.+)`, 'i');
+        const fmtpMatch = sdp.match(fmtpRegex);
+
+        if (fmtpMatch) {
+          const existing = fmtpMatch[1].split(';').map(p => p.trim());
+          const merged = [...existing];
+          opusParams.forEach(p => {
+            const key = p.split('=')[0];
+            const idx = merged.findIndex(ep => ep.startsWith(key + '='));
+            if (idx >= 0) {
+              merged[idx] = p;
+            } else {
+              merged.push(p);
+            }
+          });
+          return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${merged.join(';')}`);
+        } else {
+          return sdp.replace(
+            new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000\\/2\\r?\\n)`, 'i'),
+            `$1a=fmtp:${pt} ${opusParams.join(';')}\r\n`
+          );
+        }
+      } catch (e) {
+        console.warn("Opus SDP enhancement warning:", e);
+        return sdp;
+      }
+    }
+
+    // Optimize media senders: give audio highest network priority & tune video bandwidth
+    async function optimizeMediaSenders() {
       if (!peerConnection) return;
       try {
         const senders = peerConnection.getSenders();
-        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-        if (videoSender) {
-          const parameters = videoSender.getParameters();
-          if (!parameters.encodings || parameters.encodings.length === 0) {
-            parameters.encodings = [{}];
+
+        // 1. Audio Sender: Ensure high network priority and dedicated 64kbps allocation
+        const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+        if (audioSender && typeof audioSender.getParameters === 'function') {
+          try {
+            const audioParams = audioSender.getParameters();
+            if (!audioParams.encodings || audioParams.encodings.length === 0) {
+              audioParams.encodings = [{}];
+            }
+            audioParams.encodings[0].maxBitrate = 64000;
+            audioParams.encodings[0].priority = 'high';
+            audioParams.encodings[0].networkPriority = 'high';
+            await audioSender.setParameters(audioParams);
+            console.log("✿ Audio sender prioritized at 64kbps");
+          } catch (e) {
+            console.warn("Audio param note:", e.message);
           }
-          parameters.encodings[0].maxBitrate = 3500000; // 3.5 Mbps for crystal clear HD video
-          parameters.encodings[0].scaleResolutionDownBy = 1.0; // No downscaling
-          parameters.encodings[0].maxFramerate = 30;
-          await videoSender.setParameters(parameters);
-          console.log("✿ Video encoder optimized for crystal clear HD quality");
+        }
+
+        // 2. Video Sender: Balanced 1.8 Mbps (crisp 720p 30fps without starving audio)
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender && typeof videoSender.getParameters === 'function') {
+          try {
+            const parameters = videoSender.getParameters();
+            if (!parameters.encodings || parameters.encodings.length === 0) {
+              parameters.encodings = [{}];
+            }
+            parameters.encodings[0].maxBitrate = 1800000; // 1.8 Mbps
+            parameters.encodings[0].scaleResolutionDownBy = 1.0;
+            parameters.encodings[0].maxFramerate = 30;
+            parameters.degradationPreference = 'maintain-framerate';
+            await videoSender.setParameters(parameters);
+            console.log("✿ Video encoder configured: 1.8 Mbps 720p 30fps");
+          } catch (e) {
+            console.warn("Video param note:", e.message);
+          }
         }
       } catch (e) {
-        console.warn("Could not set sender parameters:", e);
+        console.warn("Media sender optimization error:", e);
       }
     }
 
@@ -308,8 +402,9 @@
           offerToReceiveAudio: true,
           offerToReceiveVideo: true
         });
+        offer.sdp = enhanceOpusSdp(offer.sdp);
         await peerConnection.setLocalDescription(offer);
-        await optimizeSenderVideoQuality();
+        await optimizeMediaSenders();
 
         bridgeCall('onLocalDescription', 'offer', JSON.stringify(offer));
       } catch (err) {
@@ -342,8 +437,9 @@
         }
 
         let answer = await peerConnection.createAnswer();
+        answer.sdp = enhanceOpusSdp(answer.sdp);
         await peerConnection.setLocalDescription(answer);
-        await optimizeSenderVideoQuality();
+        await optimizeMediaSenders();
 
         bridgeCall('onLocalDescription', 'answer', JSON.stringify(answer));
       } catch (err) {
@@ -363,7 +459,7 @@
         let answer = safeParseJson(answerJson);
         if (!answer) return;
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        await optimizeSenderVideoQuality();
+        await optimizeMediaSenders();
 
         // Process queued ICE candidates
         while (queuedCandidates.length > 0) {

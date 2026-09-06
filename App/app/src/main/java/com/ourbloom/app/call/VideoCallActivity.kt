@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaActionSound
@@ -238,23 +239,113 @@ class VideoCallActivity : AppCompatActivity() {
         }
     }
 
+    private var audioFocusRequest: AudioFocusRequest? = null
+
     private fun setupAudio() {
         try {
             audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            volumeControlStream = AudioManager.STREAM_VOICE_CALL
             audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
-            audioManager?.isSpeakerphoneOn = true
-            isSpeakerOn = true
-            btnCallSpeaker.alpha = 1.0f
+
+            requestCallAudioFocus()
+            routeAudioToSpeaker(true)
         } catch (e: Exception) {
             Log.e(TAG, "Error setting up audio manager: ${e.message}")
         }
     }
 
-    private fun toggleSpeaker() {
+    private fun requestCallAudioFocus() {
         val am = audioManager ?: return
-        isSpeakerOn = !isSpeakerOn
-        am.isSpeakerphoneOn = isSpeakerOn
-        btnCallSpeaker.alpha = if (isSpeakerOn) 1.0f else 0.5f
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val playbackAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+
+                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(playbackAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        Log.d(TAG, "VoIP audio focus changed: $focusChange")
+                    }
+                    .build()
+
+                audioFocusRequest = focusRequest
+                am.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                am.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            Log.d(TAG, "VoIP audio focus requested successfully")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error requesting VoIP audio focus: ${e.message}")
+        }
+    }
+
+    private fun abandonCallAudioFocus() {
+        val am = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+                audioFocusRequest = null
+            } else {
+                @Suppress("DEPRECATION")
+                am.abandonAudioFocus(null)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error abandoning VoIP audio focus: ${e.message}")
+        }
+    }
+
+    private fun routeAudioToSpeaker(speaker: Boolean) {
+        val am = audioManager ?: return
+        isSpeakerOn = speaker
+        btnCallSpeaker.alpha = if (speaker) 1.0f else 0.5f
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (speaker) {
+                    val speakerDevice = am.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    if (speakerDevice != null) {
+                        am.setCommunicationDevice(speakerDevice)
+                        Log.d(TAG, "Audio routed to BUILTIN_SPEAKER")
+                    } else {
+                        @Suppress("DEPRECATION")
+                        am.isSpeakerphoneOn = true
+                    }
+                } else {
+                    val earpieceDevice = am.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                    }
+                    if (earpieceDevice != null) {
+                        am.setCommunicationDevice(earpieceDevice)
+                        Log.d(TAG, "Audio routed to BUILTIN_EARPIECE")
+                    } else {
+                        am.clearCommunicationDevice()
+                        @Suppress("DEPRECATION")
+                        am.isSpeakerphoneOn = false
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = speaker
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error routing audio device: ${e.message}")
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = speaker
+        }
+    }
+
+    private fun toggleSpeaker() {
+        routeAudioToSpeaker(!isSpeakerOn)
         Toast.makeText(this, if (isSpeakerOn) "Speaker On" else "Earpiece Audio", Toast.LENGTH_SHORT).show()
     }
 
@@ -621,7 +712,14 @@ class VideoCallActivity : AppCompatActivity() {
         callDocListener?.remove()
         callDocListener = null
 
+        abandonCallAudioFocus()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                audioManager?.clearCommunicationDevice()
+            } catch (_: Exception) {}
+        }
         audioManager?.mode = AudioManager.MODE_NORMAL
+        @Suppress("DEPRECATION")
         audioManager?.isSpeakerphoneOn = false
 
         mediaActionSound?.release()

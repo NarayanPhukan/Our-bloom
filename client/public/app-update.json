@@ -1,8 +1,8 @@
 {
-  "versionCode": 24,
-  "versionName": "1.23",
+  "versionCode": 25,
+  "versionName": "1.24",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Instant update push notification alerts\n• Revamped voice message waveforms & recording\n• Multi-image selection in chat",
+  "changelog": "• Crystal-clear video call audio: fix crackling, add VoIP audio focus & Opus FEC",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
