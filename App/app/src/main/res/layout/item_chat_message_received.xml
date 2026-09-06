@@ -109,10 +109,10 @@
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_chat_image"
-            android:layout_width="220dp"
-            android:layout_height="180dp"
-            android:layout_marginBottom="8dp"
-            app:cardCornerRadius="12dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            app:cardCornerRadius="14dp"
             app:cardElevation="0dp"
             app:strokeWidth="0dp"
             app:cardBackgroundColor="@android:color/transparent"
@@ -120,9 +120,14 @@
 
             <ImageView
                 android:id="@+id/iv_chat_image"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop" />
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxWidth="260dp"
+                android:maxHeight="340dp"
+                android:minWidth="140dp"
+                android:minHeight="140dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter" />
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Audio Voice Note Player Container -->

@@ -329,7 +329,7 @@ class ChatAdapter(
                     .load(message.imageUrl)
                     .placeholder(R.drawable.placeholder_memory)
                     .error(R.drawable.placeholder_memory)
-                    .centerCrop()
+                    .fitCenter()
                     .into(ivImage)
 
                 val imageClickListener = View.OnClickListener {
@@ -460,7 +460,7 @@ class ChatAdapter(
                     .load(message.imageUrl)
                     .placeholder(R.drawable.placeholder_memory)
                     .error(R.drawable.placeholder_memory)
-                    .centerCrop()
+                    .fitCenter()
                     .into(ivImage)
 
                 val imageClickListener = View.OnClickListener {

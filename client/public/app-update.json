@@ -1,8 +1,8 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix token authentication on garden creation & join\n• Add direct resilient Cloud Firestore fallback\n• Ensure 100% reliable couple setup",
+  "changelog": "• Ultra-HD photo quality in chat (up to 2560px with 92% high fidelity)\n• Full-resolution camera capture with FileProvider\n• Aspect-ratio preserved chat bubbles without forced crop\n• EXIF orientation auto-correction",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

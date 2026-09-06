@@ -206,7 +206,20 @@ class ChatFragment : Fragment() {
         }
     }
 
-    // Direct Camera launcher
+    // Direct Camera launcher (Full-Resolution via FileProvider)
+    private var cameraPhotoUri: Uri? = null
+
+    private val takePictureLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            cameraPhotoUri?.let { uri ->
+                uploadAndSendPhoto(uri)
+            }
+        }
+    }
+
+    // Direct Camera thumbnail launcher (fallback)
     private val takePhotoPreviewLauncher = registerForActivityResult(
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
@@ -766,7 +779,21 @@ class ChatFragment : Fragment() {
         }
 
         btnCamera.setOnClickListener {
-            takePhotoPreviewLauncher.launch(null)
+            try {
+                val imagesDir = File(requireContext().cacheDir, "images")
+                imagesDir.mkdirs()
+                val photoFile = File(imagesDir, "camera_${System.currentTimeMillis()}.jpg")
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    requireContext(),
+                    "${requireContext().packageName}.fileprovider",
+                    photoFile
+                )
+                cameraPhotoUri = uri
+                takePictureLauncher.launch(uri)
+            } catch (e: Exception) {
+                Log.e("ChatFragment", "Failed to launch full-resolution camera: ${e.message}")
+                takePhotoPreviewLauncher.launch(null)
+            }
         }
 
         btnEmoji.setOnClickListener {
