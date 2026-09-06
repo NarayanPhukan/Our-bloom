@@ -121,12 +121,9 @@
         };
         if (withAudio) {
           constraints.audio = {
-            echoCancellation: { ideal: true },
-            noiseSuppression: { ideal: true },
-            autoGainControl: { ideal: true },
-            channelCount: { ideal: 1 },
-            sampleRate: { ideal: 48000 },
-            sampleSize: { ideal: 16 }
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
           };
         }
         return await navigator.mediaDevices.getUserMedia(constraints);
@@ -137,7 +134,7 @@
           audio: withAudio ? {
             echoCancellation: true,
             noiseSuppression: true,
-            channelCount: 1
+            autoGainControl: true
           } : false
         });
       }
@@ -184,19 +181,15 @@
 
       // Remote stream received
       peerConnection.ontrack = (event) => {
-        console.log("Remote track received:", event.streams);
+        console.log("Remote track received:", event.streams, event.track ? event.track.kind : '');
         if (event.streams && event.streams[0]) {
-          remoteStream = event.streams[0];
-          remoteVideo.srcObject = remoteStream;
-
-          // Smooth jitter buffer playout delay (40ms prevents crackles/pops without latency)
-          if (event.receiver && typeof event.receiver.playoutDelayHint !== 'undefined') {
-            try {
-              event.receiver.playoutDelayHint = 0.04;
-            } catch (_) {}
+          const stream = event.streams[0];
+          remoteStream = stream;
+          // Guard against resetting srcObject if already assigned (prevents interrupting audio play)
+          if (remoteVideo.srcObject !== stream) {
+            remoteVideo.srcObject = stream;
+            remoteVideo.play().catch(e => console.log("Remote play note:", e.message));
           }
-
-          remoteVideo.play().catch(e => console.log("Remote play note:", e.message));
           bridgeCall('onCallConnected');
         }
       };
@@ -275,21 +268,14 @@
         if (!opusMatch) return sdp;
         const pt = opusMatch[1];
 
-        // Optimal parameters for clear, crackle-free VoIP:
-        // - useinbandfec=1: in-band Forward Error Correction to recover lost packets
-        // - usedtx=0: disables discontinuous transmission to eliminate voice clipping/gate clicking
-        // - minptime=10: lower audio packetization latency
+        // Optimal parameters for natural, crackle-free WebRTC voice communication:
+        // - useinbandfec=1: in-band Forward Error Correction to recover lost packets seamlessly
+        // - usedtx=0: disables discontinuous transmission to eliminate voice clipping/gating
         // - maxaveragebitrate=64000: 64 kbps wideband voice (studio clarity)
-        // - stereo=0;sprop-stereo=0: clean mono speech without phase cancellation
-        // - cbr=1: constant bitrate for jitter buffer stability
         const opusParams = [
           'useinbandfec=1',
           'usedtx=0',
-          'minptime=10',
-          'maxaveragebitrate=64000',
-          'stereo=0',
-          'sprop-stereo=0',
-          'cbr=1'
+          'maxaveragebitrate=64000'
         ];
 
         const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.+)`, 'i');

@@ -114,6 +114,10 @@ class VideoCallActivity : AppCompatActivity() {
     private var isMicMuted: Boolean = false
     private var isCameraReady: Boolean = false
     private var isCallConnected: Boolean = false
+    @Volatile
+    private var isEndingCall: Boolean = false
+    @Volatile
+    private var isCallFinished: Boolean = false
 
     private var callDurationSeconds: Long = 0
     private val timerHandler = Handler(Looper.getMainLooper())
@@ -263,25 +267,49 @@ class VideoCallActivity : AppCompatActivity() {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
 
-                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                     .setAudioAttributes(playbackAttributes)
                     .setAcceptsDelayedFocusGain(true)
                     .setOnAudioFocusChangeListener { focusChange ->
                         Log.d(TAG, "VoIP audio focus changed: $focusChange")
+                        when (focusChange) {
+                            AudioManager.AUDIOFOCUS_GAIN -> {
+                                routeAudioToSpeaker(isSpeakerOn)
+                            }
+                            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                                // In active call, keep VoIP state intact
+                            }
+                            AudioManager.AUDIOFOCUS_LOSS -> {
+                                // If lost while in active call and not ending, re-request VoIP audio focus
+                                if (!isEndingCall && isCallConnected) {
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        if (!isEndingCall && isCallConnected) {
+                                            requestCallAudioFocus()
+                                        }
+                                    }, 400)
+                                }
+                            }
+                        }
                     }
                     .build()
 
                 audioFocusRequest = focusRequest
-                am.requestAudioFocus(focusRequest)
+                val res = am.requestAudioFocus(focusRequest)
+                Log.d(TAG, "VoIP audio focus requested: result=$res")
             } else {
                 @Suppress("DEPRECATION")
                 am.requestAudioFocus(
-                    null,
+                    { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+                            routeAudioToSpeaker(isSpeakerOn)
+                        }
+                    },
                     AudioManager.STREAM_VOICE_CALL,
-                    AudioManager.AUDIOFOCUS_GAIN
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
                 )
+                Log.d(TAG, "VoIP audio focus requested successfully")
             }
-            Log.d(TAG, "VoIP audio focus requested successfully")
         } catch (e: Exception) {
             Log.w(TAG, "Error requesting VoIP audio focus: ${e.message}")
         }
@@ -361,6 +389,14 @@ class VideoCallActivity : AppCompatActivity() {
     private fun switchCamera() {
         webView.evaluateJavascript("switchCamera()", null)
         triggerHaptic(30)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!isEndingCall) {
+            audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+            routeAudioToSpeaker(isSpeakerOn)
+        }
     }
 
     private fun setupMediaSound() {
@@ -544,12 +580,19 @@ class VideoCallActivity : AppCompatActivity() {
             val status = snapshot.getString("status") ?: ""
             Log.d(TAG, "Call doc update: status=$status, isCaller=$isCaller")
 
+            if (isEndingCall) return@addSnapshotListener
+
             if (status == "declined") {
                 val endedAt = snapshot.getLong("endedAt") ?: timestamp
                 if (endedAt >= sessionStartTime - 3000L) {
-                    runOnUiThread {
-                        Toast.makeText(this, "$partnerName declined the call", Toast.LENGTH_LONG).show()
-                        endCallAndFinish("Call declined")
+                    if (!isEndingCall) {
+                        isEndingCall = true
+                        callDocListener?.remove()
+                        callDocListener = null
+                        runOnUiThread {
+                            Toast.makeText(this, "$partnerName declined the call", Toast.LENGTH_LONG).show()
+                            endCallAndFinish("Call declined")
+                        }
                     }
                 }
                 return@addSnapshotListener
@@ -558,9 +601,14 @@ class VideoCallActivity : AppCompatActivity() {
             if (status == "ended") {
                 val endedAt = snapshot.getLong("endedAt") ?: timestamp
                 if (endedAt >= sessionStartTime - 3000L) {
-                    runOnUiThread {
-                        Toast.makeText(this, "Call ended", Toast.LENGTH_SHORT).show()
-                        endCallAndFinish("Call ended by remote")
+                    if (!isEndingCall) {
+                        isEndingCall = true
+                        callDocListener?.remove()
+                        callDocListener = null
+                        runOnUiThread {
+                            Toast.makeText(this, "Call ended", Toast.LENGTH_SHORT).show()
+                            endCallAndFinish("Call ended by remote")
+                        }
                     }
                 }
                 return@addSnapshotListener
@@ -670,7 +718,14 @@ class VideoCallActivity : AppCompatActivity() {
     }
 
     private fun endCallAndFinish(reason: String) {
+        if (isCallFinished) return
+        isCallFinished = true
+        isEndingCall = true
+
         Log.d(TAG, "Ending call: $reason")
+        callDocListener?.remove()
+        callDocListener = null
+
         stopTimer()
         val callEndTime = System.currentTimeMillis()
 
@@ -694,20 +749,27 @@ class VideoCallActivity : AppCompatActivity() {
             }
         }
 
-        // Clean up Firestore state
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                db.collection("video_calls").document(coupleId)
-                    .update("status", "ended", "endedAt", System.currentTimeMillis())
-            } catch (_: Exception) {}
+        // Clean up Firestore state only if local user ended or on error (avoid redundant write when remote ended)
+        if (reason != "Call ended by remote" && reason != "Call declined") {
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    db.collection("video_calls").document(coupleId)
+                        .update("status", "ended", "endedAt", System.currentTimeMillis())
+                } catch (_: Exception) {}
+            }
         }
 
-        webView.evaluateJavascript("endCall()", null)
+        try {
+            webView.evaluateJavascript("endCall()", null)
+        } catch (_: Exception) {}
+
         finish()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        isEndingCall = true
+        isCallFinished = true
         stopTimer()
         callDocListener?.remove()
         callDocListener = null

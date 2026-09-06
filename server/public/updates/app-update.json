@@ -1,8 +1,8 @@
 {
-  "versionCode": 25,
-  "versionName": "1.24",
+  "versionCode": 26,
+  "versionName": "1.25",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Crystal-clear video call audio: fix crackling, add VoIP audio focus & Opus FEC",
+  "changelog": "• Fix video call audio crackles & optimal Opus WebRTC settings\n• Fix call termination infinite loop & toast queue flooding\n• Enhance VoIP audio focus retention and Bluetooth audio routing",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
