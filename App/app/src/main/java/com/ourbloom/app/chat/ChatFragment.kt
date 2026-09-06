@@ -54,6 +54,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.view.animation.AlphaAnimation
@@ -251,12 +253,12 @@ class ChatFragment : Fragment() {
         }
     }
 
-    // Photo attachment launcher
+    // Photo attachment launcher (Supports selecting multiple images at once)
     private val attachPhotoLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            uploadAndSendPhoto(uri)
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            uploadAndSendPhotos(uris)
         }
     }
 
@@ -1463,6 +1465,11 @@ class ChatFragment : Fragment() {
     }
 
     private fun uploadAndSendPhoto(uri: Uri) {
+        uploadAndSendPhotos(listOf(uri))
+    }
+
+    private fun uploadAndSendPhotos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         val coupleId = currentCouple?.id ?: return
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         val replyId = replyingToMessage?.id
@@ -1478,24 +1485,57 @@ class ChatFragment : Fragment() {
         val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
 
-        Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
+        val captionText = etInput.text?.toString()?.trim() ?: ""
+        if (captionText.isNotEmpty()) {
+            etInput.text?.clear()
+        }
+
+        val totalCount = uris.size
+        if (totalCount == 1) {
+            Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(requireContext(), "Sending $totalCount photos...", Toast.LENGTH_SHORT).show()
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val uploadedUrl = repository.uploadImage(requireContext(), uri)
-            if (!uploadedUrl.isNullOrBlank()) {
-                repository.sendChatMessage(
-                    coupleId = coupleId,
-                    text = "",
-                    imageUrl = uploadedUrl,
-                    senderName = mySenderName,
-                    replyToId = replyId,
-                    replyToText = replyText,
-                    replyToSenderName = replySenderName,
-                    replyToImageUrl = replyImageUrl
-                )
+            val baseTimestamp = System.currentTimeMillis()
+            var successCount = 0
+
+            // Upload photos concurrently for fast throughput while preserving index
+            val uploadJobs = uris.mapIndexed { index, uri ->
+                async(Dispatchers.IO) {
+                    val url = repository.uploadImage(requireContext(), uri)
+                    Pair(index, url)
+                }
+            }
+            val results = uploadJobs.awaitAll().sortedBy { it.first }
+
+            for ((index, uploadedUrl) in results) {
+                if (!uploadedUrl.isNullOrBlank()) {
+                    val isFirst = (index == 0)
+                    val textToSend = if (isFirst) captionText else ""
+                    val sent = repository.sendChatMessage(
+                        coupleId = coupleId,
+                        text = textToSend,
+                        imageUrl = uploadedUrl,
+                        senderName = mySenderName,
+                        replyToId = if (isFirst) replyId else null,
+                        replyToText = if (isFirst) replyText else null,
+                        replyToSenderName = if (isFirst) replySenderName else null,
+                        replyToImageUrl = if (isFirst) replyImageUrl else null,
+                        timestamp = baseTimestamp + (index * 50L)
+                    )
+                    if (sent) successCount++
+                }
+            }
+
+            if (successCount > 0) {
                 triggerSendHaptic()
+                if (totalCount > 1 && successCount < totalCount) {
+                    Toast.makeText(requireContext(), "Sent $successCount of $totalCount photos", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                Toast.makeText(requireContext(), "Failed to upload photo", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Failed to upload photo(s)", Toast.LENGTH_SHORT).show()
             }
         }
     }

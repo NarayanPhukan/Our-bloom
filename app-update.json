@@ -1,8 +1,8 @@
 {
-  "versionCode": 22,
-  "versionName": "1.21",
+  "versionCode": 23,
+  "versionName": "1.22",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Modern voice message UI: interactive waveform scrubbing, 1x/1.5x/2x speed toggle, precomputed durations & WhatsApp-style live recording bar",
+  "changelog": "• Multi-image selection: select and send multiple photos at once in chat",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

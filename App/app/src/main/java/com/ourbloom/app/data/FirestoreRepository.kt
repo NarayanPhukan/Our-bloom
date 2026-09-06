@@ -660,7 +660,8 @@ class FirestoreRepository {
         replyToId: String? = null,
         replyToText: String? = null,
         replyToSenderName: String? = null,
-        replyToImageUrl: String? = null
+        replyToImageUrl: String? = null,
+        timestamp: Long? = null
     ): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {
@@ -672,7 +673,7 @@ class FirestoreRepository {
                 "imageUrl" to (imageUrl ?: ""),
                 "audioUrl" to (audioUrl ?: ""),
                 "audioDurationMs" to (audioDurationMs ?: 0L),
-                "timestamp" to System.currentTimeMillis(),
+                "timestamp" to (timestamp ?: System.currentTimeMillis()),
                 "isRead" to false,
                 "read" to false,
                 "isDelivered" to false,
