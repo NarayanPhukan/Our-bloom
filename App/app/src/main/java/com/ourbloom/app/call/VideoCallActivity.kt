@@ -79,6 +79,12 @@ class VideoCallActivity : AppCompatActivity() {
     private var isCaller: Boolean = true
     private var initialOfferSdp: String? = null
 
+    private var sessionStartTime: Long = 0L
+    private var callStartTime: Long = 0L
+    private var hasPostedCallRecord: Boolean = false
+    private var hasHandledAnswer: Boolean = false
+    private val processedCandidates = java.util.Collections.synchronizedSet(HashSet<String>())
+
     private lateinit var webView: WebView
     private lateinit var layoutCallingOverlay: LinearLayout
     private lateinit var ivCallingAvatar: ImageView
@@ -134,6 +140,8 @@ class VideoCallActivity : AppCompatActivity() {
         isCaller = intent.getBooleanExtra(EXTRA_IS_CALLER, true)
         initialOfferSdp = intent.getStringExtra(EXTRA_OFFER_SDP)
 
+        sessionStartTime = System.currentTimeMillis()
+
         initViews()
         setupAudio()
         setupMediaSound()
@@ -143,6 +151,25 @@ class VideoCallActivity : AppCompatActivity() {
             Toast.makeText(this, "Couple connection not found", Toast.LENGTH_SHORT).show()
             finish()
             return
+        }
+
+        if (isCaller) {
+            val currentUid = auth.currentUser?.uid ?: ""
+            val initData = hashMapOf(
+                "callerId" to currentUid,
+                "callerName" to (auth.currentUser?.displayName ?: "Your Partner"),
+                "callerAvatar" to (auth.currentUser?.photoUrl?.toString() ?: ""),
+                "receiverId" to partnerId,
+                "status" to "initiating",
+                "timestamp" to sessionStartTime,
+                "offer" to "",
+                "answer" to "",
+                "callerCandidates" to emptyList<String>(),
+                "receiverCandidates" to emptyList<String>(),
+                "endedAt" to 0L
+            )
+            // Clean slate: completely overwrite any previous call's document
+            db.collection("video_calls").document(coupleId).set(initData)
         }
 
         listenCallSignaling()
@@ -408,7 +435,6 @@ class VideoCallActivity : AppCompatActivity() {
     // ==========================================
     private fun listenCallSignaling() {
         val callDoc = db.collection("video_calls").document(coupleId)
-        val currentUid = auth.currentUser?.uid ?: ""
 
         callDocListener = callDoc.addSnapshotListener { snapshot, error ->
             if (error != null) {
@@ -417,21 +443,34 @@ class VideoCallActivity : AppCompatActivity() {
             }
             if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
+            val timestamp = snapshot.getLong("timestamp") ?: 0L
+            // Ignore stale documents from a previous call session
+            if (timestamp < sessionStartTime - 3000L) {
+                Log.d(TAG, "Ignoring stale call document (doc ts=$timestamp, sessionStartTime=$sessionStartTime)")
+                return@addSnapshotListener
+            }
+
             val status = snapshot.getString("status") ?: ""
             Log.d(TAG, "Call doc update: status=$status, isCaller=$isCaller")
 
             if (status == "declined") {
-                runOnUiThread {
-                    Toast.makeText(this, "$partnerName declined the call", Toast.LENGTH_LONG).show()
-                    endCallAndFinish("Call declined")
+                val endedAt = snapshot.getLong("endedAt") ?: timestamp
+                if (endedAt >= sessionStartTime - 3000L) {
+                    runOnUiThread {
+                        Toast.makeText(this, "$partnerName declined the call", Toast.LENGTH_LONG).show()
+                        endCallAndFinish("Call declined")
+                    }
                 }
                 return@addSnapshotListener
             }
 
             if (status == "ended") {
-                runOnUiThread {
-                    Toast.makeText(this, "Call ended", Toast.LENGTH_SHORT).show()
-                    endCallAndFinish("Call ended by remote")
+                val endedAt = snapshot.getLong("endedAt") ?: timestamp
+                if (endedAt >= sessionStartTime - 3000L) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Call ended", Toast.LENGTH_SHORT).show()
+                        endCallAndFinish("Call ended by remote")
+                    }
                 }
                 return@addSnapshotListener
             }
@@ -439,33 +478,38 @@ class VideoCallActivity : AppCompatActivity() {
             // Caller side: wait for answer
             if (isCaller) {
                 val answerJson = snapshot.getString("answer")
-                if (!answerJson.isNullOrBlank() && !isCallConnected) {
+                if (!answerJson.isNullOrBlank() && !hasHandledAnswer && !isCallConnected) {
+                    hasHandledAnswer = true
                     val encoded = Uri.encode(answerJson)
                     webView.evaluateJavascript("handleAnswer('$encoded')", null)
                 }
 
-                // Process ICE candidates from receiver
+                // Process ICE candidates from receiver (deduplicated)
                 val receiverCandidates = snapshot.get("receiverCandidates") as? List<*>
                 receiverCandidates?.forEach { cand ->
-                    if (cand is String) {
-                        val encoded = Uri.encode(cand)
-                        webView.evaluateJavascript("handleCandidate('$encoded')", null)
-                    } else if (cand is Map<*, *>) {
-                        val json = JSONObject(cand as Map<String, Any?>).toString()
-                        val encoded = Uri.encode(json)
+                    @Suppress("UNCHECKED_CAST")
+                    val candStr = when (cand) {
+                        is String -> cand
+                        is Map<*, *> -> JSONObject(cand as Map<String, Any?>).toString()
+                        else -> null
+                    }
+                    if (candStr != null && processedCandidates.add(candStr)) {
+                        val encoded = Uri.encode(candStr)
                         webView.evaluateJavascript("handleCandidate('$encoded')", null)
                     }
                 }
             } else {
-                // Receiver side: process ICE candidates from caller
+                // Receiver side: process ICE candidates from caller (deduplicated)
                 val callerCandidates = snapshot.get("callerCandidates") as? List<*>
                 callerCandidates?.forEach { cand ->
-                    if (cand is String) {
-                        val encoded = Uri.encode(cand)
-                        webView.evaluateJavascript("handleCandidate('$encoded')", null)
-                    } else if (cand is Map<*, *>) {
-                        val json = JSONObject(cand as Map<String, Any?>).toString()
-                        val encoded = Uri.encode(json)
+                    @Suppress("UNCHECKED_CAST")
+                    val candStr = when (cand) {
+                        is String -> cand
+                        is Map<*, *> -> JSONObject(cand as Map<String, Any?>).toString()
+                        else -> null
+                    }
+                    if (candStr != null && processedCandidates.add(candStr)) {
+                        val encoded = Uri.encode(candStr)
                         webView.evaluateJavascript("handleCandidate('$encoded')", null)
                     }
                 }
@@ -537,23 +581,24 @@ class VideoCallActivity : AppCompatActivity() {
     private fun endCallAndFinish(reason: String) {
         Log.d(TAG, "Ending call: $reason")
         stopTimer()
+        val callEndTime = System.currentTimeMillis()
 
-        // Post chat record if call was connected
-        if (isCallConnected && callDurationSeconds > 0) {
-            val mins = callDurationSeconds / 60
-            val secs = callDurationSeconds % 60
-            val durationText = if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
-            val text = "📹 Video call • $durationText"
-            val currentUid = auth.currentUser?.uid ?: ""
+        // Post chat record if call was connected (sent once by the caller)
+        if (isCaller && isCallConnected && callStartTime > 0L && !hasPostedCallRecord) {
+            hasPostedCallRecord = true
+            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val startStr = timeFormat.format(Date(callStartTime))
+            val endStr = timeFormat.format(Date(callEndTime))
+            val text = "📹 Video call • $startStr - $endStr"
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     repository.sendChatMessage(
                         coupleId = coupleId,
                         text = text,
-                        senderName = if (isCaller) "You" else partnerName
+                        senderName = "You"
                     )
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error posting call duration message: ${e.message}")
+                    Log.w(TAG, "Error posting call time message: ${e.message}")
                 }
             }
         }
@@ -614,6 +659,7 @@ class VideoCallActivity : AppCompatActivity() {
                         val callData = hashMapOf(
                             "callerId" to currentUid,
                             "callerName" to (auth.currentUser?.displayName ?: "Your Partner"),
+                            "callerAvatar" to (auth.currentUser?.photoUrl?.toString() ?: ""),
                             "receiverId" to partnerId,
                             "offer" to sdpJson,
                             "status" to "calling",
@@ -621,8 +667,7 @@ class VideoCallActivity : AppCompatActivity() {
                             "callerCandidates" to emptyList<String>(),
                             "receiverCandidates" to emptyList<String>()
                         )
-                        db.collection("video_calls").document(coupleId)
-                            .set(callData, SetOptions.merge())
+                        db.collection("video_calls").document(coupleId).set(callData)
                     } else if (type == "answer") {
                         db.collection("video_calls").document(coupleId)
                             .update(
@@ -655,6 +700,9 @@ class VideoCallActivity : AppCompatActivity() {
             runOnUiThread {
                 if (!isCallConnected) {
                     isCallConnected = true
+                    if (callStartTime == 0L) {
+                        callStartTime = System.currentTimeMillis()
+                    }
                     layoutCallingOverlay.animate()
                         .alpha(0f)
                         .setDuration(400)
@@ -688,7 +736,9 @@ class VideoCallActivity : AppCompatActivity() {
         fun onError(msg: String) {
             runOnUiThread {
                 Log.e(TAG, "WebRTC JS Error: $msg")
-                Toast.makeText(this@VideoCallActivity, msg, Toast.LENGTH_SHORT).show()
+                if (msg.contains("Permission", ignoreCase = true) || msg.contains("Camera/Mic access failed", ignoreCase = true)) {
+                    Toast.makeText(this@VideoCallActivity, "Camera or microphone permission required", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

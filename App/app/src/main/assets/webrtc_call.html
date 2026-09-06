@@ -106,24 +106,41 @@
       }
     }
 
-    // Initialize media streams
-    async function initMedia() {
+    let iceDisconnectTimer = null;
+
+    // Camera stream acquisition with high-res ideal constraints and resilient fallback
+    async function getCameraStream(facing, withAudio = true) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const constraints = {
           video: {
-            facingMode: currentFacingMode,
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
-            frameRate: { ideal: 30, min: 24 }
-          },
-          audio: {
+            facingMode: facing,
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          }
+        };
+        if (withAudio) {
+          constraints.audio = {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true
-          }
+          };
+        }
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        console.warn("High-res constraints failed, falling back to basic:", err);
+        return await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing },
+          audio: withAudio
         });
-        localStream = stream;
-        localVideo.srcObject = stream;
+      }
+    }
+
+    // Initialize media streams
+    async function initMedia() {
+      try {
+        localStream = await getCameraStream(currentFacingMode, true);
+        localVideo.srcObject = localStream;
         bridgeCall('onCameraReady');
         return true;
       } catch (err) {
@@ -169,20 +186,49 @@
       };
 
       peerConnection.oniceconnectionstatechange = () => {
-        console.log("ICE Connection State:", peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+        if (!peerConnection) return;
+        const state = peerConnection.iceConnectionState;
+        console.log("ICE Connection State:", state);
+        if (state === 'connected' || state === 'completed') {
+          if (iceDisconnectTimer) {
+            clearTimeout(iceDisconnectTimer);
+            iceDisconnectTimer = null;
+          }
           bridgeCall('onCallConnected');
-        } else if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
-          bridgeCall('onCallDisconnected', peerConnection.iceConnectionState);
+        } else if (state === 'disconnected') {
+          // Debounce 6 seconds to allow ICE recovery on momentary packet hiccup/network handoff
+          if (!iceDisconnectTimer) {
+            iceDisconnectTimer = setTimeout(() => {
+              if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
+                bridgeCall('onCallDisconnected', 'ICE disconnected');
+              }
+            }, 6000);
+          }
+        } else if (state === 'failed') {
+          if (iceDisconnectTimer) {
+            clearTimeout(iceDisconnectTimer);
+            iceDisconnectTimer = null;
+          }
+          bridgeCall('onCallDisconnected', 'ICE failed');
         }
       };
 
       peerConnection.onconnectionstatechange = () => {
-        console.log("Connection State:", peerConnection.connectionState);
-        if (peerConnection.connectionState === 'connected') {
+        if (!peerConnection) return;
+        const state = peerConnection.connectionState;
+        console.log("Connection State:", state);
+        if (state === 'connected') {
+          if (iceDisconnectTimer) {
+            clearTimeout(iceDisconnectTimer);
+            iceDisconnectTimer = null;
+          }
           bridgeCall('onCallConnected');
-        } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'closed') {
-          bridgeCall('onCallDisconnected', peerConnection.connectionState);
+        } else if (state === 'failed' || state === 'closed') {
+          if (iceDisconnectTimer) {
+            clearTimeout(iceDisconnectTimer);
+            iceDisconnectTimer = null;
+          }
+          bridgeCall('onCallDisconnected', state);
         }
       };
     }
@@ -205,7 +251,7 @@
       }
     }
 
-    // Boost video bitrate & disable downscaling for crystal clear quality
+    // Boost video bitrate & disable downscaling for crystal clear HD quality
     async function optimizeSenderVideoQuality() {
       if (!peerConnection) return;
       try {
@@ -216,12 +262,11 @@
           if (!parameters.encodings || parameters.encodings.length === 0) {
             parameters.encodings = [{}];
           }
-          parameters.encodings[0].maxBitrate = 4000000; // 4.0 Mbps for crystal clear 1080p
-          parameters.encodings[0].minBitrate = 1200000; // 1.2 Mbps baseline
-          parameters.encodings[0].scaleResolutionDownBy = 1.0; // 0 downsampling
+          parameters.encodings[0].maxBitrate = 3500000; // 3.5 Mbps for crystal clear HD video
+          parameters.encodings[0].scaleResolutionDownBy = 1.0; // No downscaling
           parameters.encodings[0].maxFramerate = 30;
           await videoSender.setParameters(parameters);
-          console.log("✿ Video encoder optimized for 4 Mbps crystal-clear resolution");
+          console.log("✿ Video encoder optimized for crystal clear HD quality");
         }
       } catch (e) {
         console.warn("Could not set sender parameters:", e);
@@ -250,22 +295,6 @@
       }
     }
 
-    function enhanceSdpForHighQuality(sdp) {
-      if (!sdp) return sdp;
-      let lines = sdp.split('\r\n');
-      let videoLineIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('m=video')) {
-          videoLineIndex = i;
-          break;
-        }
-      }
-      if (videoLineIndex !== -1) {
-        lines.splice(videoLineIndex + 1, 0, 'b=AS:4000', 'b=TIAS:4000000');
-      }
-      return lines.join('\r\n');
-    }
-
     // Called by Android when initiating a call
     async function startCall() {
       try {
@@ -279,7 +308,6 @@
           offerToReceiveAudio: true,
           offerToReceiveVideo: true
         });
-        offer.sdp = enhanceSdpForHighQuality(offer.sdp);
         await peerConnection.setLocalDescription(offer);
         await optimizeSenderVideoQuality();
 
@@ -314,7 +342,6 @@
         }
 
         let answer = await peerConnection.createAnswer();
-        answer.sdp = enhanceSdpForHighQuality(answer.sdp);
         await peerConnection.setLocalDescription(answer);
         await optimizeSenderVideoQuality();
 
@@ -329,6 +356,10 @@
     async function handleAnswer(answerJson) {
       try {
         if (!peerConnection) return;
+        if (peerConnection.signalingState !== 'have-local-offer') {
+          console.log("Ignoring answer: signalingState is " + peerConnection.signalingState);
+          return;
+        }
         let answer = safeParseJson(answerJson);
         if (!answer) return;
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
@@ -345,7 +376,6 @@
         }
       } catch (err) {
         console.error("Failed to handle answer:", err);
-        bridgeCall('onError', "Answer handling error: " + err.message);
       }
     }
 
@@ -394,36 +424,28 @@
           localVideo.classList.add('rear-camera');
         }
 
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: currentFacingMode,
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
-            frameRate: { ideal: 30, min: 24 }
-          },
-          audio: false
-        });
-
+        const newStream = await getCameraStream(currentFacingMode, false);
         const newVideoTrack = newStream.getVideoTracks()[0];
-        const oldVideoTrack = localStream.getVideoTracks()[0];
+        const oldVideoTrack = localStream ? localStream.getVideoTracks()[0] : null;
 
         if (oldVideoTrack) {
           oldVideoTrack.stop();
           localStream.removeTrack(oldVideoTrack);
         }
-        localStream.addTrack(newVideoTrack);
-        localVideo.srcObject = localStream;
+        if (localStream) {
+          localStream.addTrack(newVideoTrack);
+          localVideo.srcObject = localStream;
+        }
 
         if (peerConnection) {
           const senders = peerConnection.getSenders();
           const videoSender = senders.find(s => s.track && s.track.kind === 'video');
           if (videoSender) {
-            videoSender.replaceTrack(newVideoTrack);
+            await videoSender.replaceTrack(newVideoTrack);
           }
         }
       } catch (err) {
         console.error("Camera switch error:", err);
-        bridgeCall('onError', "Switch camera error: " + err.message);
       }
     }
 
@@ -441,12 +463,11 @@
         }
 
         if (!targetVideo) {
-          bridgeCall('onError', "Video not ready for capture yet.");
           return;
         }
 
-        const width = targetVideo.videoWidth || 1920;
-        const height = targetVideo.videoHeight || 1080;
+        const width = targetVideo.videoWidth || 1280;
+        const height = targetVideo.videoHeight || 720;
 
         snapshotCanvas.width = width;
         snapshotCanvas.height = height;
@@ -467,12 +488,15 @@
         bridgeCall('onMomentCaptured', base64Data);
       } catch (err) {
         console.error("Moment capture failed:", err);
-        bridgeCall('onError', "Snapshot capture failed: " + err.message);
       }
     }
 
     // Clean up call
     function endCall() {
+      if (iceDisconnectTimer) {
+        clearTimeout(iceDisconnectTimer);
+        iceDisconnectTimer = null;
+      }
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
         localStream = null;
@@ -483,6 +507,7 @@
       }
       localVideo.srcObject = null;
       remoteVideo.srcObject = null;
+      queuedCandidates = [];
     }
 
     // Auto initialize camera preview on load
