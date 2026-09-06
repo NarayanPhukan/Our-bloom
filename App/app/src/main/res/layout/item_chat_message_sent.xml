@@ -96,25 +96,25 @@
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_chat_image"
-            android:layout_width="wrap_content"
+            android:layout_width="240dp"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
             app:cardCornerRadius="14dp"
             app:cardElevation="0dp"
             app:strokeWidth="0dp"
-            app:cardBackgroundColor="@android:color/transparent"
+            app:cardPreventCornerOverlap="false"
+            android:clipToOutline="true"
+            app:cardBackgroundColor="#26FFFFFF"
             android:visibility="gone">
 
             <ImageView
                 android:id="@+id/iv_chat_image"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxWidth="260dp"
-                android:maxHeight="340dp"
-                android:minWidth="140dp"
-                android:minHeight="140dp"
+                android:minHeight="160dp"
+                android:maxHeight="320dp"
                 android:adjustViewBounds="true"
-                android:scaleType="fitCenter" />
+                android:scaleType="centerCrop" />
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Audio Voice Note Player Container -->

@@ -969,6 +969,18 @@ class FirestoreRepository {
                     if (isDeliveredDirect) {
                         msg.isDelivered = true
                     }
+                    val rawImageUrl = doc.getString("imageUrl")
+                    if (!rawImageUrl.isNullOrBlank()) {
+                        msg.imageUrl = rawImageUrl
+                    }
+                    val rawAudioUrl = doc.getString("audioUrl")
+                    if (!rawAudioUrl.isNullOrBlank()) {
+                        msg.audioUrl = rawAudioUrl
+                    }
+                    val rawReplyToImageUrl = doc.getString("replyToImageUrl")
+                    if (!rawReplyToImageUrl.isNullOrBlank()) {
+                        msg.replyToImageUrl = rawReplyToImageUrl
+                    }
                     msg
                 }.sortedBy { it.timestamp }
                 onMessages(messages)

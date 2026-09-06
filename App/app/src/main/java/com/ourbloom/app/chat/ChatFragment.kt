@@ -714,8 +714,8 @@ class ChatFragment : Fragment() {
             val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val textToCopy = when {
                 msg.text.isNotBlank() -> msg.text
-                !msg.imageUrl.isNullOrBlank() -> msg.imageUrl
-                !msg.audioUrl.isNullOrBlank() -> msg.audioUrl
+                !msg.imageUrl.isNullOrBlank() -> msg.imageUrl ?: ""
+                !msg.audioUrl.isNullOrBlank() -> msg.audioUrl ?: ""
                 else -> ""
             }
             if (textToCopy.isNotBlank()) {

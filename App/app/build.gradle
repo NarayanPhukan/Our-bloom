@@ -12,8 +12,8 @@ android {
         applicationId "com.ourbloom.app"
         minSdk 21
         targetSdk 34
-        versionCode 18
-        versionName "1.17"
+        versionCode 19
+        versionName "1.18"
         
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -95,4 +95,5 @@ dependencies {
     
     // Glide
     implementation 'com.github.bumptech.glide:glide:4.16.0'
+    implementation 'com.github.bumptech.glide:okhttp3-integration:4.16.0'
 }

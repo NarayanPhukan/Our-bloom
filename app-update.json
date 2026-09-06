@@ -1,8 +1,8 @@
 {
-  "versionCode": 18,
-  "versionName": "1.17",
+  "versionCode": 19,
+  "versionName": "1.18",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Automated daily Gemini love notes in mobile app\n• Real-time synchronization between Firestore and Gemini engine\n• Offline fallback to ensure love notes are always available",
+  "changelog": "• Fix chat image visibility and rendering\n• Upgrade chat image layout with WhatsApp-style rounded card containers\n• Integrate OkHttp networking for Glide CDN loading\n• Direct Firestore property mapping for image and audio URLs",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
