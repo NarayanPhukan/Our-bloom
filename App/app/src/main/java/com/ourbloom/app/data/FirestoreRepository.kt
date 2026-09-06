@@ -324,16 +324,52 @@ class FirestoreRepository {
         }
     }
 
-    // Fetch daily love note
-    suspend fun getDailyLoveNote(coupleId: String): com.ourbloom.app.data.models.LoveNote? {
-        return try {
+    // Fetch daily love note with multi-layer fallback & on-demand generation
+    suspend fun getDailyLoveNote(coupleId: String): com.ourbloom.app.data.models.LoveNote? = withContext(Dispatchers.IO) {
+        try {
+            val todayStr = java.text.SimpleDateFormat("MMMM d, yyyy", java.util.Locale.US).format(java.util.Date())
             val snapshot = db.collection("loveNotes")
                 .whereEqualTo("coupleId", coupleId)
                 .whereEqualTo("isDailyAi", true)
                 .get()
                 .await()
             val notes = snapshot.toObjects(com.ourbloom.app.data.models.LoveNote::class.java)
-            return notes.maxByOrNull { it.dateStr }
+
+            // 1. Check if today's note already exists in Firestore
+            val todayNote = notes.find { it.dateStr.equals(todayStr, ignoreCase = true) }
+            if (todayNote != null) {
+                return@withContext todayNote
+            }
+
+            // 2. If not yet generated for today, request backend to generate via Gemini
+            try {
+                val url = "$baseUrl/api/couples/$coupleId/daily-love-note"
+                val request = Request.Builder().url(url).get().build()
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()
+                        if (!body.isNullOrBlank()) {
+                            val json = JSONObject(body)
+                            val content = json.optString("content")
+                            if (content.isNotBlank()) {
+                                return@withContext com.ourbloom.app.data.models.LoveNote(
+                                    coupleId = coupleId,
+                                    content = content,
+                                    author = json.optString("author", "Kuchupuchu ✨"),
+                                    dateStr = json.optString("dateStr", todayStr),
+                                    isDailyAi = true,
+                                    createdAt = json.optString("createdAt")
+                                )
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("FirestoreRepo", "Backend daily note on-demand generation fallback: ${e.message}")
+            }
+
+            // 3. Fallback to latest available daily note so the card is never blank
+            return@withContext notes.maxByOrNull { it.createdAt ?: it.dateStr }
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error fetching daily love note", e)
             null

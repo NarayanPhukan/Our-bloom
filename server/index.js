@@ -19,6 +19,7 @@ const uploadRoutes = require('./routes/upload');
 const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
+const { initDailyLoveNoteJob, generateDailyNoteForCouple } = require('./jobs/dailyLoveNote');
 
 // Initialize Firebase Admin
 const { initializeApp, cert } = require('firebase-admin/app');
@@ -350,6 +351,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Daily Love Note endpoint (available to mobile app & web client)
+app.get('/api/couples/:idOrSlug/daily-love-note', async (req, res) => {
+  try {
+    const { idOrSlug } = req.params;
+    const note = await generateDailyNoteForCouple(idOrSlug, idOrSlug);
+    res.json(note || {});
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.send('✿ Our Bloom API is running beautifully!');
@@ -366,6 +378,7 @@ mongoose
       server.listen(PORT, () => {
         console.log(`✿ Server running on http://localhost:${PORT}`);
         initAnniversaryEmailJob();
+        initDailyLoveNoteJob();
       });
     }
   })

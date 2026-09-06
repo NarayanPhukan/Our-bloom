@@ -19,56 +19,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-let isGeneratingDailyNote = false;
+const { generateDailyNoteForCouple, getTodayDateStr } = require('../jobs/dailyLoveNote');
 
 // GET /api/couples/:slug/love-notes/daily
 router.get('/daily', async (req, res) => {
   try {
-    // AI daily love note is exclusive to the original couple
-    if (req.coupleSlug !== ORIGINAL_COUPLE_SLUG) {
-      return res.json(null);
-    }
-
-    const todayStr = new Date().toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-
-    let dailyNote = await LoveNote.findOne({ coupleId: req.coupleId, isDailyAi: true, dateStr: todayStr });
-
-    if (!dailyNote && !isGeneratingDailyNote) {
-      isGeneratingDailyNote = true;
-      try {
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        const prompt = `Write a very short (2-3 sentences max) sweet, deeply romantic, and unique daily compliment or love note for my girlfriend Tanaya. Use beautiful poetic language comparing her to flowers, stars, or art. Include a couple of elegant emojis. Do not use placeholders.`;
-        
-        const result = await model.generateContent(prompt);
-        const content = await result.response.text();
-
-        dailyNote = new LoveNote({
-          coupleId: req.coupleId,
-          content: content,
-          author: 'Kuchupuchu ✨',
-          dateStr: todayStr,
-          isDailyAi: true
-        });
-        await dailyNote.save();
-      } finally {
-        isGeneratingDailyNote = false;
-      }
-    } else if (!dailyNote && isGeneratingDailyNote) {
-      return res.json({
-        content: "My love for you grows stronger with every passing second...",
-        author: 'Kuchupuchu ✨',
-        dateStr: todayStr,
-        isDailyAi: true
-      });
-    }
-
-    res.json(dailyNote);
+    const coupleId = req.coupleId;
+    const coupleSlug = req.coupleSlug;
+    
+    const note = await generateDailyNoteForCouple(coupleId, coupleSlug);
+    res.json(note);
   } catch (err) {
+    console.error('Error fetching/generating daily love note:', err);
     res.status(500).json({ error: err.message });
   }
 });

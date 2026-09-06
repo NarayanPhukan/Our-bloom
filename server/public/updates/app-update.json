@@ -1,8 +1,8 @@
 {
-  "versionCode": 17,
-  "versionName": "1.16",
+  "versionCode": 18,
+  "versionName": "1.17",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Crystal clear Full HD 1080p video calling with 4 Mbps high-bitrate encoding\n• Prioritized H.264/VP9 hardware accelerated video codecs\n• Ultra high-resolution snapshot clarity for 'Capture Moment 📸' with gallery saving\n• Hardware accelerated rendering with zero downsampling",
+  "changelog": "• Automated daily Gemini love notes in mobile app\n• Real-time synchronization between Firestore and Gemini engine\n• Offline fallback to ensure love notes are always available",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
