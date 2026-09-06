@@ -21,6 +21,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
+import com.ourbloom.app.util.ErrorReporter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -90,6 +91,7 @@ class LoginFragment : Fragment() {
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     var signedIn = false
+                    var serverCoupleId: String? = null
 
                     // 1. Direct Firebase Auth sign in
                     try {
@@ -105,9 +107,16 @@ class LoginFragment : Fragment() {
                         if (serverRes.success && !serverRes.firebaseCustomToken.isNullOrEmpty()) {
                             auth.signInWithCustomToken(serverRes.firebaseCustomToken).await()
                             signedIn = true
+                            serverCoupleId = serverRes.coupleId
+                            if (!serverCoupleId.isNullOrEmpty()) {
+                                auth.currentUser?.uid?.let { uid ->
+                                    repository.saveUserCoupleId(uid, serverCoupleId)
+                                }
+                            }
                         } else {
                             val errorMsg = serverRes.error ?: "Incorrect email or password."
                             Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                            ErrorReporter.notifyError("Sign In Failed", errorMsg, screenName = "LoginFragment")
                             btnLogin.isEnabled = true
                             btnLogin.text = "Sign In"
                             return@launch
@@ -116,14 +125,17 @@ class LoginFragment : Fragment() {
 
                     // 3. User is authenticated, route depending on whether they have a garden
                     val currentUser = repository.getCurrentUser()
-                    if (currentUser?.coupleId.isNullOrEmpty()) {
+                    val resolvedCoupleId = currentUser?.coupleId ?: serverCoupleId
+                    if (resolvedCoupleId.isNullOrEmpty()) {
                         findNavController().navigate(R.id.action_loginFragment_to_setupCoupleFragment)
                     } else {
                         findNavController().navigate(R.id.action_loginFragment_to_dashboardFragment)
                     }
                 } catch (e: Exception) {
                     Log.e("LoginFragment", "Sign in error", e)
-                    Toast.makeText(context, e.message ?: "Authentication failed.", Toast.LENGTH_SHORT).show()
+                    val msg = e.message ?: "Authentication failed."
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    ErrorReporter.notifyError("Sign In Error", msg, e, "LoginFragment")
                     btnLogin.isEnabled = true
                     btnLogin.text = "Sign In"
                 }
@@ -150,7 +162,9 @@ class LoginFragment : Fragment() {
                 val account = task.getResult(ApiException::class.java)!!
                 firebaseAuthWithGoogle(account.idToken!!)
             } catch (e: ApiException) {
-                Toast.makeText(context, "Google sign in failed", Toast.LENGTH_SHORT).show()
+                val msg = "Google sign in failed: ${e.statusCode}"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                ErrorReporter.notifyError("Google Sign-In Failed", msg, e, "LoginFragment")
             }
         }
     }
@@ -162,7 +176,9 @@ class LoginFragment : Fragment() {
                 if (task.isSuccessful) {
                     checkCoupleAndNavigate()
                 } else {
-                    Toast.makeText(context, "Authentication failed.", Toast.LENGTH_SHORT).show()
+                    val msg = task.exception?.message ?: "Authentication failed."
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    ErrorReporter.notifyError("Authentication Failed", msg, task.exception, "LoginFragment")
                 }
             }
     }

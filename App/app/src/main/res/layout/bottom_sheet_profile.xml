@@ -209,4 +209,17 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Report an Issue / Help -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_report_issue"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Report an Issue or Bug 🛠️"
+        android:textColor="@color/sheet_subtitle"
+        android:textSize="13sp"
+        app:cornerRadius="16dp"
+        app:strokeColor="@color/sheet_card_stroke" />
+
 </LinearLayout>

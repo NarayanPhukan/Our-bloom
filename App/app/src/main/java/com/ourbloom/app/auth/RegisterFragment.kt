@@ -21,6 +21,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
+import com.ourbloom.app.util.ErrorReporter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -106,7 +107,9 @@ class RegisterFragment : Fragment() {
                             }
                             registered = true
                         } catch (fbEx: Exception) {
-                            Toast.makeText(context, serverRes.error ?: fbEx.message ?: "Registration failed", Toast.LENGTH_LONG).show()
+                            val err = serverRes.error ?: fbEx.message ?: "Registration failed"
+                            Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                            ErrorReporter.notifyError("Registration Failed", err, fbEx, "RegisterFragment")
                             btnRegister.isEnabled = true
                             btnRegister.text = "Create Account"
                             return@launch
@@ -119,7 +122,9 @@ class RegisterFragment : Fragment() {
                     }
                 } catch (e: Exception) {
                     Log.e("RegisterFragment", "Registration error", e)
-                    Toast.makeText(context, e.message ?: "Registration failed.", Toast.LENGTH_SHORT).show()
+                    val err = e.message ?: "Registration failed."
+                    Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                    ErrorReporter.notifyError("Registration Error", err, e, "RegisterFragment")
                     btnRegister.isEnabled = true
                     btnRegister.text = "Create Account"
                 }

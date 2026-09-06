@@ -40,6 +40,7 @@ import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.User
 import com.ourbloom.app.dashboard.showChatImageLightbox
+import com.ourbloom.app.util.ErrorReporter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -1307,6 +1308,19 @@ class ChatFragment : Fragment() {
             resetChatWallpaper()
         }
 
+        val btnReportChatIssue = sheetView.findViewById<MaterialButton>(R.id.btn_report_chat_issue)
+        btnReportChatIssue?.setOnClickListener {
+            dialog.dismiss()
+            ErrorReporter.showReportSheet(
+                requireActivity(),
+                com.ourbloom.app.util.DetectedError(
+                    title = "User Reported Issue",
+                    message = "User requested support from Chat Settings.",
+                    screenName = "ChatFragment"
+                )
+            )
+        }
+
         dialog.show()
     }
 
@@ -1360,7 +1374,9 @@ class ChatFragment : Fragment() {
                 val fileName = driveHelper.createBackupFileName()
                 createBackupLauncher.launch(driveHelper.createSaveDocumentIntent(fileName))
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Backup error: ${e.message}", Toast.LENGTH_SHORT).show()
+                val err = e.message ?: "Backup failed"
+                Toast.makeText(requireContext(), "Backup error: $err", Toast.LENGTH_SHORT).show()
+                ErrorReporter.notifyError("Chat Backup Failed", err, e, "ChatFragment")
             }
         }
     }
@@ -1378,7 +1394,9 @@ class ChatFragment : Fragment() {
                 Toast.makeText(requireContext(), "Successfully restored $count messages! 🎉", Toast.LENGTH_LONG).show()
                 settingsDialog?.dismiss()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Restore failed: ${e.message}", Toast.LENGTH_LONG).show()
+                val err = e.message ?: "Restore failed"
+                Toast.makeText(requireContext(), "Restore error: $err", Toast.LENGTH_SHORT).show()
+                ErrorReporter.notifyError("Chat Restore Failed", err, e, "ChatFragment")
             }
         }
     }

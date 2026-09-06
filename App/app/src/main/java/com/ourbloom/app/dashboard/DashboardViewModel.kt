@@ -2,6 +2,7 @@ package com.ourbloom.app.dashboard
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -67,20 +68,38 @@ class DashboardViewModel : ViewModel() {
             _currentUser.value = user
             val cId = user.coupleId
 
-            // Fetch all required data
-            val fetchedCouple = repository.getCouple(cId)
-            _couple.value = fetchedCouple
-            
-            if (fetchedCouple != null) {
-                val partnerId = if (fetchedCouple.user1 == user.uid) fetchedCouple.user2 else fetchedCouple.user1
-                if (partnerId.isNotEmpty()) {
-                    _partnerUser.value = repository.getUser(partnerId)
+            // Fetch all required data safely
+            try {
+                val fetchedCouple = repository.getCouple(cId)
+                _couple.value = fetchedCouple
+                
+                if (fetchedCouple != null) {
+                    val partnerId = if (fetchedCouple.user1 == user.uid) fetchedCouple.user2 else fetchedCouple.user1
+                    if (partnerId.isNotEmpty()) {
+                        _partnerUser.value = repository.getUser(partnerId)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.w("DashboardViewModel", "Error fetching couple: ${e.message}")
             }
 
-            _firstMilestone.value = repository.getFirstMilestone(cId)
-            _dailyLoveNote.value = repository.getDailyLoveNote(cId)
-            _memories.value = repository.getRecentMemories(cId)
+            try {
+                _firstMilestone.value = repository.getFirstMilestone(cId)
+            } catch (e: Exception) {
+                Log.w("DashboardViewModel", "Error fetching first milestone: ${e.message}")
+            }
+
+            try {
+                _dailyLoveNote.value = repository.getDailyLoveNote(cId)
+            } catch (e: Exception) {
+                Log.w("DashboardViewModel", "Error fetching daily love note: ${e.message}")
+            }
+
+            try {
+                _memories.value = repository.getRecentMemories(cId)
+            } catch (e: Exception) {
+                Log.w("DashboardViewModel", "Error fetching memories: ${e.message}")
+            }
             
             startTimer()
 

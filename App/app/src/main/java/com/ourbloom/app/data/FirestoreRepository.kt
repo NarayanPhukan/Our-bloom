@@ -23,6 +23,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import com.ourbloom.app.util.ErrorReporter
 
 class FirestoreRepository {
     private val db = FirebaseFirestore.getInstance()
@@ -34,10 +35,134 @@ class FirestoreRepository {
         .build()
     private val baseUrl = "https://our-bloom.onrender.com"
     
-    // Get the current User document
+    // Get the current User document with multi-strategy couple resolution
     suspend fun getCurrentUser(): User? {
-        val uid = auth.currentUser?.uid ?: return null
-        return getUser(uid)
+        val fbUser = auth.currentUser ?: return null
+        return resolveUserAndCouple(fbUser.uid, fbUser.email)
+    }
+
+    suspend fun saveUserCoupleId(userId: String, coupleId: String) {
+        try {
+            db.collection("users").document(userId)
+                .set(mapOf("coupleId" to coupleId), com.google.firebase.firestore.SetOptions.merge())
+                .await()
+        } catch (e: Exception) {
+            Log.w("FirestoreRepo", "Error saving coupleId to user: ${e.message}")
+        }
+    }
+
+    suspend fun resolveUserAndCouple(uid: String, email: String?): User? {
+        try {
+            // 1. Direct document lookup by uid
+            var userDoc = getUser(uid)
+            var coupleId = userDoc?.coupleId?.takeIf { it.isNotBlank() && it != "null" }
+
+            // 2. If coupleId is empty or userDoc is null, look up by email in users collection
+            var mongoDoc: User? = null
+            var matchedDocId: String? = null
+            if ((coupleId.isNullOrBlank() || userDoc == null) && !email.isNullOrBlank()) {
+                val cleanEmail = email.trim().lowercase()
+                try {
+                    val query = db.collection("users")
+                        .whereEqualTo("email", cleanEmail)
+                        .get()
+                        .await()
+                    for (d in query.documents) {
+                        val u = d.toObject(User::class.java)
+                        if (u != null) {
+                            if (!u.coupleId.isNullOrBlank() && u.coupleId != "null") {
+                                mongoDoc = u
+                                matchedDocId = d.id
+                                coupleId = u.coupleId
+                                break
+                            } else if (mongoDoc == null) {
+                                mongoDoc = u
+                                matchedDocId = d.id
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Error searching user by email $cleanEmail: ${e.message}")
+                }
+            }
+
+            // 3. If still no coupleId, query couples collection directly where user1 or user2 equals uid or matchedDocId
+            if (coupleId.isNullOrBlank()) {
+                val candidateIds = listOfNotNull(uid, matchedDocId, mongoDoc?.uid).distinct()
+                for (candId in candidateIds) {
+                    try {
+                        val c1 = db.collection("couples").whereEqualTo("user1", candId).get().await()
+                        if (!c1.isEmpty) {
+                            coupleId = c1.documents[0].id
+                            break
+                        }
+                        val c2 = db.collection("couples").whereEqualTo("user2", candId).get().await()
+                        if (!c2.isEmpty) {
+                            coupleId = c2.documents[0].id
+                            break
+                        }
+                    } catch (e: Exception) {
+                        Log.e("FirestoreRepo", "Error querying couples for candidate $candId: ${e.message}")
+                    }
+                }
+            }
+
+            // 4. If still no coupleId, query backend API /api/auth/me using ID token
+            if (coupleId.isNullOrBlank()) {
+                try {
+                    val idToken = auth.currentUser?.getIdToken(false)?.await()?.token
+                    if (!idToken.isNullOrBlank()) {
+                        val req = Request.Builder()
+                            .url("$baseUrl/api/auth/me")
+                            .addHeader("Authorization", "Bearer $idToken")
+                            .get()
+                            .build()
+                        val res = client.newCall(req).execute()
+                        val body = res.body?.string()
+                        if (res.isSuccessful && !body.isNullOrBlank()) {
+                            val json = JSONObject(body)
+                            val cId = json.optString("coupleId", "").takeIf { it.isNotBlank() && it != "null" }
+                            if (!cId.isNullOrBlank()) {
+                                coupleId = cId
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Backend auth/me couple lookup fallback error: ${e.message}")
+                }
+            }
+
+            // Synthesize the resolved user
+            val baseUser = userDoc ?: mongoDoc ?: User(uid = uid, email = email ?: "", name = auth.currentUser?.displayName ?: "")
+            val resolvedUser = baseUser.copy(
+                uid = uid,
+                email = email ?: baseUser.email,
+                name = baseUser.name.ifEmpty { auth.currentUser?.displayName ?: "" },
+                coupleId = coupleId ?: baseUser.coupleId
+            )
+
+            // Auto-heal Firestore if needed:
+            // If the user's uid doc does not have coupleId or does not exist at all, write it to users/{uid}
+            if (coupleId != null && (userDoc == null || userDoc.coupleId != coupleId)) {
+                try {
+                    val updateMap = hashMapOf<String, Any?>(
+                        "uid" to uid,
+                        "email" to (email ?: resolvedUser.email),
+                        "name" to resolvedUser.name,
+                        "coupleId" to coupleId,
+                        "updatedAt" to java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(java.util.Date())
+                    )
+                    db.collection("users").document(uid).set(updateMap, com.google.firebase.firestore.SetOptions.merge()).await()
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Failed to auto-heal users/$uid: ${e.message}")
+                }
+            }
+
+            return resolvedUser
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error resolving user and couple", e)
+            return getUser(uid)
+        }
     }
 
     suspend fun updateFcmToken(token: String) {
@@ -1063,6 +1188,7 @@ class FirestoreRepository {
             ServerCoupleResult(success = true, coupleId = cId, inviteCode = inviteCode, slug = slug)
         } catch (fsEx: Exception) {
             Log.e("FirestoreRepo", "Firestore direct create couple failed", fsEx)
+            ErrorReporter.notifyError("Garden Creation Failed", fsEx.message ?: "Failed to create garden", fsEx, "SetupCoupleFragment")
             ServerCoupleResult(success = false, error = fsEx.message ?: "Failed to create garden")
         }
     }
@@ -1130,10 +1256,12 @@ class FirestoreRepository {
 
                 ServerCoupleResult(success = true, coupleId = coupleId, slug = slug)
             } else {
+                ErrorReporter.notifyError("Join Garden Failed", "Garden with invite code $cleanCode not found", null, "SetupCoupleFragment")
                 ServerCoupleResult(success = false, error = "Garden with invite code $cleanCode not found")
             }
         } catch (fsEx: Exception) {
             Log.e("FirestoreRepo", "Firestore direct join couple failed", fsEx)
+            ErrorReporter.notifyError("Join Garden Failed", fsEx.message ?: "Failed to join garden", fsEx, "SetupCoupleFragment")
             ServerCoupleResult(success = false, error = fsEx.message ?: "Failed to join garden")
         }
     }

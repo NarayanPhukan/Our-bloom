@@ -22,6 +22,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
+import com.ourbloom.app.util.ErrorReporter
+import android.util.Log
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -64,6 +66,18 @@ class SetupCoupleFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         repository = FirestoreRepository()
+
+        // Safety auto-redirect: if user already belongs to a garden, immediately go to dashboard
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val currentUser = repository.getCurrentUser()
+                if (!currentUser?.coupleId.isNullOrEmpty()) {
+                    findNavController().navigate(R.id.action_setupCoupleFragment_to_dashboardFragment)
+                }
+            } catch (e: Exception) {
+                Log.w("SetupCoupleFragment", "Error checking existing garden", e)
+            }
+        }
 
         toggleMode = view.findViewById(R.id.toggle_setup_mode)
         layoutCreateForm = view.findViewById(R.id.layout_create_form)
@@ -152,7 +166,9 @@ class SetupCoupleFragment : Fragment() {
                     generatedInviteCode = result.inviteCode
                     showCelebration(result.inviteCode)
                 } else {
-                    Toast.makeText(requireContext(), result.error ?: "Failed to create garden", Toast.LENGTH_LONG).show()
+                    val err = result.error ?: "Failed to create garden"
+                    Toast.makeText(requireContext(), err, Toast.LENGTH_LONG).show()
+                    ErrorReporter.notifyError("Create Garden Failed", err, screenName = "SetupCoupleFragment")
                 }
             }
         }
@@ -173,7 +189,9 @@ class SetupCoupleFragment : Fragment() {
                     Toast.makeText(requireContext(), "Connected to partner! Welcome to your garden 🌸", Toast.LENGTH_SHORT).show()
                     findNavController().navigate(R.id.action_setupCoupleFragment_to_dashboardFragment)
                 } else {
-                    Toast.makeText(requireContext(), result.error ?: "Invalid invite code", Toast.LENGTH_LONG).show()
+                    val err = result.error ?: "Invalid invite code"
+                    Toast.makeText(requireContext(), err, Toast.LENGTH_LONG).show()
+                    ErrorReporter.notifyError("Join Garden Failed", err, screenName = "SetupCoupleFragment")
                 }
             }
         }

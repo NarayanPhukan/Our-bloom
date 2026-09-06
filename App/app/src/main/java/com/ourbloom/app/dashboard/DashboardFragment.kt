@@ -552,6 +552,19 @@ class DashboardFragment : Fragment() {
             }
         }
 
+        val btnReportIssue = sheetView.findViewById<MaterialButton>(R.id.btn_report_issue)
+        btnReportIssue?.setOnClickListener {
+            dialog.dismiss()
+            com.ourbloom.app.util.ErrorReporter.showReportSheet(
+                requireActivity(),
+                com.ourbloom.app.util.DetectedError(
+                    title = "User Reported Issue",
+                    message = "User requested support from Profile Settings.",
+                    screenName = "DashboardFragment"
+                )
+            )
+        }
+
         dialog.show()
     }
 }

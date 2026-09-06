@@ -19,6 +19,7 @@ import androidx.work.WorkManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
+import com.ourbloom.app.util.ErrorReporter
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.updates.AppUpdateHelper
 import androidx.core.view.ViewCompat
@@ -43,6 +44,10 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Error auto-detection and crash reporting
+        ErrorReporter.bindToActivity(this)
+        ErrorReporter.checkAndPromptPendingCrash(this)
 
         try {
             appUpdateHelper = AppUpdateHelper(this)
