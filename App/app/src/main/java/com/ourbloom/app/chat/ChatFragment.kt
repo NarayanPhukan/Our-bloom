@@ -247,7 +247,7 @@ class ChatFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
             val bytes = stream.toByteArray()
             val uploadedUrl = repository.uploadImageBytes(bytes)
             if (!uploadedUrl.isNullOrBlank()) {

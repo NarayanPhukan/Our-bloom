@@ -286,18 +286,26 @@ class FirestoreRepository {
 
     suspend fun uploadImage(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
         try {
-            val bytes = com.ourbloom.app.utils.ImageUtils.processHighQualityImage(context, uri)
-                ?: context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            // Read 100% untouched original file bytes directly from Uri without ANY enhancement or recompression
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: return@withContext null
 
-            val filename = "${UUID.randomUUID()}.jpg"
+            val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+            val extension = when (mimeType) {
+                "image/png" -> "png"
+                "image/webp" -> "webp"
+                "image/gif" -> "gif"
+                "image/heic" -> "heic"
+                else -> "jpg"
+            }
+            val filename = "${UUID.randomUUID()}.$extension"
 
             val requestBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "file",
                     filename,
-                    bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                    bytes.toRequestBody(mimeType.toMediaTypeOrNull())
                 )
                 .build()
 

@@ -1,8 +1,8 @@
 {
-  "versionCode": 8,
-  "versionName": "1.7",
+  "versionCode": 9,
+  "versionName": "1.8",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Ultra-HD photo quality in chat without recompression loss\n• Full-resolution camera capture with FileProvider\n• Smooth pinch-to-zoom and pan in image lightbox\n• Direct full-resolution photo save to gallery",
+  "changelog": "• 100% original quality photo uploads without any enhancement or recompression\n• Direct raw byte transmission for both camera and gallery photos\n• 50MB file size limit for original-resolution camera photos",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
