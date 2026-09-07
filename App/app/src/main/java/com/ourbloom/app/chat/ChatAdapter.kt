@@ -13,13 +13,26 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PorterDuff
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.core.widget.ImageViewCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import java.io.File
 
 class ChatAdapter(
     private val currentUserId: String,
@@ -74,32 +87,51 @@ class ChatAdapter(
     // Audio Playback State
     private var mediaPlayer: MediaPlayer? = null
     private var playingMessageId: String? = null
-    private val progressHandler = Handler(Looper.getMainLooper())
-    private var progressRunnable: Runnable? = null
+    private var isPlayerPlaying: Boolean = false
+    private var isPlayerPreparing: Boolean = false
+    private var currentPlaybackProgress: Float = 0f
+    private var currentPlaybackMs: Long = 0L
+    private var currentPlaybackSpeed: Float = 1.0f
     private var activeWaveformView: VoiceWaveformView? = null
     private var activeDurationText: TextView? = null
     private var activePlayButton: ImageView? = null
     private var activeSpeedText: TextView? = null
-    private var currentPlaybackSpeed: Float = 1.0f
+    private val progressHandler = Handler(Looper.getMainLooper())
+    private var progressRunnable: Runnable? = null
+    private val adapterScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     fun releaseAudioPlayer() {
         progressRunnable?.let { progressHandler.removeCallbacks(it) }
         try {
-            mediaPlayer?.stop()
+            if (mediaPlayer?.isPlaying == true) {
+                mediaPlayer?.stop()
+            }
             mediaPlayer?.release()
         } catch (_: Exception) {}
         mediaPlayer = null
+
+        // Reset previous active views
+        activePlayButton?.alpha = 1.0f
+        activePlayButton?.setImageResource(R.drawable.ic_play_arrow)
+        activeWaveformView?.progress = 0f
+        activeSpeedText?.text = "1x"
+
         playingMessageId = null
+        isPlayerPlaying = false
+        isPlayerPreparing = false
+        currentPlaybackProgress = 0f
+        currentPlaybackMs = 0L
+        currentPlaybackSpeed = 1.0f
         activeWaveformView = null
         activeDurationText = null
         activePlayButton = null
         activeSpeedText = null
-        currentPlaybackSpeed = 1.0f
     }
 
     override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
         super.onDetachedFromRecyclerView(recyclerView)
         releaseAudioPlayer()
+        adapterScope.cancel()
     }
 
     private fun formatDuration(ms: Long): String {
@@ -110,13 +142,13 @@ class ChatAdapter(
 
     private fun applyPlaybackSpeed(player: MediaPlayer?, speed: Float) {
         if (player == null) return
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 val params = player.playbackParams ?: android.media.PlaybackParams()
                 params.speed = speed
                 player.playbackParams = params
             } catch (e: Exception) {
-                android.util.Log.e("ChatAdapter", "Failed to set playback speed", e)
+                Log.e("ChatAdapter", "Failed to set playback speed", e)
             }
         }
     }
@@ -132,7 +164,67 @@ class ChatAdapter(
         mediaPlayer?.let { applyPlaybackSpeed(it, currentPlaybackSpeed) }
     }
 
+    private fun pausePlayback() {
+        val player = mediaPlayer ?: return
+        try {
+            if (player.isPlaying) {
+                player.pause()
+            }
+        } catch (_: Exception) {}
+        isPlayerPlaying = false
+        activePlayButton?.alpha = 1.0f
+        activePlayButton?.setImageResource(R.drawable.ic_play_arrow)
+        progressRunnable?.let { progressHandler.removeCallbacks(it) }
+    }
+
+    private fun resumePlayback() {
+        val player = mediaPlayer ?: return
+        try {
+            applyPlaybackSpeed(player, currentPlaybackSpeed)
+            player.start()
+            isPlayerPlaying = true
+            activePlayButton?.alpha = 1.0f
+            activePlayButton?.setImageResource(R.drawable.ic_pause)
+            startProgressTracker()
+        } catch (e: Exception) {
+            Log.e("ChatAdapter", "Error resuming playback", e)
+            onPlaybackFinished()
+        }
+    }
+
+    private fun onPlaybackFinished(message: ChatMessage? = null) {
+        progressRunnable?.let { progressHandler.removeCallbacks(it) }
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+        } catch (_: Exception) {}
+        mediaPlayer = null
+        isPlayerPlaying = false
+        isPlayerPreparing = false
+        currentPlaybackProgress = 0f
+        currentPlaybackMs = 0L
+
+        activePlayButton?.alpha = 1.0f
+        activePlayButton?.setImageResource(R.drawable.ic_play_arrow)
+        activeWaveformView?.progress = 0f
+        activeSpeedText?.text = "1x"
+        currentPlaybackSpeed = 1.0f
+
+        if (message != null) {
+            activeDurationText?.text = formatDuration(message.audioDurationMs ?: 0L)
+        } else {
+            activeDurationText?.text = "0:00"
+        }
+
+        playingMessageId = null
+        activePlayButton = null
+        activeWaveformView = null
+        activeDurationText = null
+        activeSpeedText = null
+    }
+
     private fun toggleAudioPlayback(
+        context: Context,
         message: ChatMessage,
         playBtn: ImageView,
         waveformView: VoiceWaveformView,
@@ -141,61 +233,122 @@ class ChatAdapter(
     ) {
         val audioUrl = message.audioUrl ?: return
 
+        // 1. If tapping on the currently active message:
         if (playingMessageId == message.id) {
-            mediaPlayer?.let { player ->
-                if (player.isPlaying) {
-                    player.pause()
-                    playBtn.setImageResource(R.drawable.ic_play_arrow)
-                    progressRunnable?.let { progressHandler.removeCallbacks(it) }
-                } else {
-                    applyPlaybackSpeed(player, currentPlaybackSpeed)
-                    player.start()
-                    playBtn.setImageResource(R.drawable.ic_pause)
-                    startProgressTracker()
-                }
+            if (isPlayerPreparing) {
+                // User cancelled while loading
+                releaseAudioPlayer()
+                return
+            }
+            if (isPlayerPlaying) {
+                pausePlayback()
+            } else {
+                resumePlayback()
             }
             return
         }
 
+        // 2. Switching to a new message: Release previous player completely
         releaseAudioPlayer()
 
         playingMessageId = message.id
+        isPlayerPreparing = true
+        isPlayerPlaying = false
         activePlayButton = playBtn
         activeWaveformView = waveformView
         activeDurationText = durationTv
         activeSpeedText = speedTv
         currentPlaybackSpeed = 1.0f
+        currentPlaybackProgress = 0f
+        currentPlaybackMs = 0L
         speedTv.text = "1x"
 
+        // Visual loading state
+        playBtn.alpha = 0.6f
         playBtn.setImageResource(R.drawable.ic_pause)
 
+        adapterScope.launch {
+            val localFile = AudioCacheManager.getOrDownloadAudio(context, audioUrl)
+
+            // Ensure this message is still the intended message to play
+            if (playingMessageId != message.id) return@launch
+
+            if (localFile == null || !localFile.exists() || localFile.length() < 500) {
+                Toast.makeText(context, "Could not load voice note. Check connection.", Toast.LENGTH_SHORT).show()
+                onPlaybackFinished(message)
+                return@launch
+            }
+
+            playBtn.alpha = 1.0f
+            startMediaPlayer(context, message, localFile)
+        }
+    }
+
+    private fun startMediaPlayer(context: Context, message: ChatMessage, file: File) {
         try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            audioManager?.mode = AudioManager.MODE_NORMAL
+
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .build()
+
+            // Request Audio Focus
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(audioAttributes)
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            pausePlayback()
+                        }
+                    }
+                    .build()
+                audioManager?.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.requestAudioFocus(
+                    { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            pausePlayback()
+                        }
+                    },
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                )
+            }
+
             val player = MediaPlayer().apply {
-                setDataSource(audioUrl)
+                setAudioAttributes(audioAttributes)
+                setDataSource(file.absolutePath)
                 setOnPreparedListener { mp ->
+                    if (playingMessageId != message.id) {
+                        try { mp.release() } catch (_: Exception) {}
+                        return@setOnPreparedListener
+                    }
+                    isPlayerPreparing = false
+                    isPlayerPlaying = true
+                    activePlayButton?.alpha = 1.0f
+                    activePlayButton?.setImageResource(R.drawable.ic_pause)
                     applyPlaybackSpeed(mp, currentPlaybackSpeed)
                     mp.start()
                     startProgressTracker()
                 }
                 setOnCompletionListener {
-                    playBtn.setImageResource(R.drawable.ic_play_arrow)
-                    waveformView.progress = 0f
-                    durationTv.text = formatDuration(message.audioDurationMs ?: 0L)
-                    releaseAudioPlayer()
+                    onPlaybackFinished(message)
                 }
-                setOnErrorListener { _, _, _ ->
-                    playBtn.setImageResource(R.drawable.ic_play_arrow)
-                    waveformView.progress = 0f
-                    durationTv.text = formatDuration(message.audioDurationMs ?: 0L)
-                    releaseAudioPlayer()
+                setOnErrorListener { _, what, extra ->
+                    Log.e("ChatAdapter", "MediaPlayer error: what=$what extra=$extra")
+                    onPlaybackFinished(message)
                     true
                 }
                 prepareAsync()
             }
             mediaPlayer = player
         } catch (e: Exception) {
-            playBtn.setImageResource(R.drawable.ic_play_arrow)
-            releaseAudioPlayer()
+            Log.e("ChatAdapter", "Error starting MediaPlayer", e)
+            Toast.makeText(context, "Cannot play voice note", Toast.LENGTH_SHORT).show()
+            onPlaybackFinished(message)
         }
     }
 
@@ -204,19 +357,122 @@ class ChatAdapter(
         progressRunnable = object : Runnable {
             override fun run() {
                 val player = mediaPlayer
-                if (player != null && player.isPlaying) {
-                    val current = player.currentPosition
-                    val total = player.duration
-                    if (total > 0) {
-                        activeWaveformView?.progress = current.toFloat() / total.toFloat()
+                if (player != null && isPlayerPlaying) {
+                    try {
+                        if (player.isPlaying) {
+                            val current = player.currentPosition
+                            val total = player.duration
+                            currentPlaybackMs = current.toLong()
+                            if (total > 0) {
+                                currentPlaybackProgress = (current.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                                activeWaveformView?.progress = currentPlaybackProgress
+                            }
+                            val seconds = current / 1000
+                            activeDurationText?.text = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+                            progressHandler.postDelayed(this, 60)
+                        }
+                    } catch (e: Exception) {
+                        Log.w("ChatAdapter", "Progress tracker error: ${e.message}")
                     }
-                    val seconds = current / 1000
-                    activeDurationText?.text = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
-                    progressHandler.postDelayed(this, 80)
                 }
             }
         }
         progressRunnable?.let { progressHandler.post(it) }
+    }
+
+    private fun bindVoiceNote(
+        message: ChatMessage,
+        layoutAudio: View?,
+        waveformAudio: VoiceWaveformView?,
+        ivPlayPause: ImageView?,
+        tvAudioDuration: TextView?,
+        tvAudioSpeed: TextView?,
+        isSent: Boolean
+    ) {
+        if (!message.audioUrl.isNullOrBlank()) {
+            layoutAudio?.visibility = View.VISIBLE
+            if (isSent) {
+                waveformAudio?.playedColor = 0xFFFFFFFF.toInt()
+                waveformAudio?.unplayedColor = 0x4DFFFFFF.toInt()
+            } else {
+                waveformAudio?.playedColor = 0xFFE85D75.toInt()
+                waveformAudio?.unplayedColor = 0x33E85D75.toInt()
+            }
+            waveformAudio?.setWaveformSeed(message.id)
+
+            val isThisActive = message.id == playingMessageId
+            if (isThisActive) {
+                // Re-bind active views so animations and progress tracker update current ViewHolder
+                activePlayButton = ivPlayPause
+                activeWaveformView = waveformAudio
+                activeDurationText = tvAudioDuration
+                activeSpeedText = tvAudioSpeed
+
+                if (isPlayerPreparing) {
+                    ivPlayPause?.alpha = 0.6f
+                    ivPlayPause?.setImageResource(R.drawable.ic_pause)
+                } else if (isPlayerPlaying) {
+                    ivPlayPause?.alpha = 1.0f
+                    ivPlayPause?.setImageResource(R.drawable.ic_pause)
+                } else {
+                    ivPlayPause?.alpha = 1.0f
+                    ivPlayPause?.setImageResource(R.drawable.ic_play_arrow)
+                }
+
+                val speedLabel = if (currentPlaybackSpeed == 1.0f) "1x" else if (currentPlaybackSpeed == 1.5f) "1.5x" else "2x"
+                tvAudioSpeed?.text = speedLabel
+                waveformAudio?.progress = currentPlaybackProgress
+
+                if (currentPlaybackMs > 0) {
+                    val seconds = currentPlaybackMs / 1000
+                    tvAudioDuration?.text = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+                } else {
+                    tvAudioDuration?.text = formatDuration(message.audioDurationMs ?: 0L)
+                }
+            } else {
+                ivPlayPause?.alpha = 1.0f
+                ivPlayPause?.setImageResource(R.drawable.ic_play_arrow)
+                waveformAudio?.progress = 0f
+                tvAudioDuration?.text = formatDuration(message.audioDurationMs ?: 0L)
+                tvAudioSpeed?.text = "1x"
+            }
+
+            ivPlayPause?.setOnClickListener {
+                val wf = waveformAudio ?: return@setOnClickListener
+                val tv = tvAudioDuration ?: return@setOnClickListener
+                val sp = tvAudioSpeed ?: return@setOnClickListener
+                toggleAudioPlayback(it.context, message, ivPlayPause, wf, tv, sp)
+            }
+
+            tvAudioSpeed?.setOnClickListener {
+                if (playingMessageId == message.id) {
+                    cyclePlaybackSpeed(tvAudioSpeed)
+                }
+            }
+
+            waveformAudio?.onSeekListener = { seekProgress ->
+                if (playingMessageId == message.id) {
+                    val mp = mediaPlayer
+                    if (mp != null) {
+                        try {
+                            val total = mp.duration
+                            if (total > 0) {
+                                val target = (seekProgress * total).toInt()
+                                mp.seekTo(target)
+                                currentPlaybackProgress = seekProgress
+                                currentPlaybackMs = target.toLong()
+                                val seconds = target / 1000
+                                tvAudioDuration?.text = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+                            }
+                        } catch (e: Exception) {
+                            Log.w("ChatAdapter", "Seek error: ${e.message}")
+                        }
+                    }
+                }
+            }
+        } else {
+            layoutAudio?.visibility = View.GONE
+        }
     }
 
     fun submitList(newMessages: List<ChatMessage>) {
@@ -357,64 +613,21 @@ class ChatAdapter(
             }
 
             // Voice note binding
-            if (!message.audioUrl.isNullOrBlank()) {
-                layoutAudio?.visibility = View.VISIBLE
-                waveformAudio?.playedColor = 0xFFFFFFFF.toInt()
-                waveformAudio?.unplayedColor = 0x4DFFFFFF.toInt()
-                waveformAudio?.setWaveformSeed(message.id)
+            bindVoiceNote(
+                message = message,
+                layoutAudio = layoutAudio,
+                waveformAudio = waveformAudio,
+                ivPlayPause = ivPlayPause,
+                tvAudioDuration = tvAudioDuration,
+                tvAudioSpeed = tvAudioSpeed,
+                isSent = true
+            )
 
-                val isSelfPlaying = message.id == playingMessageId && mediaPlayer?.isPlaying == true
-                ivPlayPause?.setImageResource(if (isSelfPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
-
-                if (!isSelfPlaying) {
-                    waveformAudio?.progress = 0f
-                    tvAudioDuration?.text = formatDuration(message.audioDurationMs ?: 0L)
-                    tvAudioSpeed?.text = "1x"
-                } else {
-                    val speedLabel = if (currentPlaybackSpeed == 1.0f) "1x" else if (currentPlaybackSpeed == 1.5f) "1.5x" else "2x"
-                    tvAudioSpeed?.text = speedLabel
-                }
-
-                ivPlayPause?.let { btn ->
-                    btn.setOnClickListener {
-                        val wf = waveformAudio ?: return@setOnClickListener
-                        val tv = tvAudioDuration ?: return@setOnClickListener
-                        val sp = tvAudioSpeed ?: return@setOnClickListener
-                        toggleAudioPlayback(message, btn, wf, tv, sp)
-                    }
-                }
-
-                tvAudioSpeed?.setOnClickListener {
-                    val sp = tvAudioSpeed ?: return@setOnClickListener
-                    if (playingMessageId == message.id) {
-                        cyclePlaybackSpeed(sp)
-                    }
-                }
-
-                waveformAudio?.onSeekListener = { seekProgress ->
-                    if (playingMessageId == message.id) {
-                        val mp = mediaPlayer
-                        if (mp != null && mp.duration > 0) {
-                            val target = (seekProgress * mp.duration).toInt()
-                            mp.seekTo(target)
-                        }
-                    }
-                }
-
-                if (message.text.isBlank() || message.text == "🎙️ Voice note" || message.text == "🎙️ Voice message") {
-                    tvText.visibility = View.GONE
-                } else {
-                    tvText.text = message.text
-                    tvText.visibility = View.VISIBLE
-                }
+            if (message.text.isBlank() || message.text == "🎙️ Voice note" || message.text == "🎙️ Voice message") {
+                tvText.visibility = View.GONE
             } else {
-                layoutAudio?.visibility = View.GONE
-                if (message.text.isNotBlank()) {
-                    tvText.text = message.text
-                    tvText.visibility = View.VISIBLE
-                } else {
-                    tvText.visibility = View.GONE
-                }
+                tvText.text = message.text
+                tvText.visibility = View.VISIBLE
             }
 
             tvTime.text = timeFormat.format(Date(message.timestamp))
@@ -594,64 +807,21 @@ class ChatAdapter(
             }
 
             // Voice note binding
-            if (!message.audioUrl.isNullOrBlank()) {
-                layoutAudio?.visibility = View.VISIBLE
-                waveformAudio?.playedColor = 0xFFE85D75.toInt()
-                waveformAudio?.unplayedColor = 0x33E85D75.toInt()
-                waveformAudio?.setWaveformSeed(message.id)
+            bindVoiceNote(
+                message = message,
+                layoutAudio = layoutAudio,
+                waveformAudio = waveformAudio,
+                ivPlayPause = ivPlayPause,
+                tvAudioDuration = tvAudioDuration,
+                tvAudioSpeed = tvAudioSpeed,
+                isSent = false
+            )
 
-                val isSelfPlaying = message.id == playingMessageId && mediaPlayer?.isPlaying == true
-                ivPlayPause?.setImageResource(if (isSelfPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
-
-                if (!isSelfPlaying) {
-                    waveformAudio?.progress = 0f
-                    tvAudioDuration?.text = formatDuration(message.audioDurationMs ?: 0L)
-                    tvAudioSpeed?.text = "1x"
-                } else {
-                    val speedLabel = if (currentPlaybackSpeed == 1.0f) "1x" else if (currentPlaybackSpeed == 1.5f) "1.5x" else "2x"
-                    tvAudioSpeed?.text = speedLabel
-                }
-
-                ivPlayPause?.let { btn ->
-                    btn.setOnClickListener {
-                        val wf = waveformAudio ?: return@setOnClickListener
-                        val tv = tvAudioDuration ?: return@setOnClickListener
-                        val sp = tvAudioSpeed ?: return@setOnClickListener
-                        toggleAudioPlayback(message, btn, wf, tv, sp)
-                    }
-                }
-
-                tvAudioSpeed?.setOnClickListener {
-                    val sp = tvAudioSpeed ?: return@setOnClickListener
-                    if (playingMessageId == message.id) {
-                        cyclePlaybackSpeed(sp)
-                    }
-                }
-
-                waveformAudio?.onSeekListener = { seekProgress ->
-                    if (playingMessageId == message.id) {
-                        val mp = mediaPlayer
-                        if (mp != null && mp.duration > 0) {
-                            val target = (seekProgress * mp.duration).toInt()
-                            mp.seekTo(target)
-                        }
-                    }
-                }
-
-                if (message.text.isBlank() || message.text == "🎙️ Voice note" || message.text == "🎙️ Voice message") {
-                    tvText.visibility = View.GONE
-                } else {
-                    tvText.text = message.text
-                    tvText.visibility = View.VISIBLE
-                }
+            if (message.text.isBlank() || message.text == "🎙️ Voice note" || message.text == "🎙️ Voice message") {
+                tvText.visibility = View.GONE
             } else {
-                layoutAudio?.visibility = View.GONE
-                if (message.text.isNotBlank()) {
-                    tvText.text = message.text
-                    tvText.visibility = View.VISIBLE
-                } else {
-                    tvText.visibility = View.GONE
-                }
+                tvText.text = message.text
+                tvText.visibility = View.VISIBLE
             }
 
             tvTime.text = timeFormat.format(Date(message.timestamp))

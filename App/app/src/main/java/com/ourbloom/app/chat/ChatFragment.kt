@@ -1133,6 +1133,15 @@ class ChatFragment : Fragment() {
                 layoutEmpty.visibility = View.VISIBLE
             }
 
+            // Pre-cache recent voice notes in background for instant 0ms playback
+            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                messages.filter { !it.audioUrl.isNullOrBlank() }.takeLast(5).forEach { msg ->
+                    msg.audioUrl?.let { url ->
+                        AudioCacheManager.getOrDownloadAudio(requireContext().applicationContext, url)
+                    }
+                }
+            }
+
             // Real-time WhatsApp double blue ticks: ONLY mark partner messages as read
             // if the user is ACTUALLY present and actively viewing the chat screen!
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -1384,8 +1393,10 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "Sending voice note...", Toast.LENGTH_SHORT).show()
             viewLifecycleOwner.lifecycleScope.launch {
                 val uploadedUrl = repository.uploadAudioFile(file)
-                file.delete()
                 if (!uploadedUrl.isNullOrBlank()) {
+                    // Save to local cache so sender never has to stream it
+                    AudioCacheManager.saveToCache(requireContext().applicationContext, uploadedUrl, file)
+                    file.delete()
                     repository.sendChatMessage(
                         coupleId = coupleId,
                         text = "🎙️ Voice note",

@@ -1,8 +1,8 @@
 {
-  "versionCode": 29,
-  "versionName": "1.28",
+  "versionCode": 30,
+  "versionName": "1.29",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• WhatsApp-style incoming video call ringing & screen wake even when app is closed\n• Picture-in-Picture (PiP) minimize mode during video calls\n• In-call message banner notifications & quick tap to open chat\n• Fixed front/rear camera switch during video calls\n• Ultra-reliable message delivery & battery optimization keep-alive",
+  "changelog": "• Completely overhauled voice note playback: instant 0ms local caching, zero buffering & offline support\n• Added Android speech AudioAttributes & AudioFocus routing to phone media speaker\n• Smooth 1x / 1.5x / 2x speed cycling & waveform seeking\n• Fixed voice player UI desync during chat list scrolling\n• Video call ringing, PiP minimize mode & camera switch fixes",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
