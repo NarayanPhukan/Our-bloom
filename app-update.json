@@ -1,8 +1,8 @@
 {
-  "versionCode": 28,
-  "versionName": "1.27",
+  "versionCode": 29,
+  "versionName": "1.28",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• WhatsApp-smooth message delivery: instant double ticks when recipient is in background or watching Reels\n• Full-screen incoming video call ringing with ringtone, vibration & decline action\n• Multi-image selection & fast concurrent sending in chat\n• Backend push keep-alive & battery optimization exemption support",
+  "changelog": "• WhatsApp-style incoming video call ringing & screen wake even when app is closed\n• Picture-in-Picture (PiP) minimize mode during video calls\n• In-call message banner notifications & quick tap to open chat\n• Fixed front/rear camera switch during video calls\n• Ultra-reliable message delivery & battery optimization keep-alive",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

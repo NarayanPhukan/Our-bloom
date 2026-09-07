@@ -195,12 +195,25 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         if (isVideoCall) {
             val callerAvatar = remoteMessage.data["callerAvatar"] ?: ""
+            val callerId = remoteMessage.data["callerId"] ?: ""
             sendCallNotification(
                 callerName = title,
                 coupleId = coupleId,
-                callerId = remoteMessage.data["callerId"] ?: "",
+                callerId = callerId,
                 callerAvatar = callerAvatar
             )
+            try {
+                val incomingCallIntent = Intent(this, com.ourbloom.app.call.IncomingCallActivity::class.java).apply {
+                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_COUPLE_ID, coupleId)
+                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_NAME, title)
+                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatar)
+                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_ID, callerId)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                startActivity(incomingCallIntent)
+            } catch (e: Exception) {
+                Log.d(TAG, "Direct launch from background restricted; fullScreenIntent will handle: ${e.message}")
+            }
             return
         }
 

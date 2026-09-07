@@ -143,6 +143,79 @@
             android:padding="10dp" />
     </LinearLayout>
 
+    <!-- In-Call Floating Message Banner (appears when partner sends a text during call) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_in_call_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="96dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="14dp"
+        app:cardBackgroundColor="#E61A1D24"
+        app:strokeWidth="1dp"
+        app:strokeColor="#FF4D6D"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp">
+
+            <ImageView
+                android:id="@+id/iv_in_call_msg_avatar"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_favorite"
+                app:tint="#FF4D6D" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_in_call_msg_sender"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My Love"
+                    android:textColor="#FF8FA3"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_in_call_msg_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Message preview..."
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tap to chat"
+                android:textColor="#FF4D6D"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_call_btn_round"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <!-- Floating Banner for Captured Moment -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_moment_saved"

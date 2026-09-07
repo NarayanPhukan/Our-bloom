@@ -392,6 +392,36 @@ app.post('/api/chat/notify', async (req, res) => {
   }
 });
 
+// Instant video call push notification endpoint (wakes up Render & dispatches FCM call push)
+app.post('/api/call/notify', async (req, res) => {
+  try {
+    const { coupleId, callerId, callerName, callerAvatar } = req.body;
+    if (!coupleId) return res.status(400).json({ error: 'coupleId required' });
+
+    const name = callerName || 'Your Love';
+    console.log(`✿ Instant call notify trigger received for couple ${coupleId} by ${callerId}`);
+    await notifyPartner(
+      coupleId,
+      callerId || '',
+      name,
+      'Incoming Video Call 📹',
+      {
+        type: 'video_call',
+        coupleId: coupleId,
+        callerId: callerId || '',
+        callerName: name,
+        callerAvatar: callerAvatar || '',
+        status: 'calling',
+        timestamp: String(Date.now())
+      }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('✿ Error in /api/call/notify:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // App update manifest endpoint
 app.get('/api/app-update', (req, res) => {
   try {

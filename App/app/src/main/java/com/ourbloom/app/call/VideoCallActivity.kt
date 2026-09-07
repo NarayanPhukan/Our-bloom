@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import com.ourbloom.app.MainActivity
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
@@ -24,8 +25,19 @@ import android.os.VibratorManager
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
+import android.app.PictureInPictureParams
+import android.content.res.Configuration
+import android.util.Rational
 import android.view.View
 import android.view.WindowManager
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -108,6 +120,15 @@ class VideoCallActivity : AppCompatActivity() {
     private val auth = FirebaseAuth.getInstance()
     private val repository = FirestoreRepository()
     private var callDocListener: ListenerRegistration? = null
+    private var inCallMessageListener: ListenerRegistration? = null
+    private var cardInCallMessage: MaterialCardView? = null
+    private var inCallMsgDismissRunnable: Runnable? = null
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+    private val baseUrl = "https://our-bloom.onrender.com"
 
     private var audioManager: AudioManager? = null
     private var isSpeakerOn: Boolean = true
@@ -178,6 +199,7 @@ class VideoCallActivity : AppCompatActivity() {
         }
 
         listenCallSignaling()
+        startInCallMessageListener()
     }
 
     private fun initViews() {
@@ -198,6 +220,7 @@ class VideoCallActivity : AppCompatActivity() {
         btnCallEnd = findViewById(R.id.btn_call_end)
         cardMomentSaved = findViewById(R.id.card_moment_saved)
         tvMomentBannerText = findViewById(R.id.tv_moment_banner_text)
+        cardInCallMessage = findViewById(R.id.card_in_call_message)
 
         tvCallingPartnerName.text = partnerName
         tvCallPartnerName.text = partnerName
@@ -214,8 +237,18 @@ class VideoCallActivity : AppCompatActivity() {
         }
 
         btnTopBack.setOnClickListener {
-            // Minimize or back
-            onBackPressedDispatcher.onBackPressed()
+            enterPipMode()
+        }
+
+        cardInCallMessage?.setOnClickListener {
+            enterPipMode()
+            val chatIntent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra("action", "open_chat")
+                putExtra("coupleId", coupleId)
+                putExtra("senderId", partnerId)
+            }
+            startActivity(chatIntent)
         }
 
         btnCallSpeaker.setOnClickListener {
@@ -227,7 +260,9 @@ class VideoCallActivity : AppCompatActivity() {
         }
 
         btnCallSwitchCam.setOnClickListener {
+            btnCallSwitchCam.animate().rotationBy(180f).setDuration(300).start()
             switchCamera()
+            Toast.makeText(this, "Switching camera...", Toast.LENGTH_SHORT).show()
         }
 
         btnCaptureMoment.setOnClickListener {
@@ -391,6 +426,102 @@ class VideoCallActivity : AppCompatActivity() {
         triggerHaptic(30)
     }
 
+    private fun enterPipMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val aspectRatio = Rational(9, 16)
+                val pipBuilder = PictureInPictureParams.Builder()
+                    .setAspectRatio(aspectRatio)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    pipBuilder.setAutoEnterEnabled(true)
+                }
+                enterPictureInPictureMode(pipBuilder.build())
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to enter PiP: ${e.message}")
+                moveTaskToBack(true)
+            }
+        } else {
+            moveTaskToBack(true)
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (!isCallFinished && !isEndingCall) {
+            enterPipMode()
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        val visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.layout_top_bar)?.visibility = visibility
+        findViewById<View>(R.id.layout_bottom_controls)?.visibility = visibility
+        findViewById<View>(R.id.card_moment_saved)?.visibility = View.GONE
+        cardInCallMessage?.visibility = View.GONE
+    }
+
+    private fun startInCallMessageListener() {
+        if (coupleId.isBlank()) return
+        inCallMessageListener?.remove()
+        inCallMessageListener = db.collection("chat_messages")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val currentUid = auth.currentUser?.uid ?: ""
+                val recentMessages = snapshot.documentChanges
+                    .filter { it.type == com.google.firebase.firestore.DocumentChange.Type.ADDED }
+                    .map { it.document }
+                    .filter { doc ->
+                        val sId = doc.getString("senderId") ?: ""
+                        val ts = doc.getLong("timestamp") ?: 0L
+                        sId.isNotBlank() && sId != currentUid && ts >= sessionStartTime
+                    }
+
+                if (recentMessages.isNotEmpty()) {
+                    val latest = recentMessages.maxByOrNull { it.getLong("timestamp") ?: 0L }
+                    latest?.let { doc ->
+                        val text = doc.getString("text") ?: ""
+                        val img = doc.getString("imageUrl") ?: ""
+                        val audio = doc.getString("audioUrl") ?: ""
+                        val displayMsg = when {
+                            text.isNotBlank() -> text
+                            img.isNotBlank() -> "📷 Photo"
+                            audio.isNotBlank() -> "🎙️ Voice note"
+                            else -> "New message"
+                        }
+                        showInCallMessageBanner(partnerName, displayMsg)
+                    }
+                }
+            }
+    }
+
+    private fun showInCallMessageBanner(sender: String, message: String) {
+        val card = cardInCallMessage ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) return
+
+        findViewById<TextView>(R.id.tv_in_call_msg_sender)?.text = sender
+        findViewById<TextView>(R.id.tv_in_call_msg_text)?.text = message
+        val ivAvatar = findViewById<ImageView>(R.id.iv_in_call_msg_avatar)
+        if (partnerAvatar.isNotBlank() && ivAvatar != null) {
+            Glide.with(this).load(partnerAvatar).circleCrop().into(ivAvatar)
+        }
+
+        card.visibility = View.VISIBLE
+        card.alpha = 0f
+        card.translationY = -50f
+        card.animate().alpha(1f).translationY(0f).setDuration(250).start()
+        triggerHaptic(40)
+
+        inCallMsgDismissRunnable?.let { timerHandler.removeCallbacks(it) }
+        inCallMsgDismissRunnable = Runnable {
+            card.animate().alpha(0f).translationY(-50f).setDuration(250).withEndAction {
+                card.visibility = View.GONE
+            }.start()
+        }
+        timerHandler.postDelayed(inCallMsgDismissRunnable!!, 5000L)
+    }
+
     override fun onResume() {
         super.onResume()
         if (!isEndingCall) {
@@ -426,6 +557,11 @@ class VideoCallActivity : AppCompatActivity() {
                 runOnUiThread {
                     request.grant(request.resources)
                 }
+            }
+
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                Log.d("WebRTC_WebView", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (line ${consoleMessage?.lineNumber()})")
+                return true
             }
         }
 
@@ -773,6 +909,9 @@ class VideoCallActivity : AppCompatActivity() {
         stopTimer()
         callDocListener?.remove()
         callDocListener = null
+        inCallMessageListener?.remove()
+        inCallMessageListener = null
+        inCallMsgDismissRunnable?.let { timerHandler.removeCallbacks(it) }
 
         abandonCallAudioFocus()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -828,6 +967,32 @@ class VideoCallActivity : AppCompatActivity() {
                             "receiverCandidates" to emptyList<String>()
                         )
                         db.collection("video_calls").document(coupleId).set(callData)
+
+                        // Asynchronously ping backend to wake up Render & dispatch high-priority call FCM push
+                        try {
+                            val url = "$baseUrl/api/call/notify"
+                            val json = JSONObject().apply {
+                                put("coupleId", coupleId)
+                                put("callerId", currentUid)
+                                put("callerName", auth.currentUser?.displayName ?: "Your Partner")
+                                put("callerAvatar", auth.currentUser?.photoUrl?.toString() ?: "")
+                            }
+                            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                            val request = Request.Builder()
+                                .url(url)
+                                .post(body)
+                                .build()
+                            httpClient.newCall(request).enqueue(object : Callback {
+                                override fun onFailure(call: Call, e: java.io.IOException) {
+                                    Log.d(TAG, "Call notify ping note: ${e.message}")
+                                }
+                                override fun onResponse(call: Call, response: Response) {
+                                    response.close()
+                                }
+                            })
+                        } catch (e: Exception) {
+                            Log.d(TAG, "Call notify ping setup: ${e.message}")
+                        }
                     } else if (type == "answer") {
                         db.collection("video_calls").document(coupleId)
                             .update(
@@ -890,6 +1055,14 @@ class VideoCallActivity : AppCompatActivity() {
         @JavascriptInterface
         fun onMomentCaptured(base64Data: String) {
             handleCapturedMoment(base64Data)
+        }
+
+        @JavascriptInterface
+        fun onCameraSwitched(facing: String) {
+            runOnUiThread {
+                val label = if (facing == "environment") "Back camera" else "Front camera"
+                Toast.makeText(this@VideoCallActivity, label, Toast.LENGTH_SHORT).show()
+            }
         }
 
         @JavascriptInterface

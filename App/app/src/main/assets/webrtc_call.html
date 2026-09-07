@@ -496,38 +496,160 @@
       }
     }
 
+    let currentDeviceId = null;
+
     // Flip Camera between front & rear
     async function switchCamera() {
       try {
-        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-        if (currentFacingMode === 'user') {
-          localVideo.classList.remove('rear-camera');
-        } else {
-          localVideo.classList.add('rear-camera');
-        }
+        const nextFacing = (currentFacingMode === 'user') ? 'environment' : 'user';
+        console.log("Switching camera from", currentFacingMode, "to:", nextFacing);
 
-        const newStream = await getCameraStream(currentFacingMode, false);
-        const newVideoTrack = newStream.getVideoTracks()[0];
-        const oldVideoTrack = localStream ? localStream.getVideoTracks()[0] : null;
-
-        if (oldVideoTrack) {
-          oldVideoTrack.stop();
-          localStream.removeTrack(oldVideoTrack);
-        }
+        // 1. MUST stop existing video track FIRST before requesting a new camera,
+        // otherwise Android Camera HAL throws "Could not start video source / camera busy"
+        let oldVideoTrack = null;
         if (localStream) {
-          localStream.addTrack(newVideoTrack);
-          localVideo.srcObject = localStream;
+          const videoTracks = localStream.getVideoTracks();
+          if (videoTracks.length > 0) {
+            oldVideoTrack = videoTracks[0];
+            try {
+              if (oldVideoTrack.getSettings && oldVideoTrack.getSettings().deviceId) {
+                currentDeviceId = oldVideoTrack.getSettings().deviceId;
+              }
+            } catch (_) {}
+            oldVideoTrack.stop();
+            localStream.removeTrack(oldVideoTrack);
+          }
         }
 
-        if (peerConnection) {
-          const senders = peerConnection.getSenders();
-          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-          if (videoSender) {
-            await videoSender.replaceTrack(newVideoTrack);
+        // Wait 120ms for Android Camera HAL to safely close previous camera device
+        await new Promise(r => setTimeout(r, 120));
+
+        // 2. Request stream with new camera
+        let newStream = null;
+
+        // A. Try device enumeration first (most reliable on Android WebView to alternate sensors)
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(d => d.kind === 'videoinput');
+          console.log("Enumerated video devices count:", videoDevices.length);
+
+          if (videoDevices.length > 1) {
+            let targetDevice = null;
+            if (currentDeviceId) {
+              targetDevice = videoDevices.find(d => d.deviceId && d.deviceId !== currentDeviceId);
+            }
+            if (!targetDevice) {
+              targetDevice = (nextFacing === 'environment') ? videoDevices[videoDevices.length - 1] : videoDevices[0];
+            }
+
+            if (targetDevice && targetDevice.deviceId) {
+              console.log("Switching using deviceId:", targetDevice.deviceId);
+              newStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                  deviceId: { exact: targetDevice.deviceId },
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 },
+                  frameRate: { ideal: 30 }
+                },
+                audio: false
+              });
+            }
           }
+        } catch (eDev) {
+          console.warn("Device enumeration switch failed:", eDev);
+        }
+
+        // B. Fallback to facingMode constraint if device enumeration didn't produce stream
+        if (!newStream) {
+          try {
+            console.log("Switching using facingMode exact:", nextFacing);
+            newStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { exact: nextFacing },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: 30 }
+              },
+              audio: false
+            });
+          } catch (eExact) {
+            console.warn("Exact facingMode failed, trying soft facingMode:", eExact);
+            try {
+              newStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                  facingMode: nextFacing,
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 }
+                },
+                audio: false
+              });
+            } catch (eSoft) {
+              console.warn("Soft facingMode failed:", eSoft);
+            }
+          }
+        }
+
+        // C. Fallback: Restore previous camera if switch failed completely
+        if (!newStream) {
+          console.warn("Switch completely failed; restoring previous camera");
+          try {
+            newStream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: currentFacingMode },
+              audio: false
+            });
+          } catch (eRestore) {
+            console.error("Camera restoration failed:", eRestore);
+          }
+        }
+
+        if (newStream) {
+          currentFacingMode = nextFacing;
+          const newVideoTrack = newStream.getVideoTracks()[0];
+          try {
+            if (newVideoTrack.getSettings && newVideoTrack.getSettings().deviceId) {
+              currentDeviceId = newVideoTrack.getSettings().deviceId;
+            }
+          } catch (_) {}
+
+          if (currentFacingMode === 'user') {
+            localVideo.classList.remove('rear-camera');
+          } else {
+            localVideo.classList.add('rear-camera');
+          }
+
+          if (localStream) {
+            localStream.addTrack(newVideoTrack);
+            localVideo.srcObject = localStream;
+          } else {
+            localStream = newStream;
+            localVideo.srcObject = localStream;
+          }
+
+          if (isCameraMuted) {
+            newVideoTrack.enabled = false;
+          }
+
+          if (peerConnection) {
+            const senders = peerConnection.getSenders();
+            let videoSender = senders.find(s => s.track && s.track.kind === 'video');
+            if (!videoSender && peerConnection.getTransceivers) {
+              const transceivers = peerConnection.getTransceivers();
+              const videoTransceiver = transceivers.find(t => (t.receiver && t.receiver.track && t.receiver.track.kind === 'video') || (t.sender && t.sender.track && t.sender.track.kind === 'video'));
+              if (videoTransceiver) {
+                videoSender = videoTransceiver.sender;
+              }
+            }
+            if (videoSender) {
+              await videoSender.replaceTrack(newVideoTrack);
+              console.log("Replaced video track on WebRTC peer connection successfully");
+            }
+          }
+
+          bridgeCall('onCameraSwitched', currentFacingMode);
         }
       } catch (err) {
         console.error("Camera switch error:", err);
+        bridgeCall('onError', "Camera switch error: " + err.message);
       }
     }
 
