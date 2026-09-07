@@ -171,6 +171,17 @@
                 android:contentDescription="Message Info"
                 android:padding="10dp" />
 
+            <!-- Star Action -->
+            <ImageButton
+                android:id="@+id/btn_action_star"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_star"
+                app:tint="@color/chat_header_text"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Star / Favorite"
+                android:padding="10dp" />
+
             <!-- Reply Action -->
             <ImageButton
                 android:id="@+id/btn_action_reply"

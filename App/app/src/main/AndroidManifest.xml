@@ -42,6 +42,18 @@
                 <action android:name="com.ourbloom.app.ACTION_SHOW_UPDATE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/webp" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/webp" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
 
         <activity

@@ -1,8 +1,8 @@
 {
-  "versionCode": 31,
-  "versionName": "1.30",
+  "versionCode": 32,
+  "versionName": "1.31",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Direct FCM v1 delivery engine, zero Render server sleep dependency, instant 3-tick message delivery, and background video call wake-up",
+  "changelog": "WhatsApp sticker import, frameless floating sticker chat rendering, sticker bottom tray with favorites and recents",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

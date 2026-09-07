@@ -735,7 +735,8 @@ class FirestoreRepository {
         replyToText: String? = null,
         replyToSenderName: String? = null,
         replyToImageUrl: String? = null,
-        timestamp: Long? = null
+        timestamp: Long? = null,
+        isSticker: Boolean = false
     ): Boolean {
         val uid = auth.currentUser?.uid ?: return false
         return try {
@@ -756,6 +757,7 @@ class FirestoreRepository {
                 "replyToText" to (replyToText ?: ""),
                 "replyToSenderName" to (replyToSenderName ?: ""),
                 "replyToImageUrl" to (replyToImageUrl ?: ""),
+                "isSticker" to isSticker,
                 "deletedFor" to emptyList<String>()
             )
             val docRef = db.collection("chat_messages").add(messageData).await()
@@ -766,6 +768,7 @@ class FirestoreRepository {
                     val partnerToken = getPartnerFcmToken(coupleId, uid)
                     if (!partnerToken.isNullOrBlank()) {
                         val bodyText = when {
+                            isSticker -> "🎭 Sticker"
                             text.isNotBlank() -> text
                             !imageUrl.isNullOrBlank() -> "📷 Photo"
                             !audioUrl.isNullOrBlank() -> "🎙️ Voice message"
@@ -782,9 +785,10 @@ class FirestoreRepository {
                                 "senderId" to uid,
                                 "senderName" to senderName,
                                 "messageId" to docRef.id,
-                                "messageText" to text,
+                                "messageText" to (if (isSticker) "🎭 Sticker" else text),
                                 "imageUrl" to (imageUrl ?: ""),
-                                "audioUrl" to (audioUrl ?: "")
+                                "audioUrl" to (audioUrl ?: ""),
+                                "isSticker" to isSticker.toString()
                             )
                         )
                         Log.d("FirestoreRepo", "Direct FCM sendPush: $directResult for msg ${docRef.id}")

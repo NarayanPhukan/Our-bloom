@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layout_message_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="end"
+    android:paddingStart="64dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="3dp"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:id="@+id/layout_sticker_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@android:color/transparent">
+
+        <!-- Sticker WebP Image (Frameless, Transparent) -->
+        <ImageView
+            android:id="@+id/iv_chat_sticker"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Sticker" />
+
+        <!-- Floating Glassmorphic Timestamp & 3-Tick Delivery Pill -->
+        <LinearLayout
+            android:id="@+id/layout_sticker_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="6dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_sticker_timestamp_pill"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_sticker_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:text="12:00 PM" />
+
+            <ImageView
+                android:id="@+id/iv_sticker_tick"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_msg_status_double_tick"
+                app:tint="#FFFFFF"
+                android:contentDescription="Delivery Status" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>

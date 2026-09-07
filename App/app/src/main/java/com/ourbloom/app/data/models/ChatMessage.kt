@@ -24,8 +24,11 @@ data class ChatMessage(
     @get:PropertyName("replyToImageUrl") @set:PropertyName("replyToImageUrl") var replyToImageUrl: String? = null,
     val deletedFor: List<String> = emptyList(),
     val readAt: Long? = null,
-    val deliveredAt: Long? = null
+    val deliveredAt: Long? = null,
+    @get:PropertyName("isSticker") @set:PropertyName("isSticker") var isSticker: Boolean = false
 ) {
+    val isStickerMessage: Boolean
+        get() = isSticker || (!imageUrl.isNullOrBlank() && text == "[Sticker]")
     val isSeen: Boolean
         get() = isRead
 

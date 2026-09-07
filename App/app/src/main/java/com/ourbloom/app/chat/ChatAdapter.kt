@@ -5,6 +5,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.LinearLayout
+import com.google.android.material.card.MaterialCardView
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.ourbloom.app.R
@@ -42,6 +45,8 @@ class ChatAdapter(
     companion object {
         private const val VIEW_TYPE_SENT = 1
         private const val VIEW_TYPE_RECEIVED = 2
+        private const val VIEW_TYPE_STICKER_SENT = 3
+        private const val VIEW_TYPE_STICKER_RECEIVED = 4
         private const val COLOR_TICK_READ = 0xFF34B7F1.toInt() // WhatsApp cyan blue
         private const val COLOR_TICK_DEFAULT = 0xFFE0E0E0.toInt() // Subtle grey/white
     }
@@ -629,14 +634,14 @@ class ChatAdapter(
         var i = 0
         while (i < newMessages.size) {
             val msg = newMessages[i]
-            val isCandidate = !msg.imageUrl.isNullOrBlank() && msg.audioUrl.isNullOrBlank()
+            val isCandidate = !msg.imageUrl.isNullOrBlank() && msg.audioUrl.isNullOrBlank() && !msg.isStickerMessage
             if (isCandidate) {
                 val album = mutableListOf<ChatMessage>()
                 album.add(msg)
                 var j = i + 1
                 while (j < newMessages.size) {
                     val nextMsg = newMessages[j]
-                    val isNextCandidate = !nextMsg.imageUrl.isNullOrBlank() && nextMsg.audioUrl.isNullOrBlank()
+                    val isNextCandidate = !nextMsg.imageUrl.isNullOrBlank() && nextMsg.audioUrl.isNullOrBlank() && !nextMsg.isStickerMessage
                     val sameSender = nextMsg.senderId == msg.senderId
                     val closeTime = Math.abs(nextMsg.timestamp - msg.timestamp) <= 60000L
                     val notSeparateReply = !nextMsg.isReply
@@ -716,31 +721,44 @@ class ChatAdapter(
     fun getMessageAt(position: Int): ChatMessage? = displayItems.getOrNull(position)?.message
 
     override fun getItemViewType(position: Int): Int {
-        return if (displayItems[position].message.senderId == currentUserId) {
-            VIEW_TYPE_SENT
+        val item = displayItems[position]
+        val isMe = item.message.senderId == currentUserId
+        return if (item.message.isStickerMessage) {
+            if (isMe) VIEW_TYPE_STICKER_SENT else VIEW_TYPE_STICKER_RECEIVED
         } else {
-            VIEW_TYPE_RECEIVED
+            if (isMe) VIEW_TYPE_SENT else VIEW_TYPE_RECEIVED
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        return if (viewType == VIEW_TYPE_SENT) {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_chat_message_sent, parent, false)
-            SentMessageViewHolder(view)
-        } else {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_chat_message_received, parent, false)
-            ReceivedMessageViewHolder(view)
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            VIEW_TYPE_STICKER_SENT -> {
+                val view = inflater.inflate(R.layout.item_chat_sticker_sent, parent, false)
+                SentStickerViewHolder(view)
+            }
+            VIEW_TYPE_STICKER_RECEIVED -> {
+                val view = inflater.inflate(R.layout.item_chat_sticker_received, parent, false)
+                ReceivedStickerViewHolder(view)
+            }
+            VIEW_TYPE_SENT -> {
+                val view = inflater.inflate(R.layout.item_chat_message_sent, parent, false)
+                SentMessageViewHolder(view)
+            }
+            else -> {
+                val view = inflater.inflate(R.layout.item_chat_message_received, parent, false)
+                ReceivedMessageViewHolder(view)
+            }
         }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val item = displayItems[position]
-        if (holder is SentMessageViewHolder) {
-            holder.bind(item)
-        } else if (holder is ReceivedMessageViewHolder) {
-            holder.bind(item, partnerAvatarUrl)
+        when (holder) {
+            is SentStickerViewHolder -> holder.bind(item)
+            is ReceivedStickerViewHolder -> holder.bind(item, partnerAvatarUrl)
+            is SentMessageViewHolder -> holder.bind(item)
+            is ReceivedMessageViewHolder -> holder.bind(item, partnerAvatarUrl)
         }
     }
 
@@ -1155,6 +1173,148 @@ class ChatAdapter(
                 } else {
                     cardImage.visibility = View.GONE
                 }
+            }
+        }
+    }
+
+    inner class SentStickerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val layoutRoot: LinearLayout = itemView.findViewById(R.id.layout_message_root)
+        val ivSticker: ImageView = itemView.findViewById(R.id.iv_chat_sticker)
+        val tvTime: TextView = itemView.findViewById(R.id.tv_sticker_time)
+        val ivTick: ImageView = itemView.findViewById(R.id.iv_sticker_tick)
+
+        fun bind(item: ChatGroupItem) {
+            val message = item.message
+            val isSelected = selectedMessageId == message.id
+            val isHighlighted = highlightedMessageId == message.id
+
+            layoutRoot.setBackgroundColor(
+                when {
+                    isSelected -> 0x33E85D75.toInt()
+                    isHighlighted -> 0x22E85D75.toInt()
+                    else -> android.graphics.Color.TRANSPARENT
+                }
+            )
+
+            val density = itemView.context.resources.displayMetrics.density
+            val topPad = if (item.isConsecutiveWithPrev) (1 * density).toInt() else (4 * density).toInt()
+            val bottomPad = if (item.isConsecutiveWithNext) (1 * density).toInt() else (4 * density).toInt()
+            layoutRoot.setPadding(layoutRoot.paddingLeft, topPad, layoutRoot.paddingRight, bottomPad)
+
+            tvTime.text = timeFormat.format(Date(message.timestamp))
+
+            val url = message.imageUrl
+            if (!url.isNullOrBlank()) {
+                Glide.with(itemView.context)
+                    .load(url)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .fitCenter()
+                    .into(ivSticker)
+            } else {
+                ivSticker.setImageDrawable(null)
+            }
+
+            // Tick indicators matching WhatsApp lifecycle
+            when {
+                message.isPending -> {
+                    ivTick.setImageResource(R.drawable.ic_msg_status_clock)
+                    ivTick.setColorFilter(COLOR_TICK_DEFAULT, PorterDuff.Mode.SRC_IN)
+                }
+                message.isRead -> {
+                    ivTick.setImageResource(R.drawable.ic_msg_status_double_tick)
+                    ivTick.setColorFilter(COLOR_TICK_READ, PorterDuff.Mode.SRC_IN)
+                }
+                message.hasDelivered -> {
+                    ivTick.setImageResource(R.drawable.ic_msg_status_double_tick)
+                    ivTick.setColorFilter(COLOR_TICK_DEFAULT, PorterDuff.Mode.SRC_IN)
+                }
+                else -> {
+                    ivTick.setImageResource(R.drawable.ic_msg_status_single_tick)
+                    ivTick.setColorFilter(COLOR_TICK_DEFAULT, PorterDuff.Mode.SRC_IN)
+                }
+            }
+
+            itemView.setOnClickListener {
+                if (selectedMessageId != null) {
+                    onMessageClick?.invoke(message)
+                } else {
+                    onMessageClick?.invoke(message)
+                }
+            }
+
+            itemView.setOnLongClickListener {
+                onMessageLongClick?.invoke(message)
+                true
+            }
+        }
+    }
+
+    inner class ReceivedStickerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val layoutRoot: LinearLayout = itemView.findViewById(R.id.layout_message_root)
+        val cardAvatar: MaterialCardView = itemView.findViewById(R.id.card_chat_partner_avatar)
+        val ivAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
+        val ivSticker: ImageView = itemView.findViewById(R.id.iv_chat_sticker)
+        val tvTime: TextView = itemView.findViewById(R.id.tv_sticker_time)
+
+        fun bind(item: ChatGroupItem, partnerAvatarUrl: String?) {
+            val message = item.message
+            val isSelected = selectedMessageId == message.id
+            val isHighlighted = highlightedMessageId == message.id
+
+            layoutRoot.setBackgroundColor(
+                when {
+                    isSelected -> 0x33E85D75.toInt()
+                    isHighlighted -> 0x22E85D75.toInt()
+                    else -> android.graphics.Color.TRANSPARENT
+                }
+            )
+
+            val density = itemView.context.resources.displayMetrics.density
+            val topPad = if (item.isConsecutiveWithPrev) (1 * density).toInt() else (4 * density).toInt()
+            val bottomPad = if (item.isConsecutiveWithNext) (1 * density).toInt() else (4 * density).toInt()
+            layoutRoot.setPadding(layoutRoot.paddingLeft, topPad, layoutRoot.paddingRight, bottomPad)
+
+            tvTime.text = timeFormat.format(Date(message.timestamp))
+
+            if (item.isConsecutiveWithNext) {
+                cardAvatar.visibility = View.INVISIBLE
+            } else {
+                cardAvatar.visibility = View.VISIBLE
+                if (!partnerAvatarUrl.isNullOrBlank()) {
+                    ivAvatar.setPadding(0, 0, 0, 0)
+                    Glide.with(itemView.context)
+                        .load(partnerAvatarUrl)
+                        .circleCrop()
+                        .into(ivAvatar)
+                } else {
+                    val p = (5 * density).toInt()
+                    ivAvatar.setPadding(p, p, p, p)
+                    ivAvatar.setImageResource(R.drawable.ic_favorite)
+                }
+            }
+
+            val url = message.imageUrl
+            if (!url.isNullOrBlank()) {
+                Glide.with(itemView.context)
+                    .load(url)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .fitCenter()
+                    .into(ivSticker)
+            } else {
+                ivSticker.setImageDrawable(null)
+            }
+
+            itemView.setOnClickListener {
+                if (selectedMessageId != null) {
+                    onMessageClick?.invoke(message)
+                } else {
+                    onMessageClick?.invoke(message)
+                }
+            }
+
+            itemView.setOnLongClickListener {
+                onMessageLongClick?.invoke(message)
+                true
             }
         }
     }

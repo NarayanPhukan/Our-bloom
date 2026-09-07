@@ -34,6 +34,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+import android.net.Uri
+import android.widget.Toast
+import com.ourbloom.app.chat.stickers.StickerManager
 
 class MainActivity : AppCompatActivity() {
 
@@ -201,6 +204,8 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {}
         }
+
+        handleIncomingShareIntent(intent, navController)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -224,6 +229,46 @@ class MainActivity : AppCompatActivity() {
                     appUpdateHelper.checkForUpdates(manualCheck = true)
                 }
             } catch (_: Exception) {}
+        }
+
+        handleIncomingShareIntent(intent, navController)
+    }
+
+    private fun handleIncomingShareIntent(intent: Intent?, navController: androidx.navigation.NavController?) {
+        if (intent == null) return
+        val action = intent.action
+        val type = intent.type
+
+        if (action == Intent.ACTION_SEND && type != null) {
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            }
+            if (uri != null) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val file = StickerManager.importFromShareUri(this@MainActivity, uri)
+                    if (file != null) {
+                        Toast.makeText(this@MainActivity, "Sticker imported to OurBloom! 🌸", Toast.LENGTH_SHORT).show()
+                        navController?.navigate(R.id.chatFragment)
+                    }
+                }
+            }
+        } else if (action == Intent.ACTION_SEND_MULTIPLE && type != null) {
+            val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+            }
+            if (!uris.isNullOrEmpty()) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val count = StickerManager.importFromUris(this@MainActivity, uris)
+                    Toast.makeText(this@MainActivity, "Imported $count stickers to OurBloom! 🌸", Toast.LENGTH_SHORT).show()
+                    navController?.navigate(R.id.chatFragment)
+                }
+            }
         }
     }
 

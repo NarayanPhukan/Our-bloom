@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_bottom_sheet"
+    android:paddingBottom="16dp">
+
+    <!-- Top Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp"
+        android:background="#33888888" />
+
+    <!-- Header -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/tv_sticker_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="Stickers 🎭"
+            android:textColor="@color/chat_header_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Import WhatsApp Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_import_whatsapp"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Import 💬"
+                android:textSize="12sp"
+                android:textColor="#FFFFFF"
+                app:backgroundTint="#E85D75"
+                app:cornerRadius="18dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginEnd="8dp" />
+
+            <ImageButton
+                android:id="@+id/btn_close_stickers"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_close"
+                app:tint="@color/chat_header_subtitle"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Close"
+                android:padding="6dp" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- Tabs Container -->
+    <LinearLayout
+        android:id="@+id/layout_sticker_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:layout_marginBottom="8dp">
+
+        <!-- Recents Tab -->
+        <TextView
+            android:id="@+id/tab_recents"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="🕒 Recent"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#E85D75"
+            android:background="?attr/selectableItemBackground" />
+
+        <!-- Favorites Tab -->
+        <TextView
+            android:id="@+id/tab_favorites"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="⭐ Starred"
+            android:textSize="13sp"
+            android:textColor="@color/chat_header_subtitle"
+            android:background="?attr/selectableItemBackground" />
+
+        <!-- WhatsApp Tab -->
+        <TextView
+            android:id="@+id/tab_whatsapp"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="💬 WhatsApp"
+            android:textSize="13sp"
+            android:textColor="@color/chat_header_subtitle"
+            android:background="?attr/selectableItemBackground" />
+
+    </LinearLayout>
+
+    <!-- Content Frame -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="260dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <!-- Stickers Grid -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_stickers_grid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:padding="4dp"
+            android:scrollbars="vertical" />
+
+        <!-- Empty State -->
+        <LinearLayout
+            android:id="@+id/layout_sticker_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/iv_empty_icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_sticker"
+                app:tint="#80E85D75"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="Empty Stickers" />
+
+            <TextView
+                android:id="@+id/tv_empty_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No WhatsApp stickers found yet"
+                android:textColor="@color/chat_header_subtitle"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_auto_scan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:text="Auto Scan"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#E85D75"
+                    app:cornerRadius="19dp"
+                    android:layout_marginEnd="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_pick_folder"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:text="Pick Folder / Files"
+                    android:textSize="12sp"
+                    android:textColor="#E85D75"
+                    app:strokeColor="#E85D75"
+                    app:strokeWidth="1dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:cornerRadius="19dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>

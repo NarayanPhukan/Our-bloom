@@ -62,6 +62,9 @@ import kotlinx.coroutines.withContext
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import com.ourbloom.app.fcm.MyFirebaseMessagingService
+import com.ourbloom.app.chat.stickers.StickerPickerBottomSheet
+import com.ourbloom.app.chat.stickers.StickerManager
+import java.util.UUID
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -104,6 +107,7 @@ class ChatFragment : Fragment() {
     private lateinit var btnActionCopy: ImageButton
     private lateinit var btnActionDelete: ImageButton
     private lateinit var btnActionInfo: ImageButton
+    private var btnActionStar: ImageButton? = null
 
     // Reply preview views
     private lateinit var layoutReplyPreview: View
@@ -490,6 +494,17 @@ class ChatFragment : Fragment() {
         btnActionCopy = view.findViewById(R.id.btn_action_copy)
         btnActionDelete = view.findViewById(R.id.btn_action_delete)
         btnActionInfo = view.findViewById(R.id.btn_action_info)
+        btnActionStar = view.findViewById(R.id.btn_action_star)
+        btnActionStar?.setOnClickListener {
+            selectedMessage?.let { msg ->
+                val target = msg.imageUrl ?: msg.text
+                if (target.isNotBlank()) {
+                    val isFav = StickerManager.toggleFavorite(requireContext(), target)
+                    Toast.makeText(requireContext(), if (isFav) "Starred ⭐" else "Unstarred", Toast.LENGTH_SHORT).show()
+                }
+            }
+            clearSelection()
+        }
 
         layoutReplyPreview = view.findViewById(R.id.layout_reply_preview)
         viewReplyPreviewStripe = view.findViewById(R.id.view_reply_preview_stripe)
@@ -989,6 +1004,13 @@ class ChatFragment : Fragment() {
         }
 
         btnEmoji.setOnClickListener {
+            val stickerSheet = StickerPickerBottomSheet.newInstance { file ->
+                uploadAndSendSticker(file)
+            }
+            stickerSheet.show(childFragmentManager, StickerPickerBottomSheet.TAG)
+        }
+
+        btnEmoji.setOnLongClickListener {
             val popup = PopupMenu(requireContext(), btnEmoji)
             val emojis = listOf("❤️", "🌸", "🥰", "✨", "😘", "💖", "🫂", "🌹", "😍", "🙈")
             emojis.forEach { emoji ->
@@ -999,6 +1021,7 @@ class ChatFragment : Fragment() {
                 true
             }
             popup.show()
+            true
         }
 
         btnSettings.setOnClickListener {
@@ -1492,6 +1515,38 @@ class ChatFragment : Fragment() {
 
     private fun uploadAndSendPhoto(uri: Uri) {
         uploadAndSendPhotos(listOf(uri))
+    }
+
+    private fun uploadAndSendSticker(file: File) {
+        val cId = currentCouple?.id ?: currentUser?.coupleId
+        if (cId.isNullOrEmpty()) {
+            Toast.makeText(requireContext(), "Couple not connected", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val senderName = currentUser?.name?.ifBlank { "Me" } ?: "Me"
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val bytes = withContext(Dispatchers.IO) { file.readBytes() }
+                val filename = "sticker_${UUID.randomUUID()}.webp"
+                val uploadedUrl = repository.uploadImageBytes(bytes, filename)
+                if (!uploadedUrl.isNullOrBlank()) {
+                    repository.sendChatMessage(
+                        coupleId = cId,
+                        text = "",
+                        imageUrl = uploadedUrl,
+                        senderName = senderName,
+                        isSticker = true
+                    )
+                } else {
+                    Toast.makeText(requireContext(), "Failed to send sticker", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("ChatFragment", "Error sending sticker", e)
+                Toast.makeText(requireContext(), "Failed to send sticker", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun uploadAndSendPhotos(uris: List<Uri>) {
