@@ -190,8 +190,24 @@ class MainActivity : AppCompatActivity() {
         val isUpdate = intent?.getStringExtra("action") == "show_update" ||
                        intent?.action == AppUpdateHelper.ACTION_SHOW_UPDATE ||
                        intent?.getStringExtra("type") == "app_update"
+        val isChat = intent?.getStringExtra("action") == "open_chat" ||
+                     intent?.getStringExtra("type") == "chat" ||
+                     intent?.hasExtra("messageId") == true
+        val isVideoCall = intent?.getStringExtra("type") == "video_call"
 
-        if (intent?.getStringExtra("action") == "open_chat") {
+        if (isVideoCall) {
+            val coupleId = intent?.getStringExtra("coupleId") ?: ""
+            val callerId = intent?.getStringExtra("callerId") ?: ""
+            val callerName = intent?.getStringExtra("callerName") ?: intent?.getStringExtra("title") ?: "Your Partner"
+            val callerAvatar = intent?.getStringExtra("callerAvatar") ?: ""
+            val callIntent = Intent(this, com.ourbloom.app.call.IncomingCallActivity::class.java).apply {
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_COUPLE_ID, coupleId)
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_NAME, callerName)
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatar)
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_ID, callerId)
+            }
+            startActivity(callIntent)
+        } else if (isChat) {
             try {
                 MyFirebaseMessagingService.dismissChatNotifications(this)
             } catch (_: Exception) {}
@@ -216,8 +232,24 @@ class MainActivity : AppCompatActivity() {
         val isUpdate = intent.getStringExtra("action") == "show_update" ||
                        intent.action == AppUpdateHelper.ACTION_SHOW_UPDATE ||
                        intent.getStringExtra("type") == "app_update"
+        val isChat = intent.getStringExtra("action") == "open_chat" ||
+                     intent.getStringExtra("type") == "chat" ||
+                     intent.hasExtra("messageId")
+        val isVideoCall = intent.getStringExtra("type") == "video_call"
 
-        if (intent.getStringExtra("action") == "open_chat") {
+        if (isVideoCall) {
+            val coupleId = intent.getStringExtra("coupleId") ?: ""
+            val callerId = intent.getStringExtra("callerId") ?: ""
+            val callerName = intent.getStringExtra("callerName") ?: intent.getStringExtra("title") ?: "Your Partner"
+            val callerAvatar = intent.getStringExtra("callerAvatar") ?: ""
+            val callIntent = Intent(this, com.ourbloom.app.call.IncomingCallActivity::class.java).apply {
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_COUPLE_ID, coupleId)
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_NAME, callerName)
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatar)
+                putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_ID, callerId)
+            }
+            startActivity(callIntent)
+        } else if (isChat) {
             try {
                 MyFirebaseMessagingService.dismissChatNotifications(this)
             } catch (_: Exception) {}

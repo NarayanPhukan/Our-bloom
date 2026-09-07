@@ -293,6 +293,16 @@ class AppUpdateHelper(private val activity: Activity) {
                     Log.d(TAG, "Current versionCode=$currentVersionCode, Remote versionCode=${updateInfo.versionCode}")
 
                     if (updateInfo.versionCode > currentVersionCode) {
+                        val prefs = activity.getSharedPreferences("ourbloom_update_prefs", Context.MODE_PRIVATE)
+                        val dismissedCode = prefs.getLong("dismissed_version_code", -1L)
+                        val dismissedTime = prefs.getLong("dismissed_time", 0L)
+                        val isDismissedRecent = (dismissedCode == updateInfo.versionCode.toLong()) && (now - dismissedTime < 24 * 3600 * 1000L)
+
+                        if (!manualCheck && !updateInfo.forceUpdate && isDismissedRecent) {
+                            Log.d(TAG, "Update v${updateInfo.versionName} was recently dismissed. Suppressing auto-prompt.")
+                            return@launch
+                        }
+
                         withContext(Dispatchers.Main) {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 showUpdatePrompt(updateInfo)
@@ -302,6 +312,7 @@ class AppUpdateHelper(private val activity: Activity) {
                         }
                     } else {
                         Log.d(TAG, "App is on the latest version ($currentVersionCode)")
+                        dismissUpdateNotification(activity)
                         if (manualCheck) {
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(activity, "OurBloom is up to date (v${getCurrentVersionName()}) 🌸", Toast.LENGTH_SHORT).show()
@@ -437,7 +448,20 @@ class AppUpdateHelper(private val activity: Activity) {
 
         btnLater.visibility = if (info.forceUpdate) View.GONE else View.VISIBLE
         btnLater.setOnClickListener {
+            val prefs = activity.getSharedPreferences("ourbloom_update_prefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putLong("dismissed_version_code", info.versionCode.toLong())
+                .putLong("dismissed_time", System.currentTimeMillis())
+                .apply()
             dialog.dismiss()
+        }
+
+        dialog.setOnCancelListener {
+            val prefs = activity.getSharedPreferences("ourbloom_update_prefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putLong("dismissed_version_code", info.versionCode.toLong())
+                .putLong("dismissed_time", System.currentTimeMillis())
+                .apply()
         }
 
         btnInstall.setOnClickListener {
@@ -487,8 +511,16 @@ class AppUpdateHelper(private val activity: Activity) {
                 val tempFile = File(updatesDir, "OurBloom_download.tmp")
                 val destinationFile = File(updatesDir, "OurBloom_v${info.versionCode}.apk")
 
+                val cacheBusterUrl = if (info.apkUrl.contains("?")) {
+                    "${info.apkUrl}&t=${System.currentTimeMillis()}"
+                } else {
+                    "${info.apkUrl}?t=${System.currentTimeMillis()}"
+                }
+
                 val request = Request.Builder()
-                    .url(info.apkUrl)
+                    .url(cacheBusterUrl)
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
                     .build()
 
                 val call = client.newCall(request)
@@ -582,6 +614,19 @@ class AppUpdateHelper(private val activity: Activity) {
     private fun promptInstall(apkFile: File) {
         if (!apkFile.exists()) {
             Toast.makeText(activity, "Update package file not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val pInfo = activity.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+        val apkVersionCode = if (pInfo != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pInfo.longVersionCode else @Suppress("DEPRECATION") pInfo.versionCode.toLong()
+        } else null
+
+        if (apkVersionCode != null && apkVersionCode <= getCurrentVersionCode()) {
+            Log.w(TAG, "Downloaded APK versionCode ($apkVersionCode) <= current (${getCurrentVersionCode()})! Stale cache.")
+            Toast.makeText(activity, "Installed version is already up to date (v${getCurrentVersionName()}) 🌸", Toast.LENGTH_LONG).show()
+            dismissUpdateNotification(activity)
+            apkFile.delete()
             return
         }
 

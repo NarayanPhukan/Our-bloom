@@ -95,10 +95,36 @@
 
     const configuration = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
-      ]
+        {
+          urls: [
+            'stun:stun.l.google.com:19302',
+            'stun:stun1.l.google.com:19302',
+            'stun:stun2.l.google.com:19302',
+            'stun:stun3.l.google.com:19302',
+            'stun:stun4.l.google.com:19302',
+            'stun:stun.relay.metered.ca:80'
+          ]
+        },
+        {
+          urls: [
+            'turn:openrelay.metered.ca:80',
+            'turn:openrelay.metered.ca:443',
+            'turn:openrelay.metered.ca:443?transport=tcp'
+          ],
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: [
+            'turns:openrelay.metered.ca:443?transport=tcp'
+          ],
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ],
+      iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require'
     };
 
     const localVideo = document.getElementById('localVideo');
@@ -215,20 +241,36 @@
           }
           bridgeCall('onCallConnected');
         } else if (state === 'disconnected') {
-          // Debounce 6 seconds to allow ICE recovery on momentary packet hiccup/network handoff
+          console.log("ICE disconnected, attempting recovery...");
+          if (peerConnection && typeof peerConnection.restartIce === 'function') {
+            try {
+              peerConnection.restartIce();
+            } catch (e) {
+              console.warn("restartIce note:", e);
+            }
+          }
+          // Debounce 12 seconds to allow ICE recovery / TURN failover on network handoff
           if (!iceDisconnectTimer) {
             iceDisconnectTimer = setTimeout(() => {
-              if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
+              if (peerConnection && (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed')) {
                 bridgeCall('onCallDisconnected', 'ICE disconnected');
               }
-            }, 6000);
+            }, 12000);
           }
         } else if (state === 'failed') {
-          if (iceDisconnectTimer) {
-            clearTimeout(iceDisconnectTimer);
-            iceDisconnectTimer = null;
+          console.log("ICE failed, attempting restartIce before disconnect...");
+          if (peerConnection && typeof peerConnection.restartIce === 'function') {
+            try {
+              peerConnection.restartIce();
+            } catch (e) {}
           }
-          bridgeCall('onCallDisconnected', 'ICE failed');
+          if (!iceDisconnectTimer) {
+            iceDisconnectTimer = setTimeout(() => {
+              if (peerConnection && peerConnection.iceConnectionState === 'failed') {
+                bridgeCall('onCallDisconnected', 'ICE failed');
+              }
+            }, 8000);
+          }
         }
       };
 

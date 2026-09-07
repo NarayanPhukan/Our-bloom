@@ -69,16 +69,27 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
       const isVideoCall = data.type === 'video_call';
       const channelId = isHeartbeat 
         ? 'ourbloom_heartbeat_channel' 
-        : (isChat ? 'ourbloom_chat_channel' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
+        : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
 
       const message = {
+        notification: {
+          title: String(title),
+          body: String(body)
+        },
         data: {
           title: String(title),
           body: String(body),
           ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
         },
         android: {
-          priority: 'high'
+          priority: 'high',
+          notification: {
+            channelId: channelId,
+            priority: 'max',
+            visibility: 'public',
+            defaultSound: true,
+            defaultVibrateTimings: true
+          }
         },
         token: userDoc.data().fcmToken
       };

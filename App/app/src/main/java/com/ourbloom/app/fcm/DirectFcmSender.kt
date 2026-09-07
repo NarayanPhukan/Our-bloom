@@ -194,6 +194,23 @@ object DirectFcmSender {
                 val msg = JSONObject().apply {
                     put("token", token)
 
+                    val type = data["type"]
+                    val isCall = type == "video_call"
+                    val isHeartbeat = type == "heartbeat"
+                    val channelId = when {
+                        isCall -> "ourbloom_call_channel"
+                        isHeartbeat -> "ourbloom_heartbeat_channel"
+                        else -> "ourbloom_chat_heads_up_v3"
+                    }
+
+                    // Top-level notification block: Guarantees Google Play Services displays
+                    // the notification directly on Android status bar even if the app process is closed/killed/in Doze
+                    val notifObj = JSONObject().apply {
+                        put("title", title)
+                        put("body", body)
+                    }
+                    put("notification", notifObj)
+
                     val dataObj = JSONObject().apply {
                         put("title", title)
                         put("body", body)
@@ -203,6 +220,14 @@ object DirectFcmSender {
 
                     val androidObj = JSONObject().apply {
                         put("priority", "HIGH")
+                        val androidNotif = JSONObject().apply {
+                            put("channel_id", channelId)
+                            put("notification_priority", "PRIORITY_MAX")
+                            put("visibility", "PUBLIC")
+                            put("default_sound", true)
+                            put("default_vibrate_timings", true)
+                        }
+                        put("notification", androidNotif)
                     }
                     put("android", androidObj)
                 }

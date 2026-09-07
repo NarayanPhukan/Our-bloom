@@ -85,6 +85,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     com.ourbloom.app.updates.AppUpdateHelper.showUpdateNotification(this@MyFirebaseMessagingService, updateInfo)
                 } else {
                     Log.d(TAG, "Ignoring FCM update push: payloadCode $payloadCode <= currentCode $currentCode")
+                    com.ourbloom.app.updates.AppUpdateHelper.dismissUpdateNotification(this@MyFirebaseMessagingService)
                 }
                 return
             }
@@ -100,6 +101,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     if (updateInfo != null) {
                         if (updateInfo.versionCode > currentCode) {
                             com.ourbloom.app.updates.AppUpdateHelper.showUpdateNotification(this@MyFirebaseMessagingService, updateInfo)
+                        } else {
+                            com.ourbloom.app.updates.AppUpdateHelper.dismissUpdateNotification(this@MyFirebaseMessagingService)
                         }
                     }
                 } catch (e: Exception) {
@@ -151,28 +154,26 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val messageId = remoteMessage.data["messageId"] ?: ""
 
         if (isChat) {
-            // 1. ALWAYS mark delivered FIRST!
-            // When FCM reaches this device, the message has officially reached the partner's physical phone.
-            // Hold the FCM wakelock with runBlocking + timeout to guarantee Firestore commits the status.
-            if (messageId.isNotBlank()) {
-                kotlinx.coroutines.runBlocking {
-                    kotlinx.coroutines.withTimeoutOrNull(4000L) {
-                        try {
-                            FirestoreRepository().markSingleMessageDelivered(messageId)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error marking single message $messageId delivered from FCM", e)
-                        }
-                    }
+            // 1. Check if notifications for this couple are muted
+            if (coupleId.isNotBlank()) {
+                val prefs = getSharedPreferences("ourbloom_notif_prefs", Context.MODE_PRIVATE)
+                val muteUntil = prefs.getLong("mute_until_${coupleId}", 0L)
+                if (System.currentTimeMillis() < muteUntil) {
+                    Log.d(TAG, "Chat notifications are muted for couple $coupleId")
+                    return
                 }
-            } else if (coupleId.isNotBlank() && senderId.isNotBlank()) {
-                kotlinx.coroutines.runBlocking {
-                    kotlinx.coroutines.withTimeoutOrNull(4000L) {
-                        try {
-                            FirestoreRepository().markRecentMessagesDelivered(coupleId, senderId)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error marking recent messages delivered from FCM", e)
-                        }
+            }
+
+            // 2. Mark delivered asynchronously in background (zero UI/notification delay)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    if (messageId.isNotBlank()) {
+                        FirestoreRepository().markSingleMessageDelivered(messageId)
+                    } else if (coupleId.isNotBlank() && senderId.isNotBlank()) {
+                        FirestoreRepository().markRecentMessagesDelivered(coupleId, senderId)
                     }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Async mark delivered error: ${e.message}")
                 }
             }
 
@@ -413,7 +414,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_favorite)
             .setContentTitle(title)
             .setContentText(messageBody)
             .setAutoCancel(true)

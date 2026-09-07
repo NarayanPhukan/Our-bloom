@@ -27,6 +27,8 @@ class AppUpdateWorker(
                 if (updateInfo.versionCode > currentCode) {
                     Log.i(TAG, "New version found (v${updateInfo.versionName}), posting status bar update notification")
                     AppUpdateHelper.showUpdateNotification(appContext, updateInfo)
+                } else {
+                    AppUpdateHelper.dismissUpdateNotification(appContext)
                 }
             }
             Result.success()

@@ -101,6 +101,8 @@ class VideoCallActivity : AppCompatActivity() {
     private var callStartTime: Long = 0L
     private var hasPostedCallRecord: Boolean = false
     private var hasHandledAnswer: Boolean = false
+    private var hasHandledOffer: Boolean = false
+    private var pendingOfferSdp: String? = null
     private val processedCandidates = java.util.Collections.synchronizedSet(HashSet<String>())
 
     private lateinit var webView: WebView
@@ -210,6 +212,33 @@ class VideoCallActivity : AppCompatActivity() {
             )
             // Clean slate: completely overwrite any previous call's document
             db.collection("video_calls").document(coupleId).set(initData)
+
+            // Dispatch instant call wake-up push immediately so partner's device starts ringing without waiting for camera warm-up
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val partnerToken = FirestoreRepository().getPartnerFcmToken(coupleId, currentUid)
+                    if (!partnerToken.isNullOrBlank()) {
+                        val callerName = auth.currentUser?.displayName ?: "Your Partner"
+                        val callerAvatar = auth.currentUser?.photoUrl?.toString() ?: ""
+                        DirectFcmSender.sendPush(
+                            context = this@VideoCallActivity,
+                            token = partnerToken,
+                            title = callerName,
+                            body = "Incoming Video Call 📹",
+                            data = mapOf(
+                                "type" to "video_call",
+                                "coupleId" to coupleId,
+                                "callerId" to currentUid,
+                                "callerName" to callerName,
+                                "callerAvatar" to callerAvatar
+                            )
+                        )
+                        Log.d(TAG, "Early call wake-up FCM dispatched in onCreate")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Early call wake-up note: ${e.message}")
+                }
+            }
         }
 
         listenCallSignaling()
@@ -861,6 +890,20 @@ class VideoCallActivity : AppCompatActivity() {
                     }
                 }
             } else {
+                // Receiver side: check for offer update from caller if not yet handled
+                val offerJson = snapshot.getString("offer")
+                if (!offerJson.isNullOrBlank() && !hasHandledOffer && !isCallConnected) {
+                    if (isCameraReady) {
+                        hasHandledOffer = true
+                        val encoded = Uri.encode(offerJson)
+                        webView.evaluateJavascript("handleOffer('$encoded')", null)
+                        Log.d(TAG, "Receiver received offer via live Firestore update and triggered handleOffer")
+                    } else {
+                        pendingOfferSdp = offerJson
+                        Log.d(TAG, "Receiver cached offer from live Firestore update, waiting for onCameraReady")
+                    }
+                }
+
                 // Receiver side: process ICE candidates from caller (deduplicated)
                 val callerCandidates = snapshot.get("callerCandidates") as? List<*>
                 callerCandidates?.forEach { cand ->
@@ -885,15 +928,20 @@ class VideoCallActivity : AppCompatActivity() {
     }
 
     private fun handleReceiverOfferFlow() {
+        if (hasHandledOffer) return
         Log.d(TAG, "Starting receiver offer flow...")
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val snapshot = db.collection("video_calls").document(coupleId).get().await()
-                val offerJson = initialOfferSdp ?: snapshot?.getString("offer")
-                if (!offerJson.isNullOrBlank()) {
+                val offerJson = initialOfferSdp?.takeIf { it.isNotBlank() }
+                    ?: pendingOfferSdp?.takeIf { it.isNotBlank() }
+                    ?: snapshot?.getString("offer")
+                if (!offerJson.isNullOrBlank() && !hasHandledOffer) {
+                    hasHandledOffer = true
                     withContext(Dispatchers.Main) {
                         val encoded = Uri.encode(offerJson)
                         webView.evaluateJavascript("handleOffer('$encoded')", null)
+                        Log.d(TAG, "Receiver handled offer successfully in handleReceiverOfferFlow")
                     }
                 }
             } catch (e: Exception) {
@@ -1032,7 +1080,15 @@ class VideoCallActivity : AppCompatActivity() {
                 if (isCaller) {
                     startCallOfferFlow()
                 } else {
-                    handleReceiverOfferFlow()
+                    if (!pendingOfferSdp.isNullOrBlank() && !hasHandledOffer) {
+                        hasHandledOffer = true
+                        val encoded = Uri.encode(pendingOfferSdp!!)
+                        webView.evaluateJavascript("handleOffer('$encoded')", null)
+                        pendingOfferSdp = null
+                        Log.d(TAG, "Receiver dispatched cached pending offer on camera ready")
+                    } else {
+                        handleReceiverOfferFlow()
+                    }
                 }
             }
         }

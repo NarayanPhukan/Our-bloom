@@ -60,18 +60,47 @@ class FirestoreRepository {
                 val coupleDoc = db.collection("couples").document(coupleId).get().await()
                 val u1 = coupleDoc.getString("user1") ?: ""
                 val u2 = coupleDoc.getString("user2") ?: ""
-                partnerUid = if (currentUid == u1) u2 else u1
+                partnerUid = if (currentUid == u1) u2 else (if (currentUid == u2) u1 else u2)
                 if (partnerUid.isNotBlank()) {
                     cachedPartnerUid = partnerUid
                 }
             }
 
             if (!partnerUid.isNullOrBlank()) {
+                // Try 1: Direct document lookup by partnerUid
                 val userDoc = db.collection("users").document(partnerUid).get().await()
-                val token = userDoc.getString("fcmToken")
+                var token = userDoc.getString("fcmToken")
+
+                // Try 2: Query users where uid == partnerUid
+                if (token.isNullOrBlank()) {
+                    val qUid = db.collection("users").whereEqualTo("uid", partnerUid).get().await()
+                    token = qUid.documents.firstOrNull()?.getString("fcmToken")
+                }
+
+                // Try 3: Query users where _id == partnerUid
+                if (token.isNullOrBlank()) {
+                    val qId = db.collection("users").whereEqualTo("_id", partnerUid).get().await()
+                    token = qId.documents.firstOrNull()?.getString("fcmToken")
+                }
+
+                // Try 4: Query users by coupleId if partnerUid was missing or unmapped
+                if (token.isNullOrBlank()) {
+                    val qCouple = db.collection("users").whereEqualTo("coupleId", coupleId).get().await()
+                    for (doc in qCouple.documents) {
+                        if (doc.id != currentUid && doc.getString("uid") != currentUid) {
+                            val candToken = doc.getString("fcmToken")
+                            if (!candToken.isNullOrBlank()) {
+                                token = candToken
+                                break
+                            }
+                        }
+                    }
+                }
+
                 if (!token.isNullOrBlank()) {
                     cachedPartnerFcmToken = token
                     lastTokenFetchTime = now
+                    Log.d("FirestoreRepo", "Resolved partner FCM token for partner $partnerUid")
                     return token
                 }
             }
@@ -215,11 +244,36 @@ class FirestoreRepository {
     suspend fun updateFcmToken(token: String) {
         val fbUser = auth.currentUser ?: return
         try {
+            // 1. Primary write to users/{uid}
             db.collection("users").document(fbUser.uid).set(
-                mapOf("fcmToken" to token),
+                mapOf(
+                    "fcmToken" to token,
+                    "fcmUpdatedAt" to System.currentTimeMillis()
+                ),
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
             Log.d("FirestoreRepo", "Updated FCM token for ${fbUser.uid}")
+
+            // 2. Also sync to any doc matching email to bridge MongoDB legacy ID records
+            val email = fbUser.email?.trim()?.lowercase()
+            if (!email.isNullOrBlank()) {
+                val emailMatches = db.collection("users")
+                    .whereEqualTo("email", email)
+                    .get()
+                    .await()
+                for (doc in emailMatches.documents) {
+                    if (doc.id != fbUser.uid) {
+                        doc.reference.set(
+                            mapOf(
+                                "fcmToken" to token,
+                                "fcmUpdatedAt" to System.currentTimeMillis()
+                            ),
+                            com.google.firebase.firestore.SetOptions.merge()
+                        ).await()
+                        Log.d("FirestoreRepo", "Synced FCM token to matching email doc ${doc.id}")
+                    }
+                }
+            }
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error updating FCM token", e)
         }
