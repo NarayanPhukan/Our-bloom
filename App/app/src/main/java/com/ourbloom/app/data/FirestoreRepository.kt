@@ -16,11 +16,14 @@ import com.ourbloom.app.data.models.User
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import com.ourbloom.app.util.ErrorReporter
@@ -168,7 +171,11 @@ class FirestoreRepository {
     suspend fun updateFcmToken(token: String) {
         val fbUser = auth.currentUser ?: return
         try {
-            db.collection("users").document(fbUser.uid).update("fcmToken", token).await()
+            db.collection("users").document(fbUser.uid).set(
+                mapOf("fcmToken" to token),
+                com.google.firebase.firestore.SetOptions.merge()
+            ).await()
+            Log.d("FirestoreRepo", "Updated FCM token for ${fbUser.uid}")
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error updating FCM token", e)
         }
@@ -684,7 +691,37 @@ class FirestoreRepository {
                 "replyToImageUrl" to (replyToImageUrl ?: ""),
                 "deletedFor" to emptyList<String>()
             )
-            db.collection("chat_messages").add(messageData).await()
+            val docRef = db.collection("chat_messages").add(messageData).await()
+
+            // Asynchronously notify backend to wake up Render & guarantee immediate push dispatch
+            try {
+                val url = "$baseUrl/api/chat/notify"
+                val json = JSONObject().apply {
+                    put("coupleId", coupleId)
+                    put("senderId", uid)
+                    put("senderName", senderName)
+                    put("messageId", docRef.id)
+                    put("text", text)
+                    put("imageUrl", imageUrl ?: "")
+                    put("audioUrl", audioUrl ?: "")
+                }
+                val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url(url)
+                    .post(body)
+                    .build()
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: java.io.IOException) {
+                        Log.d("FirestoreRepo", "Chat notify ping: ${e.message}")
+                    }
+                    override fun onResponse(call: Call, response: Response) {
+                        response.close()
+                    }
+                })
+            } catch (e: Exception) {
+                Log.d("FirestoreRepo", "Chat notify ping setup: ${e.message}")
+            }
+
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error sending chat message", e)
@@ -837,6 +874,39 @@ class FirestoreRepository {
             }
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error marking messages from sender delivered", e)
+        }
+    }
+
+    suspend fun markRecentMessagesDelivered(coupleId: String, senderId: String) {
+        if (coupleId.isBlank() || senderId.isBlank()) return
+        try {
+            val snapshot = db.collection("chat_messages")
+                .whereEqualTo("coupleId", coupleId)
+                .whereEqualTo("senderId", senderId)
+                .limit(10)
+                .get()
+                .await()
+
+            val toUpdate = snapshot.documents.filter { doc ->
+                val isDelivered = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
+                !isDelivered
+            }
+
+            if (toUpdate.isNotEmpty()) {
+                val batch = db.batch()
+                val now = System.currentTimeMillis()
+                toUpdate.forEach { doc ->
+                    batch.update(doc.reference, mapOf(
+                        "isDelivered" to true,
+                        "delivered" to true,
+                        "deliveredAt" to now
+                    ))
+                }
+                batch.commit().await()
+                Log.d("FirestoreRepo", "Marked ${toUpdate.size} recent messages delivered")
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error marking recent messages delivered", e)
         }
     }
 

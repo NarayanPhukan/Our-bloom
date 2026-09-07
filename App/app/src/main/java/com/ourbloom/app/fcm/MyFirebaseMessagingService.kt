@@ -151,7 +151,32 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val messageId = remoteMessage.data["messageId"] ?: ""
 
         if (isChat) {
-            // Check if notifications for this couple are muted
+            // 1. ALWAYS mark delivered FIRST!
+            // When FCM reaches this device, the message has officially reached the partner's physical phone.
+            // Hold the FCM wakelock with runBlocking + timeout to guarantee Firestore commits the status.
+            if (messageId.isNotBlank()) {
+                kotlinx.coroutines.runBlocking {
+                    kotlinx.coroutines.withTimeoutOrNull(4000L) {
+                        try {
+                            FirestoreRepository().markSingleMessageDelivered(messageId)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error marking single message $messageId delivered from FCM", e)
+                        }
+                    }
+                }
+            } else if (coupleId.isNotBlank() && senderId.isNotBlank()) {
+                kotlinx.coroutines.runBlocking {
+                    kotlinx.coroutines.withTimeoutOrNull(4000L) {
+                        try {
+                            FirestoreRepository().markRecentMessagesDelivered(coupleId, senderId)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error marking recent messages delivered from FCM", e)
+                        }
+                    }
+                }
+            }
+
+            // 2. Check if notifications for this couple are muted
             if (coupleId.isNotBlank()) {
                 val prefs = getSharedPreferences("ourbloom_notif_prefs", Context.MODE_PRIVATE)
                 val muteUntil = prefs.getLong("mute_until_${coupleId}", 0L)
@@ -161,26 +186,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
             }
 
-            // If user is actively reading or typing in ChatFragment, skip floating banner to avoid interruption
+            // 3. If user is actively reading or typing in ChatFragment, skip floating banner to avoid interruption
             if (com.ourbloom.app.chat.ChatFragment.isChatVisible) {
                 Log.d(TAG, "User currently in ChatFragment; skipping pop-up notification")
                 return
-            }
-
-            if (coupleId.isNotBlank()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val repository = FirestoreRepository()
-                        if (messageId.isNotBlank()) {
-                            repository.markSingleMessageDelivered(messageId)
-                        }
-                        if (senderId.isNotBlank()) {
-                            repository.markMessagesFromSenderDelivered(coupleId, senderId)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error marking messages delivered from FCM", e)
-                    }
-                }
             }
         }
 

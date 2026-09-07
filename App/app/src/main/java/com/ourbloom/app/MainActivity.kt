@@ -3,6 +3,7 @@ package com.ourbloom.app
 import android.os.Bundle
 import android.util.Log
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.view.View
@@ -72,10 +73,33 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         setupBackgroundWorkers()
         fetchAndSaveFcmToken()
+        promptIgnoreBatteryOptimizationIfNeeded()
 
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
             if (auth.currentUser != null) {
                 fetchAndSaveFcmToken()
+            }
+        }
+    }
+
+    private fun promptIgnoreBatteryOptimizationIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                val pkgName = packageName
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(pkgName)) {
+                    val prefs = getSharedPreferences("ourbloom_system_prefs", Context.MODE_PRIVATE)
+                    val hasPrompted = prefs.getBoolean("battery_optimization_prompted", false)
+                    if (!hasPrompted) {
+                        prefs.edit().putBoolean("battery_optimization_prompted", true).apply()
+                        val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = android.net.Uri.parse("package:$pkgName")
+                        }
+                        startActivity(intent)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Battery optimization prompt error: ${e.message}")
             }
         }
     }

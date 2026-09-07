@@ -1,8 +1,8 @@
 {
-  "versionCode": 26,
-  "versionName": "1.25",
+  "versionCode": 28,
+  "versionName": "1.27",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix video call audio crackles & optimal Opus WebRTC settings\n• Fix call termination infinite loop & toast queue flooding\n• Enhance VoIP audio focus retention and Bluetooth audio routing",
+  "changelog": "• WhatsApp-smooth message delivery: instant double ticks when recipient is in background or watching Reels\n• Full-screen incoming video call ringing with ringtone, vibration & decline action\n• Multi-image selection & fast concurrent sending in chat\n• Backend push keep-alive & battery optimization exemption support",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

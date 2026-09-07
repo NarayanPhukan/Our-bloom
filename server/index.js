@@ -106,24 +106,27 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
 
 const coupleAnthems = new Map();
 
+const notifyPartner = async (coupleId, authorUid, title, body, data = {}) => {
+  if (!db) return false;
+  try {
+    const coupleDoc = await db.collection('couples').doc(coupleId).get();
+    if (coupleDoc.exists) {
+      const { user1, user2 } = coupleDoc.data();
+      const partner = authorUid === user1 ? user2 : (authorUid === user2 ? user1 : user2);
+      if (partner) {
+        await sendPushNotification(partner, title, body, data);
+        return true;
+      }
+    }
+  } catch (e) {
+    console.error('Error notifying partner', e);
+  }
+  return false;
+};
+
 const setupFirestoreListeners = () => {
   if (!db) return;
   console.log('✿ Setting up Firestore real-time listeners for push notifications...');
-
-  const notifyPartner = async (coupleId, authorUid, title, body, data = {}) => {
-    try {
-      const coupleDoc = await db.collection('couples').doc(coupleId).get();
-      if (coupleDoc.exists) {
-        const { user1, user2 } = coupleDoc.data();
-        const partner = authorUid === user1 ? user2 : (authorUid === user2 ? user1 : user2);
-        if (partner) {
-          sendPushNotification(partner, title, body, data);
-        }
-      }
-    } catch (e) {
-      console.error('Error notifying partner', e);
-    }
-  };
 
   db.collection('heartbeats').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
@@ -347,6 +350,47 @@ app.use('/api/couples/:slug/love-notes', authMiddleware, coupleMiddleware, loveN
 app.use('/api/couples/:slug/memories', authMiddleware, coupleMiddleware, memoryRoutes);
 app.use('/api/couples/:slug/dream-locations', authMiddleware, coupleMiddleware, dreamLocationRoutes);
 app.use('/api/couples/:slug/settings', authMiddleware, coupleMiddleware, settingsRoutes);
+
+// Instant chat push notification endpoint (wakes up Render & guarantees real-time FCM dispatch)
+app.post('/api/chat/notify', async (req, res) => {
+  try {
+    const { coupleId, senderId, senderName, messageId, text, imageUrl, audioUrl } = req.body;
+    if (!coupleId) {
+      return res.status(400).json({ error: 'coupleId required' });
+    }
+
+    let bodyText = 'New message';
+    if (text && text.trim().length > 0) {
+      bodyText = text.trim();
+    } else if (imageUrl) {
+      bodyText = '📷 Photo';
+    } else if (audioUrl) {
+      bodyText = '🎙️ Voice message';
+    }
+
+    const sender = senderName || 'Your Love';
+    await notifyPartner(
+      coupleId,
+      senderId || '',
+      sender,
+      bodyText,
+      {
+        type: 'chat',
+        senderName: sender,
+        messageText: text || '',
+        imageUrl: imageUrl || '',
+        audioUrl: audioUrl || '',
+        messageId: messageId || '',
+        coupleId: coupleId,
+        senderId: senderId || ''
+      }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('✿ Error in /api/chat/notify:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // App update manifest endpoint
 app.get('/api/app-update', (req, res) => {
