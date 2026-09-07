@@ -17,6 +17,7 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     @get:PropertyName("isRead") @set:PropertyName("isRead") var isRead: Boolean = false,
     @get:PropertyName("isDelivered") @set:PropertyName("isDelivered") var isDelivered: Boolean = false,
+    @get:PropertyName("isPending") @set:PropertyName("isPending") var isPending: Boolean = false,
     val replyToId: String? = null,
     val replyToText: String? = null,
     val replyToSenderName: String? = null,

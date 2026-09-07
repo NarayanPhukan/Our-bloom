@@ -293,10 +293,11 @@ class AppUpdateHelper(private val activity: Activity) {
                     Log.d(TAG, "Current versionCode=$currentVersionCode, Remote versionCode=${updateInfo.versionCode}")
 
                     if (updateInfo.versionCode > currentVersionCode) {
-                        showUpdateNotification(activity, updateInfo)
                         withContext(Dispatchers.Main) {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 showUpdatePrompt(updateInfo)
+                            } else {
+                                showUpdateNotification(activity, updateInfo)
                             }
                         }
                     } else {

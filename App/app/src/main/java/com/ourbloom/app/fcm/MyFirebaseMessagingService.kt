@@ -217,6 +217,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
+        val msgTimestamp = remoteMessage.sentTime.takeIf { it > 0 } ?: System.currentTimeMillis()
         sendNotification(
             title = title,
             messageBody = body,
@@ -224,7 +225,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             isChat = isChat,
             coupleId = coupleId,
             senderId = senderId,
-            messageId = messageId
+            messageId = messageId,
+            timestamp = msgTimestamp
         )
     }
 
@@ -347,7 +349,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         isChat: Boolean,
         coupleId: String = "",
         senderId: String = "",
-        messageId: String = ""
+        messageId: String = "",
+        timestamp: Long = System.currentTimeMillis()
     ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -403,7 +406,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        val notifId = if (isHeartbeat) 8888 else (System.currentTimeMillis() % 100000).toInt() + 1000
+        val notifId = when {
+            isHeartbeat -> 8888
+            isChat -> if (coupleId.isNotBlank()) kotlin.math.abs(coupleId.hashCode()) % 50000 + 10000 else 4042
+            else -> (System.currentTimeMillis() % 100000).toInt() + 1000
+        }
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -422,26 +429,41 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setOnlyAlertOnce(false)
 
         if (isChat) {
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
             val avatarBitmap = createCircularAvatar(title)
             notificationBuilder.setLargeIcon(avatarBitmap)
 
             val avatarIcon = IconCompat.createWithBitmap(avatarBitmap)
-            val senderPerson = Person.Builder()
-                .setName(title)
-                .setIcon(avatarIcon)
-                .setKey(senderId.ifBlank { title })
-                .build()
-
             val mePerson = Person.Builder()
                 .setName("Me")
+                .setKey(currentUid.ifBlank { "me" })
                 .build()
+
+            val history = appendMessageToHistory(
+                context = this,
+                coupleId = coupleId,
+                text = messageBody,
+                timestamp = timestamp,
+                senderName = title,
+                senderId = senderId
+            )
 
             val messagingStyle = NotificationCompat.MessagingStyle(mePerson)
                 .setConversationTitle(null)
-                .addMessage(messageBody, System.currentTimeMillis(), senderPerson)
-            notificationBuilder.setStyle(messagingStyle)
 
-            val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            for (msg in history) {
+                val senderPerson = Person.Builder()
+                    .setName(msg.senderName)
+                    .setIcon(avatarIcon)
+                    .setKey(msg.senderId.ifBlank { msg.senderName })
+                    .build()
+                messagingStyle.addMessage(msg.text, msg.timestamp, senderPerson)
+            }
+
+            notificationBuilder.setStyle(messagingStyle)
+            if (coupleId.isNotBlank()) {
+                notificationBuilder.setGroup("ourbloom_chat_group_${coupleId}")
+            }
 
             // 1. WhatsApp Action: Reply (with RemoteInput for inline quick reply)
             val remoteInput = RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT_REPLY)
@@ -529,6 +551,19 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 .setShowsUserInterface(false)
                 .build()
 
+            val deleteIntent = Intent(this, NotificationActionReceiver::class.java).apply {
+                action = NotificationActionReceiver.ACTION_DISMISS
+                putExtra("coupleId", coupleId)
+                putExtra("notificationId", notifId)
+            }
+            val deletePendingIntent = PendingIntent.getBroadcast(
+                this,
+                notifId * 10 + 4,
+                deleteIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            notificationBuilder.setDeleteIntent(deletePendingIntent)
+
             notificationBuilder.addAction(replyAction)
             notificationBuilder.addAction(markReadAction)
             notificationBuilder.addAction(muteAction)
@@ -584,6 +619,89 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val CHAT_CHANNEL_ID = "ourbloom_chat_heads_up_v3"
         private const val PREFS_NOTIFS = "ourbloom_active_chat_notifs"
         private const val KEY_ACTIVE_CHAT_IDS = "active_chat_notif_ids"
+        private const val PREFS_CONV_HISTORY = "ourbloom_conv_history"
+        private const val MAX_HISTORY_MESSAGES = 15
+
+        data class StoredNotifMessage(
+            val text: String,
+            val timestamp: Long,
+            val senderName: String,
+            val senderId: String
+        )
+
+        fun appendMessageToHistory(
+            context: Context,
+            coupleId: String,
+            text: String,
+            timestamp: Long,
+            senderName: String,
+            senderId: String
+        ): List<StoredNotifMessage> {
+            if (coupleId.isBlank()) {
+                return listOf(StoredNotifMessage(text, timestamp, senderName, senderId))
+            }
+            val prefs = context.getSharedPreferences(PREFS_CONV_HISTORY, Context.MODE_PRIVATE)
+            val key = "history_$coupleId"
+            val raw = prefs.getString(key, null)
+            val list = mutableListOf<StoredNotifMessage>()
+            if (!raw.isNullOrBlank()) {
+                try {
+                    val array = org.json.JSONArray(raw)
+                    for (i in 0 until array.length()) {
+                        val obj = array.getJSONObject(i)
+                        list.add(
+                            StoredNotifMessage(
+                                text = obj.optString("text"),
+                                timestamp = obj.optLong("time", System.currentTimeMillis()),
+                                senderName = obj.optString("sender"),
+                                senderId = obj.optString("senderId")
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed parsing conv history", e)
+                }
+            }
+
+            list.add(StoredNotifMessage(text, timestamp, senderName, senderId))
+
+            val trimmed = if (list.size > MAX_HISTORY_MESSAGES) {
+                list.subList(list.size - MAX_HISTORY_MESSAGES, list.size)
+            } else {
+                list
+            }
+
+            try {
+                val array = org.json.JSONArray()
+                for (item in trimmed) {
+                    val obj = org.json.JSONObject().apply {
+                        put("text", item.text)
+                        put("time", item.timestamp)
+                        put("sender", item.senderName)
+                        put("senderId", item.senderId)
+                    }
+                    array.put(obj)
+                }
+                prefs.edit().putString(key, array.toString()).apply()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed saving conv history", e)
+            }
+
+            return trimmed
+        }
+
+        fun clearConversationHistory(context: Context, coupleId: String? = null) {
+            try {
+                val prefs = context.getSharedPreferences(PREFS_CONV_HISTORY, Context.MODE_PRIVATE)
+                if (!coupleId.isNullOrBlank()) {
+                    prefs.edit().remove("history_$coupleId").apply()
+                } else {
+                    prefs.edit().clear().apply()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed clearing conv history", e)
+            }
+        }
 
         fun recordChatNotificationId(context: Context, notifId: Int) {
             try {
@@ -598,6 +716,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         fun dismissChatNotifications(context: Context) {
             try {
+                clearConversationHistory(context)
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
                 // 1. API 23+: Query active notifications and cancel any matching TAG_CHAT or CHAT_CHANNEL_ID

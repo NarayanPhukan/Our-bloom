@@ -42,6 +42,7 @@ import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.User
 import com.ourbloom.app.dashboard.showChatImageLightbox
+import com.ourbloom.app.dashboard.showChatAlbumLightbox
 import com.ourbloom.app.util.ErrorReporter
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -536,6 +537,16 @@ class ChatFragment : Fragment() {
                 val timeStr = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(message.timestamp))
                 val senderLabel = if (message.senderId == currentUid) "You" else message.senderName.ifBlank { "My Love" }
                 showChatImageLightbox(url, senderLabel, timeStr)
+            }
+        }
+
+        chatAdapter.onAlbumImageClick = { albumMessages, clickedIndex ->
+            val urls = albumMessages.mapNotNull { it.imageUrl }.filter { it.isNotBlank() }
+            val initialMsg = albumMessages.getOrNull(clickedIndex) ?: albumMessages.firstOrNull()
+            if (urls.isNotEmpty() && initialMsg != null) {
+                val timeStr = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(initialMsg.timestamp))
+                val senderLabel = if (initialMsg.senderId == currentUid) "You" else initialMsg.senderName.ifBlank { "My Love" }
+                showChatAlbumLightbox(urls, clickedIndex.coerceIn(0, urls.size - 1), senderLabel, timeStr)
             }
         }
 
@@ -1134,10 +1145,13 @@ class ChatFragment : Fragment() {
             }
 
             // Pre-cache recent voice notes in background for instant 0ms playback
-            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-                messages.filter { !it.audioUrl.isNullOrBlank() }.takeLast(5).forEach { msg ->
-                    msg.audioUrl?.let { url ->
-                        AudioCacheManager.getOrDownloadAudio(requireContext().applicationContext, url)
+            val appContext = context?.applicationContext
+            if (appContext != null) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    messages.filter { !it.audioUrl.isNullOrBlank() }.takeLast(5).forEach { msg ->
+                        msg.audioUrl?.let { url ->
+                            AudioCacheManager.getOrDownloadAudio(appContext, url)
+                        }
                     }
                 }
             }
@@ -1390,12 +1404,13 @@ class ChatFragment : Fragment() {
             clearReplyMode()
 
             triggerSendHaptic()
+            val appContext = requireContext().applicationContext
             Toast.makeText(requireContext(), "Sending voice note...", Toast.LENGTH_SHORT).show()
             viewLifecycleOwner.lifecycleScope.launch {
                 val uploadedUrl = repository.uploadAudioFile(file)
                 if (!uploadedUrl.isNullOrBlank()) {
                     // Save to local cache so sender never has to stream it
-                    AudioCacheManager.saveToCache(requireContext().applicationContext, uploadedUrl, file)
+                    AudioCacheManager.saveToCache(appContext, uploadedUrl, file)
                     file.delete()
                     repository.sendChatMessage(
                         coupleId = coupleId,

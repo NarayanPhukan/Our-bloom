@@ -117,6 +117,150 @@
                 android:scaleType="centerCrop" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- WhatsApp-Style Multi-Photo Album Collage -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_chat_album"
+            android:layout_width="248dp"
+            android:layout_height="240dp"
+            android:layout_marginBottom="6dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:cardPreventCornerOverlap="false"
+            android:clipToOutline="true"
+            app:cardBackgroundColor="#26FFFFFF"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/layout_album_grid"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <!-- Left Column -->
+                <LinearLayout
+                    android:id="@+id/layout_album_col_left"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <!-- Slot 1 (Top-Left or Full-Left) -->
+                    <FrameLayout
+                        android:id="@+id/frame_album_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:id="@+id/iv_album_1"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop" />
+                    </FrameLayout>
+
+                    <View
+                        android:id="@+id/divider_album_left_h"
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:background="#33FFFFFF"
+                        android:visibility="gone" />
+
+                    <!-- Slot 3 (Bottom-Left: only visible in 4+ grid) -->
+                    <FrameLayout
+                        android:id="@+id/frame_album_3"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:id="@+id/iv_album_3"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop" />
+                    </FrameLayout>
+
+                </LinearLayout>
+
+                <!-- Vertical Center Divider -->
+                <View
+                    android:id="@+id/divider_album_v"
+                    android:layout_width="2dp"
+                    android:layout_height="match_parent"
+                    android:background="#33FFFFFF" />
+
+                <!-- Right Column -->
+                <LinearLayout
+                    android:id="@+id/layout_album_col_right"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <!-- Slot 2 (Top-Right or Full-Right) -->
+                    <FrameLayout
+                        android:id="@+id/frame_album_2"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:id="@+id/iv_album_2"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop" />
+                    </FrameLayout>
+
+                    <View
+                        android:id="@+id/divider_album_right_h"
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:background="#33FFFFFF"
+                        android:visibility="gone" />
+
+                    <!-- Slot 4 (Bottom-Right: visible in 3, 4, 5+ grid) -->
+                    <FrameLayout
+                        android:id="@+id/frame_album_4"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:id="@+id/iv_album_4"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop" />
+
+                        <!-- WhatsApp +N Overlay (for 5+ photos) -->
+                        <FrameLayout
+                            android:id="@+id/layout_album_overlay_more"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="#99000000"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tv_album_more_count"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="22sp"
+                                android:textStyle="bold"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="+2" />
+                        </FrameLayout>
+
+                    </FrameLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Audio Voice Note Player Container (WhatsApp / Telegram Waveform Style) -->
         <LinearLayout
             android:id="@+id/layout_chat_audio"

@@ -46,7 +46,15 @@ class ChatAdapter(
         private const val COLOR_TICK_DEFAULT = 0xFFE0E0E0.toInt() // Subtle grey/white
     }
 
-    private val messages = mutableListOf<ChatMessage>()
+    data class ChatGroupItem(
+        val message: ChatMessage,
+        val albumMessages: List<ChatMessage>? = null,
+        val isConsecutiveWithPrev: Boolean = false,
+        val isConsecutiveWithNext: Boolean = false
+    )
+
+    private val rawMessages = mutableListOf<ChatMessage>()
+    private val displayItems = mutableListOf<ChatGroupItem>()
     private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     var partnerAvatarUrl: String? = null
         set(value) {
@@ -64,22 +72,23 @@ class ChatAdapter(
         val oldHighlighted = highlightedMessageId
         highlightedMessageId = messageId
         if (oldHighlighted != null) {
-            val oldIdx = messages.indexOfFirst { it.id == oldHighlighted }
+            val oldIdx = getMessagePosition(oldHighlighted)
             if (oldIdx != -1) notifyItemChanged(oldIdx)
         }
-        val newIdx = messages.indexOfFirst { it.id == messageId }
+        val newIdx = getMessagePosition(messageId)
         if (newIdx != -1) {
             notifyItemChanged(newIdx)
             Handler(Looper.getMainLooper()).postDelayed({
                 if (highlightedMessageId == messageId) {
                     highlightedMessageId = null
-                    val idx = messages.indexOfFirst { it.id == messageId }
+                    val idx = getMessagePosition(messageId)
                     if (idx != -1) notifyItemChanged(idx)
                 }
             }, 1200)
         }
     }
 
+    var onAlbumImageClick: ((albumMessages: List<ChatMessage>, clickedIndex: Int) -> Unit)? = null
     var onMessageLongClick: ((ChatMessage) -> Unit)? = null
     var onMessageClick: ((ChatMessage) -> Unit)? = null
     var onQuoteClick: ((String) -> Unit)? = null
@@ -132,6 +141,17 @@ class ChatAdapter(
         super.onDetachedFromRecyclerView(recyclerView)
         releaseAudioPlayer()
         adapterScope.cancel()
+    }
+
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        super.onViewRecycled(holder)
+        val itemView = holder.itemView
+        if (itemView.findViewById<VoiceWaveformView>(R.id.waveform_audio) == activeWaveformView) {
+            activeWaveformView = null
+            activePlayButton = null
+            activeDurationText = null
+            activeSpeedText = null
+        }
     }
 
     private fun formatDuration(ms: Long): String {
@@ -273,18 +293,12 @@ class ChatAdapter(
             // Ensure this message is still the intended message to play
             if (playingMessageId != message.id) return@launch
 
-            if (localFile == null || !localFile.exists() || localFile.length() < 500) {
-                Toast.makeText(context, "Could not load voice note. Check connection.", Toast.LENGTH_SHORT).show()
-                onPlaybackFinished(message)
-                return@launch
-            }
-
             playBtn.alpha = 1.0f
             startMediaPlayer(context, message, localFile)
         }
     }
 
-    private fun startMediaPlayer(context: Context, message: ChatMessage, file: File) {
+    private fun startMediaPlayer(context: Context, message: ChatMessage, file: File?) {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
             audioManager?.mode = AudioManager.MODE_NORMAL
@@ -320,7 +334,30 @@ class ChatAdapter(
 
             val player = MediaPlayer().apply {
                 setAudioAttributes(audioAttributes)
-                setDataSource(file.absolutePath)
+                var dataSourceSet = false
+                if (file != null && file.exists() && file.length() > 500) {
+                    try {
+                        java.io.FileInputStream(file).use { fis ->
+                            setDataSource(fis.fd, 0, file.length())
+                        }
+                        dataSourceSet = true
+                    } catch (e: Exception) {
+                        Log.w("ChatAdapter", "FileDescriptor failed, attempting direct path fallback", e)
+                        try {
+                            setDataSource(file.absolutePath)
+                            dataSourceSet = true
+                        } catch (_: Exception) {}
+                    }
+                }
+                val rawAudioUrl = message.audioUrl
+                if (!dataSourceSet && !rawAudioUrl.isNullOrBlank()) {
+                    val streamUrl = AudioCacheManager.normalizeUrl(rawAudioUrl)
+                    setDataSource(streamUrl)
+                    dataSourceSet = true
+                }
+                if (!dataSourceSet) {
+                    throw IllegalStateException("No valid audio source found for voice note")
+                }
                 setOnPreparedListener { mp ->
                     if (playingMessageId != message.id) {
                         try { mp.release() } catch (_: Exception) {}
@@ -427,13 +464,33 @@ class ChatAdapter(
                     val seconds = currentPlaybackMs / 1000
                     tvAudioDuration?.text = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
                 } else {
-                    tvAudioDuration?.text = formatDuration(message.audioDurationMs ?: 0L)
+                    val ctx = tvAudioDuration?.context ?: ivPlayPause?.context ?: waveformAudio?.context
+                    val dur = if ((message.audioDurationMs ?: 0L) > 0L) {
+                        message.audioDurationMs ?: 0L
+                    } else if (ctx != null) {
+                        val extracted = AudioCacheManager.getAudioDurationMs(ctx, message.audioUrl ?: "")
+                        if (extracted > 0L) message.audioDurationMs = extracted
+                        extracted
+                    } else {
+                        0L
+                    }
+                    tvAudioDuration?.text = formatDuration(dur)
                 }
             } else {
                 ivPlayPause?.alpha = 1.0f
                 ivPlayPause?.setImageResource(R.drawable.ic_play_arrow)
                 waveformAudio?.progress = 0f
-                tvAudioDuration?.text = formatDuration(message.audioDurationMs ?: 0L)
+                val ctx = tvAudioDuration?.context ?: ivPlayPause?.context ?: waveformAudio?.context
+                val dur = if ((message.audioDurationMs ?: 0L) > 0L) {
+                    message.audioDurationMs ?: 0L
+                } else if (ctx != null) {
+                    val extracted = AudioCacheManager.getAudioDurationMs(ctx, message.audioUrl ?: "")
+                    if (extracted > 0L) message.audioDurationMs = extracted
+                    extracted
+                } else {
+                    0L
+                }
+                tvAudioDuration?.text = formatDuration(dur)
                 tvAudioSpeed?.text = "1x"
             }
 
@@ -475,9 +532,160 @@ class ChatAdapter(
         }
     }
 
+    private fun bindAlbumCollage(
+        album: List<ChatMessage>,
+        cardAlbum: View,
+        frame1: View, iv1: ImageView,
+        dividerLeftH: View,
+        frame3: View, iv3: ImageView,
+        dividerV: View,
+        frame2: View, iv2: ImageView,
+        dividerRightH: View,
+        frame4: View, iv4: ImageView,
+        overlayMore: View, tvMoreCount: TextView,
+        longClickListener: View.OnLongClickListener
+    ) {
+        cardAlbum.visibility = View.VISIBLE
+        dividerV.visibility = View.VISIBLE
+
+        val onSlotClick = { index: Int ->
+            if (selectedMessageId != null) {
+                onMessageClick?.invoke(album[0])
+            } else {
+                onAlbumImageClick?.invoke(album, index)
+            }
+        }
+
+        fun loadSlot(iv: ImageView, msg: ChatMessage, index: Int, frame: View) {
+            frame.visibility = View.VISIBLE
+            Glide.with(iv.context)
+                .load(msg.imageUrl)
+                .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                .placeholder(R.drawable.placeholder_memory)
+                .error(R.drawable.placeholder_memory)
+                .centerCrop()
+                .into(iv)
+
+            frame.setOnClickListener { onSlotClick(index) }
+            frame.setOnLongClickListener(longClickListener)
+            iv.setOnClickListener { onSlotClick(index) }
+            iv.setOnLongClickListener(longClickListener)
+        }
+
+        when (album.size) {
+            2 -> {
+                loadSlot(iv1, album[0], 0, frame1)
+                dividerLeftH.visibility = View.GONE
+                frame3.visibility = View.GONE
+
+                loadSlot(iv2, album[1], 1, frame2)
+                dividerRightH.visibility = View.GONE
+                frame4.visibility = View.GONE
+                overlayMore.visibility = View.GONE
+            }
+            3 -> {
+                loadSlot(iv1, album[0], 0, frame1)
+                dividerLeftH.visibility = View.GONE
+                frame3.visibility = View.GONE
+
+                loadSlot(iv2, album[1], 1, frame2)
+                dividerRightH.visibility = View.VISIBLE
+                loadSlot(iv4, album[2], 2, frame4)
+                overlayMore.visibility = View.GONE
+            }
+            4 -> {
+                loadSlot(iv1, album[0], 0, frame1)
+                dividerLeftH.visibility = View.VISIBLE
+                loadSlot(iv3, album[2], 2, frame3)
+
+                loadSlot(iv2, album[1], 1, frame2)
+                dividerRightH.visibility = View.VISIBLE
+                loadSlot(iv4, album[3], 3, frame4)
+                overlayMore.visibility = View.GONE
+            }
+            else -> {
+                loadSlot(iv1, album[0], 0, frame1)
+                dividerLeftH.visibility = View.VISIBLE
+                loadSlot(iv3, album[2], 2, frame3)
+
+                loadSlot(iv2, album[1], 1, frame2)
+                dividerRightH.visibility = View.VISIBLE
+                loadSlot(iv4, album[3], 3, frame4)
+
+                overlayMore.visibility = View.VISIBLE
+                val moreCount = album.size - 3
+                tvMoreCount.text = "+$moreCount"
+                overlayMore.setOnClickListener { onSlotClick(3) }
+                overlayMore.setOnLongClickListener(longClickListener)
+            }
+        }
+    }
+
     fun submitList(newMessages: List<ChatMessage>) {
-        messages.clear()
-        messages.addAll(newMessages)
+        rawMessages.clear()
+        rawMessages.addAll(newMessages)
+
+        val groupedItems = mutableListOf<ChatGroupItem>()
+        var i = 0
+        while (i < newMessages.size) {
+            val msg = newMessages[i]
+            val isCandidate = !msg.imageUrl.isNullOrBlank() && msg.audioUrl.isNullOrBlank()
+            if (isCandidate) {
+                val album = mutableListOf<ChatMessage>()
+                album.add(msg)
+                var j = i + 1
+                while (j < newMessages.size) {
+                    val nextMsg = newMessages[j]
+                    val isNextCandidate = !nextMsg.imageUrl.isNullOrBlank() && nextMsg.audioUrl.isNullOrBlank()
+                    val sameSender = nextMsg.senderId == msg.senderId
+                    val closeTime = Math.abs(nextMsg.timestamp - msg.timestamp) <= 60000L
+                    val notSeparateReply = !nextMsg.isReply
+
+                    if (isNextCandidate && sameSender && closeTime && notSeparateReply) {
+                        album.add(nextMsg)
+                        j++
+                    } else {
+                        break
+                    }
+                }
+
+                if (album.size >= 2) {
+                    groupedItems.add(ChatGroupItem(message = album[0], albumMessages = album))
+                    i = j
+                } else {
+                    groupedItems.add(ChatGroupItem(message = msg, albumMessages = null))
+                    i++
+                }
+            } else {
+                groupedItems.add(ChatGroupItem(message = msg, albumMessages = null))
+                i++
+            }
+        }
+
+        val finalItems = ArrayList<ChatGroupItem>(groupedItems.size)
+        for (idx in 0 until groupedItems.size) {
+            val current = groupedItems[idx]
+            val prev = if (idx > 0) groupedItems[idx - 1] else null
+            val next = if (idx < groupedItems.size - 1) groupedItems[idx + 1] else null
+
+            val isConsecutivePrev = prev != null &&
+                prev.message.senderId == current.message.senderId &&
+                Math.abs(current.message.timestamp - prev.message.timestamp) <= 60000L
+
+            val isConsecutiveNext = next != null &&
+                next.message.senderId == current.message.senderId &&
+                Math.abs(next.message.timestamp - current.message.timestamp) <= 60000L
+
+            finalItems.add(
+                current.copy(
+                    isConsecutiveWithPrev = isConsecutivePrev,
+                    isConsecutiveWithNext = isConsecutiveNext
+                )
+            )
+        }
+
+        displayItems.clear()
+        displayItems.addAll(finalItems)
         notifyDataSetChanged()
     }
 
@@ -485,23 +693,30 @@ class ChatAdapter(
         val oldId = selectedMessageId
         selectedMessageId = id
         if (oldId != null) {
-            val oldIdx = messages.indexOfFirst { it.id == oldId }
+            val oldIdx = getMessagePosition(oldId)
             if (oldIdx != -1) notifyItemChanged(oldIdx)
         }
         if (id != null) {
-            val newIdx = messages.indexOfFirst { it.id == id }
+            val newIdx = getMessagePosition(id)
             if (newIdx != -1) notifyItemChanged(newIdx)
         }
     }
 
-    fun getSelectedMessage(): ChatMessage? = messages.find { it.id == selectedMessageId }
+    fun getSelectedMessage(): ChatMessage? {
+        val selId = selectedMessageId ?: return null
+        return rawMessages.find { it.id == selId } ?: displayItems.find { it.message.id == selId }?.message
+    }
 
-    fun getMessagePosition(messageId: String): Int = messages.indexOfFirst { it.id == messageId }
+    fun getMessagePosition(messageId: String): Int {
+        return displayItems.indexOfFirst { item ->
+            item.message.id == messageId || item.albumMessages?.any { it.id == messageId } == true
+        }
+    }
 
-    fun getMessageAt(position: Int): ChatMessage? = messages.getOrNull(position)
+    fun getMessageAt(position: Int): ChatMessage? = displayItems.getOrNull(position)?.message
 
     override fun getItemViewType(position: Int): Int {
-        return if (messages[position].senderId == currentUserId) {
+        return if (displayItems[position].message.senderId == currentUserId) {
             VIEW_TYPE_SENT
         } else {
             VIEW_TYPE_RECEIVED
@@ -521,15 +736,15 @@ class ChatAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val message = messages[position]
+        val item = displayItems[position]
         if (holder is SentMessageViewHolder) {
-            holder.bind(message)
+            holder.bind(item)
         } else if (holder is ReceivedMessageViewHolder) {
-            holder.bind(message, partnerAvatarUrl)
+            holder.bind(item, partnerAvatarUrl)
         }
     }
 
-    override fun getItemCount(): Int = messages.size
+    override fun getItemCount(): Int = displayItems.size
 
     inner class SentMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val rootLayout: View = itemView.findViewById(R.id.layout_message_root)
@@ -539,6 +754,20 @@ class ChatAdapter(
         private val ivStatus: ImageView = itemView.findViewById(R.id.iv_chat_status)
         private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
+        private val cardAlbum: View? = itemView.findViewById(R.id.card_chat_album)
+        private val frameAlbum1: View? = itemView.findViewById(R.id.frame_album_1)
+        private val ivAlbum1: ImageView? = itemView.findViewById(R.id.iv_album_1)
+        private val dividerAlbumLeftH: View? = itemView.findViewById(R.id.divider_album_left_h)
+        private val frameAlbum3: View? = itemView.findViewById(R.id.frame_album_3)
+        private val ivAlbum3: ImageView? = itemView.findViewById(R.id.iv_album_3)
+        private val dividerAlbumV: View? = itemView.findViewById(R.id.divider_album_v)
+        private val frameAlbum2: View? = itemView.findViewById(R.id.frame_album_2)
+        private val ivAlbum2: ImageView? = itemView.findViewById(R.id.iv_album_2)
+        private val dividerAlbumRightH: View? = itemView.findViewById(R.id.divider_album_right_h)
+        private val frameAlbum4: View? = itemView.findViewById(R.id.frame_album_4)
+        private val ivAlbum4: ImageView? = itemView.findViewById(R.id.iv_album_4)
+        private val overlayMore: View? = itemView.findViewById(R.id.layout_album_overlay_more)
+        private val tvMoreCount: TextView? = itemView.findViewById(R.id.tv_album_more_count)
         private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
         private val viewQuoteStripe: View? = itemView.findViewById(R.id.view_quote_stripe)
         private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
@@ -551,9 +780,10 @@ class ChatAdapter(
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
         private val tvAudioSpeed: TextView? = itemView.findViewById(R.id.tv_audio_speed)
 
-        fun bind(message: ChatMessage) {
-            val isSelected = message.id == selectedMessageId
-            val isHighlighted = message.id == highlightedMessageId
+        fun bind(item: ChatGroupItem) {
+            val message = item.message
+            val isSelected = message.id == selectedMessageId || item.albumMessages?.any { it.id == selectedMessageId } == true
+            val isHighlighted = message.id == highlightedMessageId || item.albumMessages?.any { it.id == highlightedMessageId } == true
             if (isSelected) {
                 rootLayout.setBackgroundResource(R.drawable.bg_msg_selected)
             } else if (isHighlighted) {
@@ -561,6 +791,12 @@ class ChatAdapter(
             } else {
                 rootLayout.setBackgroundResource(0)
             }
+
+            // Tighten spacing between consecutive messages
+            val density = itemView.context.resources.displayMetrics.density
+            val topPad = if (item.isConsecutiveWithPrev) (1 * density).toInt() else (5 * density).toInt()
+            val bottomPad = if (item.isConsecutiveWithNext) (1 * density).toInt() else (5 * density).toInt()
+            rootLayout.setPaddingRelative(rootLayout.paddingStart, topPad, rootLayout.paddingEnd, bottomPad)
 
             val longClickListener = View.OnLongClickListener {
                 onMessageLongClick?.invoke(message)
@@ -590,7 +826,7 @@ class ChatAdapter(
                 tvQuoteSender?.setTextColor(accentColor)
 
                 val quoteImgUrl = message.replyToImageUrl?.takeIf { it.isNotBlank() }
-                    ?: messages.find { it.id == message.replyToId }?.imageUrl?.takeIf { it.isNotBlank() }
+                    ?: rawMessages.find { it.id == message.replyToId }?.imageUrl?.takeIf { it.isNotBlank() }
 
                 if (!quoteImgUrl.isNullOrBlank() && cardQuoteThumb != null && ivQuoteThumb != null) {
                     cardQuoteThumb.visibility = View.VISIBLE
@@ -632,18 +868,24 @@ class ChatAdapter(
 
             tvTime.text = timeFormat.format(Date(message.timestamp))
 
-            // WhatsApp-style status ticks:
-            // 1. Double Blue Tick: read by receiver
-            // 2. Double Grey Tick: delivered to receiver's device
-            // 3. Single Grey Tick: sent to server, receiver not yet received
+            // WhatsApp-style status ticks (Clock 🕒 -> Sent ✓ -> Delivered ✓✓ -> Read ✓✓)
+            val isAnyPending = item.albumMessages?.any { it.isPending } ?: message.isPending
+            val isAnySeen = item.albumMessages?.any { it.isSeen } ?: message.isSeen
+            val isAnyDelivered = item.albumMessages?.any { it.hasDelivered } ?: message.hasDelivered
             when {
-                message.isSeen -> {
+                isAnyPending -> {
+                    ivStatus.setImageResource(R.drawable.ic_msg_status_clock)
+                    ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_DEFAULT))
+                    ImageViewCompat.setImageTintMode(ivStatus, PorterDuff.Mode.SRC_IN)
+                    ivStatus.contentDescription = "Pending"
+                }
+                isAnySeen -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
                     ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_READ))
                     ImageViewCompat.setImageTintMode(ivStatus, PorterDuff.Mode.SRC_IN)
                     ivStatus.contentDescription = "Read"
                 }
-                message.hasDelivered -> {
+                isAnyDelivered -> {
                     ivStatus.setImageResource(R.drawable.ic_msg_status_double_tick)
                     ImageViewCompat.setImageTintList(ivStatus, ColorStateList.valueOf(COLOR_TICK_DEFAULT))
                     ImageViewCompat.setImageTintMode(ivStatus, PorterDuff.Mode.SRC_IN)
@@ -657,49 +899,55 @@ class ChatAdapter(
                 }
             }
 
-            if (!message.imageUrl.isNullOrBlank()) {
-                cardImage.visibility = View.VISIBLE
-                Glide.with(itemView.context)
-                    .load(message.imageUrl)
-                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
-                    .placeholder(R.drawable.placeholder_memory)
-                    .error(R.drawable.placeholder_memory)
-                    .centerCrop()
-                    .listener(object : com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
-                        override fun onLoadFailed(
-                            e: com.bumptech.glide.load.engine.GlideException?,
-                            model: Any?,
-                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>,
-                            isFirstResource: Boolean
-                        ): Boolean {
-                            android.util.Log.e("ChatAdapter", "Failed to load sent chat image: $model", e)
-                            return false
-                        }
-                        override fun onResourceReady(
-                            resource: android.graphics.drawable.Drawable,
-                            model: Any,
-                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
-                            dataSource: com.bumptech.glide.load.DataSource,
-                            isFirstResource: Boolean
-                        ): Boolean {
-                            return false
-                        }
-                    })
-                    .into(ivImage)
-
-                val imageClickListener = View.OnClickListener {
-                    if (selectedMessageId != null) {
-                        onMessageClick?.invoke(message)
-                    } else {
-                        onImageClick(message)
-                    }
-                }
-                ivImage.setOnClickListener(imageClickListener)
-                cardImage.setOnClickListener(imageClickListener)
-                ivImage.setOnLongClickListener(longClickListener)
-                cardImage.setOnLongClickListener(longClickListener)
-            } else {
+            // Photo Album vs Single Photo
+            if (item.albumMessages != null && item.albumMessages.size >= 2) {
                 cardImage.visibility = View.GONE
+                if (cardAlbum != null && frameAlbum1 != null && ivAlbum1 != null &&
+                    dividerAlbumLeftH != null && frameAlbum3 != null && ivAlbum3 != null &&
+                    dividerAlbumV != null && frameAlbum2 != null && ivAlbum2 != null &&
+                    dividerAlbumRightH != null && frameAlbum4 != null && ivAlbum4 != null &&
+                    overlayMore != null && tvMoreCount != null) {
+                    bindAlbumCollage(
+                        album = item.albumMessages,
+                        cardAlbum = cardAlbum,
+                        frame1 = frameAlbum1, iv1 = ivAlbum1,
+                        dividerLeftH = dividerAlbumLeftH,
+                        frame3 = frameAlbum3, iv3 = ivAlbum3,
+                        dividerV = dividerAlbumV,
+                        frame2 = frameAlbum2, iv2 = ivAlbum2,
+                        dividerRightH = dividerAlbumRightH,
+                        frame4 = frameAlbum4, iv4 = ivAlbum4,
+                        overlayMore = overlayMore,
+                        tvMoreCount = tvMoreCount,
+                        longClickListener = longClickListener
+                    )
+                }
+            } else {
+                cardAlbum?.visibility = View.GONE
+                if (!message.imageUrl.isNullOrBlank()) {
+                    cardImage.visibility = View.VISIBLE
+                    Glide.with(itemView.context)
+                        .load(message.imageUrl)
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                        .placeholder(R.drawable.placeholder_memory)
+                        .error(R.drawable.placeholder_memory)
+                        .centerCrop()
+                        .into(ivImage)
+
+                    val imageClickListener = View.OnClickListener {
+                        if (selectedMessageId != null) {
+                            onMessageClick?.invoke(message)
+                        } else {
+                            onImageClick(message)
+                        }
+                    }
+                    ivImage.setOnClickListener(imageClickListener)
+                    cardImage.setOnClickListener(imageClickListener)
+                    ivImage.setOnLongClickListener(longClickListener)
+                    cardImage.setOnLongClickListener(longClickListener)
+                } else {
+                    cardImage.visibility = View.GONE
+                }
             }
         }
     }
@@ -712,7 +960,22 @@ class ChatAdapter(
         private val tvTime: TextView = itemView.findViewById(R.id.tv_chat_time)
         private val cardImage: View = itemView.findViewById(R.id.card_chat_image)
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_chat_image)
+        private val cardPartnerAvatar: View? = itemView.findViewById(R.id.card_chat_partner_avatar)
         private val ivPartnerAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
+        private val cardAlbum: View? = itemView.findViewById(R.id.card_chat_album)
+        private val frameAlbum1: View? = itemView.findViewById(R.id.frame_album_1)
+        private val ivAlbum1: ImageView? = itemView.findViewById(R.id.iv_album_1)
+        private val dividerAlbumLeftH: View? = itemView.findViewById(R.id.divider_album_left_h)
+        private val frameAlbum3: View? = itemView.findViewById(R.id.frame_album_3)
+        private val ivAlbum3: ImageView? = itemView.findViewById(R.id.iv_album_3)
+        private val dividerAlbumV: View? = itemView.findViewById(R.id.divider_album_v)
+        private val frameAlbum2: View? = itemView.findViewById(R.id.frame_album_2)
+        private val ivAlbum2: ImageView? = itemView.findViewById(R.id.iv_album_2)
+        private val dividerAlbumRightH: View? = itemView.findViewById(R.id.divider_album_right_h)
+        private val frameAlbum4: View? = itemView.findViewById(R.id.frame_album_4)
+        private val ivAlbum4: ImageView? = itemView.findViewById(R.id.iv_album_4)
+        private val overlayMore: View? = itemView.findViewById(R.id.layout_album_overlay_more)
+        private val tvMoreCount: TextView? = itemView.findViewById(R.id.tv_album_more_count)
         private val layoutQuote: View? = itemView.findViewById(R.id.layout_quote_preview)
         private val viewQuoteStripe: View? = itemView.findViewById(R.id.view_quote_stripe)
         private val tvQuoteSender: TextView? = itemView.findViewById(R.id.tv_quote_sender)
@@ -725,15 +988,37 @@ class ChatAdapter(
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
         private val tvAudioSpeed: TextView? = itemView.findViewById(R.id.tv_audio_speed)
 
-        fun bind(message: ChatMessage, partnerAvatarUrl: String?) {
-            val isSelected = message.id == selectedMessageId
-            val isHighlighted = message.id == highlightedMessageId
+        fun bind(item: ChatGroupItem, partnerAvatarUrl: String?) {
+            val message = item.message
+            val isSelected = message.id == selectedMessageId || item.albumMessages?.any { it.id == selectedMessageId } == true
+            val isHighlighted = message.id == highlightedMessageId || item.albumMessages?.any { it.id == highlightedMessageId } == true
             if (isSelected) {
                 rootLayout.setBackgroundResource(R.drawable.bg_msg_selected)
             } else if (isHighlighted) {
                 rootLayout.setBackgroundColor(0x35E85D75.toInt())
             } else {
                 rootLayout.setBackgroundResource(0)
+            }
+
+            // Tighten spacing between consecutive messages
+            val density = itemView.context.resources.displayMetrics.density
+            val topPad = if (item.isConsecutiveWithPrev) (1 * density).toInt() else (5 * density).toInt()
+            val bottomPad = if (item.isConsecutiveWithNext) (1 * density).toInt() else (5 * density).toInt()
+            rootLayout.setPaddingRelative(rootLayout.paddingStart, topPad, rootLayout.paddingEnd, bottomPad)
+
+            // Redundant partner avatar suppression: only visible on the LAST message of consecutive group
+            if (item.isConsecutiveWithNext) {
+                cardPartnerAvatar?.visibility = View.INVISIBLE
+            } else {
+                cardPartnerAvatar?.visibility = View.VISIBLE
+            }
+
+            // Redundant sender name suppression: only visible on the FIRST message of consecutive group
+            if (item.isConsecutiveWithPrev) {
+                tvSender.visibility = View.GONE
+            } else {
+                tvSender.visibility = View.VISIBLE
+                tvSender.text = message.senderName.ifBlank { "My Love" }
             }
 
             val longClickListener = View.OnLongClickListener {
@@ -759,15 +1044,12 @@ class ChatAdapter(
                 tvQuoteSender?.text = senderLabel
                 tvQuoteText?.text = message.replyToText ?: ""
 
-                // WhatsApp dynamic quote colors:
-                // If replying to You -> Rose (#E85D75)
-                // If replying to Partner -> WhatsApp Emerald Green (#00A884)
                 val accentColor = if (isSenderYou) 0xFFE85D75.toInt() else 0xFF00A884.toInt()
                 viewQuoteStripe?.setBackgroundColor(accentColor)
                 tvQuoteSender?.setTextColor(accentColor)
 
                 val quoteImgUrl = message.replyToImageUrl?.takeIf { it.isNotBlank() }
-                    ?: messages.find { it.id == message.replyToId }?.imageUrl?.takeIf { it.isNotBlank() }
+                    ?: rawMessages.find { it.id == message.replyToId }?.imageUrl?.takeIf { it.isNotBlank() }
 
                 if (!quoteImgUrl.isNullOrBlank() && cardQuoteThumb != null && ivQuoteThumb != null) {
                     cardQuoteThumb.visibility = View.VISIBLE
@@ -788,8 +1070,6 @@ class ChatAdapter(
             } else {
                 layoutQuote?.visibility = View.GONE
             }
-
-            tvSender.text = message.senderName.ifBlank { "My Love" }
 
             if (!partnerAvatarUrl.isNullOrBlank()) {
                 Glide.with(itemView.context)
@@ -826,49 +1106,55 @@ class ChatAdapter(
 
             tvTime.text = timeFormat.format(Date(message.timestamp))
 
-            if (!message.imageUrl.isNullOrBlank()) {
-                cardImage.visibility = View.VISIBLE
-                Glide.with(itemView.context)
-                    .load(message.imageUrl)
-                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
-                    .placeholder(R.drawable.placeholder_memory)
-                    .error(R.drawable.placeholder_memory)
-                    .centerCrop()
-                    .listener(object : com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
-                        override fun onLoadFailed(
-                            e: com.bumptech.glide.load.engine.GlideException?,
-                            model: Any?,
-                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>,
-                            isFirstResource: Boolean
-                        ): Boolean {
-                            android.util.Log.e("ChatAdapter", "Failed to load received chat image: $model", e)
-                            return false
-                        }
-                        override fun onResourceReady(
-                            resource: android.graphics.drawable.Drawable,
-                            model: Any,
-                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
-                            dataSource: com.bumptech.glide.load.DataSource,
-                            isFirstResource: Boolean
-                        ): Boolean {
-                            return false
-                        }
-                    })
-                    .into(ivImage)
-
-                val imageClickListener = View.OnClickListener {
-                    if (selectedMessageId != null) {
-                        onMessageClick?.invoke(message)
-                    } else {
-                        onImageClick(message)
-                    }
-                }
-                ivImage.setOnClickListener(imageClickListener)
-                cardImage.setOnClickListener(imageClickListener)
-                ivImage.setOnLongClickListener(longClickListener)
-                cardImage.setOnLongClickListener(longClickListener)
-            } else {
+            // Photo Album vs Single Photo
+            if (item.albumMessages != null && item.albumMessages.size >= 2) {
                 cardImage.visibility = View.GONE
+                if (cardAlbum != null && frameAlbum1 != null && ivAlbum1 != null &&
+                    dividerAlbumLeftH != null && frameAlbum3 != null && ivAlbum3 != null &&
+                    dividerAlbumV != null && frameAlbum2 != null && ivAlbum2 != null &&
+                    dividerAlbumRightH != null && frameAlbum4 != null && ivAlbum4 != null &&
+                    overlayMore != null && tvMoreCount != null) {
+                    bindAlbumCollage(
+                        album = item.albumMessages,
+                        cardAlbum = cardAlbum,
+                        frame1 = frameAlbum1, iv1 = ivAlbum1,
+                        dividerLeftH = dividerAlbumLeftH,
+                        frame3 = frameAlbum3, iv3 = ivAlbum3,
+                        dividerV = dividerAlbumV,
+                        frame2 = frameAlbum2, iv2 = ivAlbum2,
+                        dividerRightH = dividerAlbumRightH,
+                        frame4 = frameAlbum4, iv4 = ivAlbum4,
+                        overlayMore = overlayMore,
+                        tvMoreCount = tvMoreCount,
+                        longClickListener = longClickListener
+                    )
+                }
+            } else {
+                cardAlbum?.visibility = View.GONE
+                if (!message.imageUrl.isNullOrBlank()) {
+                    cardImage.visibility = View.VISIBLE
+                    Glide.with(itemView.context)
+                        .load(message.imageUrl)
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                        .placeholder(R.drawable.placeholder_memory)
+                        .error(R.drawable.placeholder_memory)
+                        .centerCrop()
+                        .into(ivImage)
+
+                    val imageClickListener = View.OnClickListener {
+                        if (selectedMessageId != null) {
+                            onMessageClick?.invoke(message)
+                        } else {
+                            onImageClick(message)
+                        }
+                    }
+                    ivImage.setOnClickListener(imageClickListener)
+                    cardImage.setOnClickListener(imageClickListener)
+                    ivImage.setOnLongClickListener(longClickListener)
+                    cardImage.setOnLongClickListener(longClickListener)
+                } else {
+                    cardImage.visibility = View.GONE
+                }
             }
         }
     }

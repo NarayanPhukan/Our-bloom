@@ -1,6 +1,10 @@
 package com.ourbloom.app.call
 
 import android.Manifest
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
@@ -63,6 +67,7 @@ import com.google.firebase.firestore.SetOptions
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Milestone
+import com.ourbloom.app.fcm.DirectFcmSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,11 +115,19 @@ class VideoCallActivity : AppCompatActivity() {
     private lateinit var btnTopBack: ImageButton
     private lateinit var btnCallSpeaker: ImageButton
     private lateinit var btnCallMuteMic: ImageButton
+    private lateinit var btnCallToggleCam: ImageButton
     private lateinit var btnCallSwitchCam: ImageButton
     private lateinit var btnCaptureMoment: ImageButton
     private lateinit var btnCallEnd: ImageButton
+    private lateinit var btnCallingCancel: ImageButton
+    private lateinit var viewRadarPulse1: View
+    private lateinit var viewRadarPulse2: View
     private lateinit var cardMomentSaved: MaterialCardView
     private lateinit var tvMomentBannerText: TextView
+
+    private var isCameraMuted: Boolean = false
+    private var radarPulseAnimator1: AnimatorSet? = null
+    private var radarPulseAnimator2: AnimatorSet? = null
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -169,6 +182,7 @@ class VideoCallActivity : AppCompatActivity() {
         sessionStartTime = System.currentTimeMillis()
 
         initViews()
+        startRadarAnimation()
         setupAudio()
         setupMediaSound()
         setupWebView()
@@ -215,9 +229,13 @@ class VideoCallActivity : AppCompatActivity() {
         btnTopBack = findViewById(R.id.btn_top_back)
         btnCallSpeaker = findViewById(R.id.btn_call_speaker)
         btnCallMuteMic = findViewById(R.id.btn_call_mute_mic)
+        btnCallToggleCam = findViewById(R.id.btn_call_toggle_cam)
         btnCallSwitchCam = findViewById(R.id.btn_call_switch_cam)
         btnCaptureMoment = findViewById(R.id.btn_capture_moment)
         btnCallEnd = findViewById(R.id.btn_call_end)
+        btnCallingCancel = findViewById(R.id.btn_calling_cancel)
+        viewRadarPulse1 = findViewById(R.id.view_radar_pulse_1)
+        viewRadarPulse2 = findViewById(R.id.view_radar_pulse_2)
         cardMomentSaved = findViewById(R.id.card_moment_saved)
         tvMomentBannerText = findViewById(R.id.tv_moment_banner_text)
         cardInCallMessage = findViewById(R.id.card_in_call_message)
@@ -257,6 +275,14 @@ class VideoCallActivity : AppCompatActivity() {
 
         btnCallMuteMic.setOnClickListener {
             toggleMic()
+        }
+
+        btnCallToggleCam.setOnClickListener {
+            toggleCamera()
+        }
+
+        btnCallingCancel.setOnClickListener {
+            endCallAndFinish("Call cancelled by user")
         }
 
         btnCallSwitchCam.setOnClickListener {
@@ -419,6 +445,67 @@ class VideoCallActivity : AppCompatActivity() {
         btnCallMuteMic.setImageResource(if (isMicMuted) R.drawable.ic_mic_off else R.drawable.ic_mic_whatsapp)
         btnCallMuteMic.alpha = if (isMicMuted) 0.6f else 1.0f
         Toast.makeText(this, if (isMicMuted) "Microphone Muted" else "Microphone Unmuted", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun toggleCamera() {
+        isCameraMuted = !isCameraMuted
+        val script = "setCameraMuted($isCameraMuted)"
+        webView.evaluateJavascript(script, null)
+        btnCallToggleCam.setImageResource(if (isCameraMuted) R.drawable.ic_videocam_off else R.drawable.ic_videocam)
+        btnCallToggleCam.alpha = if (isCameraMuted) 0.6f else 1.0f
+        Toast.makeText(this, if (isCameraMuted) "Camera Turned Off" else "Camera Turned On", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun startRadarAnimation() {
+        if (radarPulseAnimator1 != null || radarPulseAnimator2 != null) return
+
+        val scaleX1 = ObjectAnimator.ofFloat(viewRadarPulse1, View.SCALE_X, 1.0f, 1.8f).apply {
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+        }
+        val scaleY1 = ObjectAnimator.ofFloat(viewRadarPulse1, View.SCALE_Y, 1.0f, 1.8f).apply {
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+        }
+        val alpha1 = ObjectAnimator.ofFloat(viewRadarPulse1, View.ALPHA, 0.7f, 0f).apply {
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+        }
+
+        radarPulseAnimator1 = AnimatorSet().apply {
+            playTogether(scaleX1, scaleY1, alpha1)
+            duration = 2000L
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+
+        val scaleX2 = ObjectAnimator.ofFloat(viewRadarPulse2, View.SCALE_X, 1.0f, 1.8f).apply {
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+        }
+        val scaleY2 = ObjectAnimator.ofFloat(viewRadarPulse2, View.SCALE_Y, 1.0f, 1.8f).apply {
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+        }
+        val alpha2 = ObjectAnimator.ofFloat(viewRadarPulse2, View.ALPHA, 0.7f, 0f).apply {
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+        }
+
+        radarPulseAnimator2 = AnimatorSet().apply {
+            playTogether(scaleX2, scaleY2, alpha2)
+            duration = 2000L
+            startDelay = 1000L
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
+    private fun stopRadarAnimation() {
+        radarPulseAnimator1?.cancel()
+        radarPulseAnimator1 = null
+        radarPulseAnimator2?.cancel()
+        radarPulseAnimator2 = null
     }
 
     private fun switchCamera() {
@@ -907,6 +994,7 @@ class VideoCallActivity : AppCompatActivity() {
         isEndingCall = true
         isCallFinished = true
         stopTimer()
+        stopRadarAnimation()
         callDocListener?.remove()
         callDocListener = null
         inCallMessageListener?.remove()
@@ -968,7 +1056,41 @@ class VideoCallActivity : AppCompatActivity() {
                         )
                         db.collection("video_calls").document(coupleId).set(callData)
 
-                        // Asynchronously ping backend to wake up Render & dispatch high-priority call FCM push
+                        // Dispatch high-priority FCM v1 push directly to partner (Zero Render dependency)
+                        try {
+                            var partnerToken: String? = null
+                            if (partnerId.isNotBlank()) {
+                                val partnerDoc = db.collection("users").document(partnerId).get().await()
+                                partnerToken = partnerDoc.getString("fcmToken")
+                            }
+                            if (partnerToken.isNullOrBlank()) {
+                                partnerToken = FirestoreRepository().getPartnerFcmToken(coupleId, currentUid)
+                            }
+                            if (!partnerToken.isNullOrBlank()) {
+                                val callerName = auth.currentUser?.displayName ?: "Your Partner"
+                                val callerAvatar = auth.currentUser?.photoUrl?.toString() ?: ""
+                                DirectFcmSender.sendPush(
+                                    context = this@VideoCallActivity,
+                                    token = partnerToken,
+                                    title = callerName,
+                                    body = "Incoming Video Call 📹",
+                                    data = mapOf(
+                                        "type" to "video_call",
+                                        "coupleId" to coupleId,
+                                        "callerId" to currentUid,
+                                        "callerName" to callerName,
+                                        "callerAvatar" to callerAvatar
+                                    )
+                                )
+                                Log.d(TAG, "Direct FCM video call push successfully dispatched to partner")
+                            } else {
+                                Log.w(TAG, "Partner FCM token not available for direct call push")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error sending direct FCM video call push", e)
+                        }
+
+                        // Secondary non-blocking ping to backend
                         try {
                             val url = "$baseUrl/api/call/notify"
                             val json = JSONObject().apply {
@@ -1025,6 +1147,7 @@ class VideoCallActivity : AppCompatActivity() {
             runOnUiThread {
                 if (!isCallConnected) {
                     isCallConnected = true
+                    stopRadarAnimation()
                     if (callStartTime == 0L) {
                         callStartTime = System.currentTimeMillis()
                     }

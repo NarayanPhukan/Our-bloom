@@ -93,7 +93,7 @@ async function broadcastAppUpdate(updateData) {
     android: {
       priority: 'high',
       notification: {
-        channelId: 'ourbloom_update_channel',
+        channelId: 'ourbloom_fcm_channel',
         color: '#FF4D6D',
         clickAction: 'com.ourbloom.app.ACTION_SHOW_UPDATE',
         defaultSound: true,

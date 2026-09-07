@@ -12,8 +12,14 @@ import java.util.concurrent.TimeUnit
 
 class OurBloomApp : Application() {
 
+    companion object {
+        lateinit var instance: OurBloomApp
+            private set
+    }
+
     override fun onCreate() {
         super.onCreate()
+        instance = this
 
         // Register uncaught crash handler to auto-detect and persist fatal crashes
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()

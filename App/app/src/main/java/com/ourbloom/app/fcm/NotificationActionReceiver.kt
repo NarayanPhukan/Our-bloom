@@ -18,6 +18,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_REPLY = "com.ourbloom.app.fcm.ACTION_REPLY"
         const val ACTION_MARK_AS_READ = "com.ourbloom.app.fcm.ACTION_MARK_AS_READ"
         const val ACTION_MUTE = "com.ourbloom.app.fcm.ACTION_MUTE"
+        const val ACTION_DISMISS = "com.ourbloom.app.fcm.ACTION_DISMISS"
         const val KEY_TEXT_REPLY = "key_text_reply"
         private const val TAG = "NotifActionReceiver"
     }
@@ -102,6 +103,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     // Mute chat popups for 8 hours (WhatsApp standard)
                     prefs.edit().putLong("mute_until_${coupleId}", System.currentTimeMillis() + (8 * 60 * 60 * 1000L)).apply()
                 }
+            }
+
+            ACTION_DISMISS -> {
+                MyFirebaseMessagingService.clearConversationHistory(context, coupleId)
             }
         }
     }

@@ -133,4 +133,31 @@ object AudioCacheManager {
             return@withContext null
         }
     }
+
+    /**
+     * Extract audio duration in milliseconds from local cached audio file using MediaMetadataRetriever.
+     */
+    fun getAudioDurationMs(context: Context, rawUrlOrPath: String): Long {
+        if (rawUrlOrPath.isBlank()) return 0L
+        val file = if (File(rawUrlOrPath).exists()) {
+            File(rawUrlOrPath)
+        } else {
+            getCachedFile(context, rawUrlOrPath)
+        }
+        if (!file.exists() || file.length() < 500) return 0L
+        var retriever: android.media.MediaMetadataRetriever? = null
+        return try {
+            retriever = android.media.MediaMetadataRetriever()
+            java.io.FileInputStream(file).use { fis ->
+                retriever.setDataSource(fis.fd)
+            }
+            val time = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            time?.toLongOrNull() ?: 0L
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to retrieve audio duration: ${e.message}")
+            0L
+        } finally {
+            try { retriever?.release() } catch (_: Exception) {}
+        }
+    }
 }

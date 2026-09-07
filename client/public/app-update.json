@@ -1,8 +1,8 @@
 {
-  "versionCode": 30,
-  "versionName": "1.29",
+  "versionCode": 31,
+  "versionName": "1.30",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Completely overhauled voice note playback: instant 0ms local caching, zero buffering & offline support\n• Added Android speech AudioAttributes & AudioFocus routing to phone media speaker\n• Smooth 1x / 1.5x / 2x speed cycling & waveform seeking\n• Fixed voice player UI desync during chat list scrolling\n• Video call ringing, PiP minimize mode & camera switch fixes",
+  "changelog": "Direct FCM v1 delivery engine, zero Render server sleep dependency, instant 3-tick message delivery, and background video call wake-up",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

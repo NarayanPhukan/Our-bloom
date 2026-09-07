@@ -15,6 +15,7 @@ import com.ourbloom.app.data.models.Milestone
 import com.ourbloom.app.data.models.User
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
@@ -26,6 +27,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import com.google.firebase.firestore.MetadataChanges
+import com.ourbloom.app.OurBloomApp
+import com.ourbloom.app.fcm.DirectFcmSender
+import kotlinx.coroutines.CoroutineScope
 import com.ourbloom.app.util.ErrorReporter
 
 class FirestoreRepository {
@@ -37,6 +42,45 @@ class FirestoreRepository {
         .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .build()
     private val baseUrl = "https://our-bloom.onrender.com"
+
+    // In-memory cache for partner info & FCM token to avoid repeated lookups
+    private var cachedPartnerUid: String? = null
+    private var cachedPartnerFcmToken: String? = null
+    private var lastTokenFetchTime: Long = 0L
+
+    suspend fun getPartnerFcmToken(coupleId: String, currentUid: String): String? {
+        val now = System.currentTimeMillis()
+        if (!cachedPartnerFcmToken.isNullOrBlank() && (now - lastTokenFetchTime < 120_000L)) {
+            return cachedPartnerFcmToken
+        }
+
+        return try {
+            var partnerUid = cachedPartnerUid
+            if (partnerUid.isNullOrBlank()) {
+                val coupleDoc = db.collection("couples").document(coupleId).get().await()
+                val u1 = coupleDoc.getString("user1") ?: ""
+                val u2 = coupleDoc.getString("user2") ?: ""
+                partnerUid = if (currentUid == u1) u2 else u1
+                if (partnerUid.isNotBlank()) {
+                    cachedPartnerUid = partnerUid
+                }
+            }
+
+            if (!partnerUid.isNullOrBlank()) {
+                val userDoc = db.collection("users").document(partnerUid).get().await()
+                val token = userDoc.getString("fcmToken")
+                if (!token.isNullOrBlank()) {
+                    cachedPartnerFcmToken = token
+                    lastTokenFetchTime = now
+                    return token
+                }
+            }
+            cachedPartnerFcmToken
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error fetching partner FCM token: ${e.message}")
+            cachedPartnerFcmToken
+        }
+    }
     
     // Get the current User document with multi-strategy couple resolution
     suspend fun getCurrentUser(): User? {
@@ -224,6 +268,29 @@ class FirestoreRepository {
                 "createdAt" to System.currentTimeMillis()
             )
             db.collection("heartbeats").add(heartbeatData).await()
+
+            // Asynchronously dispatch high-priority FCM push directly to partner (Zero Render dependency)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val partnerToken = getPartnerFcmToken(coupleId, uid)
+                    if (!partnerToken.isNullOrBlank()) {
+                        DirectFcmSender.sendPush(
+                            context = OurBloomApp.instance,
+                            token = partnerToken,
+                            title = "$senderName sent you a Heartbeat ❤️",
+                            body = "Thinking of you right now... tap to send one back!",
+                            data = mapOf(
+                                "type" to "heartbeat",
+                                "coupleId" to coupleId,
+                                "senderId" to uid,
+                                "senderName" to senderName
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Direct FCM heartbeat error: ${e.message}")
+                }
+            }
 
             if (!coupleSlug.isNullOrBlank()) {
                 withContext(Dispatchers.IO) {
@@ -693,7 +760,43 @@ class FirestoreRepository {
             )
             val docRef = db.collection("chat_messages").add(messageData).await()
 
-            // Asynchronously notify backend to wake up Render & guarantee immediate push dispatch
+            // Asynchronously dispatch high-priority FCM v1 push directly to partner (Zero Render dependency)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val partnerToken = getPartnerFcmToken(coupleId, uid)
+                    if (!partnerToken.isNullOrBlank()) {
+                        val bodyText = when {
+                            text.isNotBlank() -> text
+                            !imageUrl.isNullOrBlank() -> "📷 Photo"
+                            !audioUrl.isNullOrBlank() -> "🎙️ Voice message"
+                            else -> "New message"
+                        }
+                        val directResult = DirectFcmSender.sendPush(
+                            context = OurBloomApp.instance,
+                            token = partnerToken,
+                            title = senderName,
+                            body = bodyText,
+                            data = mapOf(
+                                "type" to "chat",
+                                "coupleId" to coupleId,
+                                "senderId" to uid,
+                                "senderName" to senderName,
+                                "messageId" to docRef.id,
+                                "messageText" to text,
+                                "imageUrl" to (imageUrl ?: ""),
+                                "audioUrl" to (audioUrl ?: "")
+                            )
+                        )
+                        Log.d("FirestoreRepo", "Direct FCM sendPush: $directResult for msg ${docRef.id}")
+                    } else {
+                        Log.w("FirestoreRepo", "Partner FCM token not available for couple $coupleId")
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Error dispatching direct FCM push", e)
+                }
+            }
+
+            // Secondary non-blocking ping to backend
             try {
                 val url = "$baseUrl/api/chat/notify"
                 val json = JSONObject().apply {
@@ -1021,7 +1124,7 @@ class FirestoreRepository {
         val currentUid = auth.currentUser?.uid ?: ""
         return db.collection("chat_messages")
             .whereEqualTo("coupleId", coupleId)
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
                 if (error != null || snapshot == null) {
                     Log.e("FirestoreRepo", "Chat listener error", error)
                     return@addSnapshotListener
@@ -1031,6 +1134,7 @@ class FirestoreRepository {
                     if (currentUid.isNotEmpty() && msg.deletedFor.contains(currentUid)) {
                         return@mapNotNull null
                     }
+                    msg.isPending = doc.metadata.hasPendingWrites()
                     val isReadDirect = (doc.getBoolean("isRead") == true) || (doc.getBoolean("read") == true)
                     val isDeliveredDirect = (doc.getBoolean("isDelivered") == true) || (doc.getBoolean("delivered") == true)
                     if (isReadDirect) {

@@ -48,13 +48,15 @@
       border: 2px solid rgba(255, 255, 255, 0.25);
       background-color: #1a1d24;
       z-index: 20;
-      transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+      touch-action: none;
+      transition: left 0.3s cubic-bezier(0.2, 0, 0.2, 1), top 0.3s cubic-bezier(0.2, 0, 0.2, 1);
     }
     #localVideo {
       width: 100%;
       height: 100%;
       object-fit: cover;
       transform: scaleX(-1); /* mirror selfie cam */
+      transition: opacity 0.2s ease;
     }
     #localVideo.rear-camera {
       transform: scaleX(1); /* don't mirror rear cam */
@@ -70,6 +72,14 @@
     <video id="remoteVideo" autoplay playsinline></video>
     <div id="localVideoContainer">
       <video id="localVideo" autoplay playsinline muted></video>
+      <div id="localCameraOffPlaceholder" style="display:none; position:absolute; inset:0; flex-direction:column; align-items:center; justify-content:center; background:#1a1d24; color:#FF8FA3; font-size:11px; text-align:center; pointer-events:none;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF4D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+          <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        <span style="margin-top:6px; font-weight:600;">Cam Off</span>
+      </div>
     </div>
     <canvas id="snapshotCanvas"></canvas>
   </div>
@@ -494,6 +504,13 @@
           track.enabled = !muted;
         });
       }
+      const placeholder = document.getElementById('localCameraOffPlaceholder');
+      if (placeholder) {
+        placeholder.style.display = muted ? 'flex' : 'none';
+      }
+      if (localVideo) {
+        localVideo.style.opacity = muted ? '0' : '1';
+      }
     }
 
     let currentDeviceId = null;
@@ -714,9 +731,73 @@
       queuedCandidates = [];
     }
 
+    // Draggable PiP with smooth corner snapping
+    function setupPipDrag() {
+      const pip = document.getElementById('localVideoContainer');
+      if (!pip) return;
+
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let initialLeft = 0, initialTop = 0;
+      const margin = 16;
+      const topSafe = 72;
+      const bottomSafe = 130;
+
+      pip.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        isDragging = true;
+        const touch = e.touches[0];
+        const rect = pip.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        startX = touch.clientX;
+        startY = touch.clientY;
+        pip.style.transition = 'none';
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+
+        const maxLeft = window.innerWidth - pip.offsetWidth - margin;
+        const maxTop = window.innerHeight - pip.offsetHeight - bottomSafe;
+
+        newLeft = Math.max(margin, Math.min(newLeft, maxLeft));
+        newTop = Math.max(topSafe, Math.min(newTop, maxTop));
+
+        pip.style.left = newLeft + 'px';
+        pip.style.top = newTop + 'px';
+        pip.style.right = 'auto';
+        pip.style.bottom = 'auto';
+      }, { passive: true });
+
+      window.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        pip.style.transition = 'left 0.3s cubic-bezier(0.2, 0, 0.2, 1), top 0.3s cubic-bezier(0.2, 0, 0.2, 1)';
+
+        const rect = pip.getBoundingClientRect();
+        const midX = window.innerWidth / 2;
+        const midY = window.innerHeight / 2;
+
+        const snapLeft = (rect.left + rect.width / 2 < midX) ? margin : (window.innerWidth - pip.offsetWidth - margin);
+        const snapTop = (rect.top + rect.height / 2 < midY) ? topSafe : (window.innerHeight - pip.offsetHeight - bottomSafe);
+
+        pip.style.left = snapLeft + 'px';
+        pip.style.top = snapTop + 'px';
+      }, { passive: true });
+    }
+
     // Auto initialize camera preview on load
     window.addEventListener('DOMContentLoaded', () => {
       initMedia();
+      setupPipDrag();
     });
   </script>
 </body>

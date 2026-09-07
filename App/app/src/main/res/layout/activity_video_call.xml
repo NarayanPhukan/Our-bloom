@@ -23,30 +23,52 @@
         android:background="#E60D0F14"
         android:visibility="visible">
 
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            app:cardCornerRadius="60dp"
-            app:cardElevation="12dp"
-            app:strokeWidth="3dp"
-            app:strokeColor="#FF4D6D"
-            app:cardBackgroundColor="#1F242E">
+        <FrameLayout
+            android:layout_width="190dp"
+            android:layout_height="190dp">
 
-            <ImageView
-                android:id="@+id/iv_calling_avatar"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_favorite"
-                app:tint="#FF4D6D"
-                android:padding="28dp" />
-        </com.google.android.material.card.MaterialCardView>
+            <View
+                android:id="@+id/view_radar_pulse_2"
+                android:layout_width="190dp"
+                android:layout_height="190dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_call_radar_ring"
+                android:alpha="0" />
+
+            <View
+                android:id="@+id/view_radar_pulse_1"
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_call_radar_ring"
+                android:alpha="0" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_gravity="center"
+                app:cardCornerRadius="60dp"
+                app:cardElevation="12dp"
+                app:strokeWidth="3dp"
+                app:strokeColor="#FF4D6D"
+                app:cardBackgroundColor="#1F242E">
+
+                <ImageView
+                    android:id="@+id/iv_calling_avatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_favorite"
+                    app:tint="#FF4D6D"
+                    android:padding="28dp" />
+            </com.google.android.material.card.MaterialCardView>
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tv_calling_partner_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="20dp"
             android:text="My Love"
             android:textColor="#FFFFFF"
             android:textSize="22sp"
@@ -69,6 +91,19 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:indeterminateTint="#FF4D6D" />
+
+        <!-- Outgoing / Connecting Call Cancel Button -->
+        <ImageButton
+            android:id="@+id/btn_calling_cancel"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginTop="36dp"
+            android:src="@drawable/ic_call_end"
+            app:tint="#FFFFFF"
+            android:background="@drawable/bg_call_btn_red"
+            android:contentDescription="Cancel Call"
+            android:padding="16dp"
+            android:elevation="8dp" />
     </LinearLayout>
 
     <!-- Camera Shutter Flash View (briefly animates on snapshot) -->
@@ -136,7 +171,7 @@
             android:id="@+id/btn_call_speaker"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@drawable/ic_music"
+            android:src="@drawable/ic_volume_up"
             app:tint="#FFFFFF"
             android:background="@drawable/bg_call_btn_round"
             android:contentDescription="Toggle Speaker"
@@ -258,82 +293,90 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Bottom Floating Action Bar -->
-    <LinearLayout
+    <!-- Bottom Floating Action Bar: Frosted Glass Romantic Dock -->
+    <FrameLayout
         android:id="@+id/layout_bottom_controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingBottom="36dp"
-        android:paddingTop="16dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="36dp">
 
-        <!-- Mute / Unmute Mic -->
-        <ImageButton
-            android:id="@+id/btn_call_mute_mic"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:src="@drawable/ic_mic_whatsapp"
-            app:tint="#FFFFFF"
-            android:background="@drawable/bg_call_btn_round"
-            android:contentDescription="Mute Microphone"
-            android:padding="14dp" />
-
-        <!-- Flip Camera (Front / Back) -->
-        <ImageButton
-            android:id="@+id/btn_call_switch_cam"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="20dp"
-            android:src="@drawable/ic_switch_camera"
-            app:tint="#FFFFFF"
-            android:background="@drawable/bg_call_btn_round"
-            android:contentDescription="Switch Camera"
-            android:padding="14dp" />
-
-        <!-- CAPTURE MOMENT 📸 (Shutter Button) -->
         <LinearLayout
+            android:id="@+id/dock_bottom_controls"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:orientation="vertical"
-            android:gravity="center">
+            android:layout_gravity="center_horizontal"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_call_dock"
+            android:elevation="12dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
 
+            <!-- 1. Mute / Unmute Mic -->
+            <ImageButton
+                android:id="@+id/btn_call_mute_mic"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:src="@drawable/ic_mic_whatsapp"
+                app:tint="#FFFFFF"
+                android:background="@drawable/bg_call_btn_round"
+                android:contentDescription="Mute Microphone"
+                android:padding="13dp" />
+
+            <!-- 2. Video Mute (Camera On / Off) -->
+            <ImageButton
+                android:id="@+id/btn_call_toggle_cam"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="12dp"
+                android:src="@drawable/ic_videocam"
+                app:tint="#FFFFFF"
+                android:background="@drawable/bg_call_btn_round"
+                android:contentDescription="Toggle Camera On/Off"
+                android:padding="13dp" />
+
+            <!-- 3. CAPTURE MOMENT 📸 (Shutter Button) -->
             <ImageButton
                 android:id="@+id/btn_capture_moment"
-                android:layout_width="66dp"
-                android:layout_height="66dp"
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:layout_marginStart="12dp"
                 android:src="@drawable/ic_moment_shutter"
                 android:background="@drawable/bg_call_moment_btn"
                 android:contentDescription="Capture Moment"
                 android:scaleType="centerInside"
                 android:elevation="6dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Moment"
-                android:textColor="#FF8FA3"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+            <!-- 4. Flip Camera (Front / Back) -->
+            <ImageButton
+                android:id="@+id/btn_call_switch_cam"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="12dp"
+                android:src="@drawable/ic_switch_camera"
+                app:tint="#FFFFFF"
+                android:background="@drawable/bg_call_btn_round"
+                android:contentDescription="Switch Camera"
+                android:padding="13dp" />
 
-        <!-- End Call (Hang Up) -->
-        <ImageButton
-            android:id="@+id/btn_call_end"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="20dp"
-            android:src="@drawable/ic_call_end"
-            app:tint="#FFFFFF"
-            android:background="@drawable/bg_call_btn_red"
-            android:contentDescription="End Call"
-            android:padding="15dp"
-            android:elevation="6dp" />
-    </LinearLayout>
+            <!-- 5. End Call (Hang Up) -->
+            <ImageButton
+                android:id="@+id/btn_call_end"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="12dp"
+                android:src="@drawable/ic_call_end"
+                app:tint="#FFFFFF"
+                android:background="@drawable/bg_call_btn_red"
+                android:contentDescription="End Call"
+                android:padding="13dp"
+                android:elevation="6dp" />
+        </LinearLayout>
+    </FrameLayout>
 
 </FrameLayout>

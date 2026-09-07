@@ -283,6 +283,172 @@ fun Fragment.showChatImageLightbox(
 }
 
 /**
+ * Fullscreen Swipeable Lightbox for Chat Multi-Image Albums
+ */
+fun Fragment.showChatAlbumLightbox(
+    imageUrls: List<String>,
+    startIndex: Int = 0,
+    senderName: String? = null,
+    timeStr: String? = null
+) {
+    if (context == null || imageUrls.isEmpty()) return
+
+    val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+    dialog.setContentView(R.layout.dialog_lightbox)
+    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
+    dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+
+    val ivImage = dialog.findViewById<ImageView>(R.id.iv_lightbox_image)
+    val vpPager = dialog.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.vp_lightbox_pager)
+    val btnClose = dialog.findViewById<ImageButton>(R.id.btn_close)
+    val btnDownload = dialog.findViewById<ImageButton>(R.id.btn_download)
+    val tvTitle = dialog.findViewById<TextView>(R.id.tv_lightbox_title)
+    val tvDate = dialog.findViewById<TextView>(R.id.tv_lightbox_date)
+    val tvCounter = dialog.findViewById<TextView>(R.id.tv_lightbox_counter)
+    val btnPlay = dialog.findViewById<ImageButton>(R.id.btn_play_audio)
+    val detailsLayout = dialog.findViewById<View>(R.id.ll_lightbox_details)
+
+    ivImage.visibility = View.GONE
+    vpPager.visibility = View.VISIBLE
+    btnPlay?.visibility = View.GONE
+
+    if (!senderName.isNullOrBlank() || !timeStr.isNullOrBlank()) {
+        detailsLayout?.visibility = View.VISIBLE
+        tvTitle?.text = senderName ?: ""
+        tvDate?.text = timeStr ?: ""
+        tvTitle?.visibility = if (senderName.isNullOrBlank()) View.GONE else View.VISIBLE
+        tvDate?.visibility = if (timeStr.isNullOrBlank()) View.GONE else View.VISIBLE
+    } else {
+        detailsLayout?.visibility = View.GONE
+    }
+
+    val updateCounter = { pos: Int ->
+        if (imageUrls.size > 1) {
+            tvCounter?.visibility = View.VISIBLE
+            tvCounter?.text = "${pos + 1} / ${imageUrls.size}"
+        } else {
+            tvCounter?.visibility = View.GONE
+        }
+    }
+
+    val toggleDetails = {
+        if (detailsLayout != null && (!senderName.isNullOrBlank() || !timeStr.isNullOrBlank())) {
+            detailsLayout.visibility = if (detailsLayout.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+    }
+
+    val adapter = LightboxAlbumAdapter(this, imageUrls, toggleDetails)
+    vpPager.adapter = adapter
+    val safeIndex = startIndex.coerceIn(0, imageUrls.size - 1)
+    vpPager.setCurrentItem(safeIndex, false)
+    updateCounter(safeIndex)
+
+    vpPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            super.onPageSelected(position)
+            updateCounter(position)
+        }
+    })
+
+    btnDownload.setOnClickListener {
+        val currentPos = vpPager.currentItem
+        val currentUrl = imageUrls.getOrNull(currentPos) ?: return@setOnClickListener
+        saveImageToGallery(requireContext(), null, currentUrl)
+    }
+
+    btnClose.setOnClickListener {
+        dialog.dismiss()
+    }
+
+    dialog.show()
+}
+
+private class LightboxAlbumAdapter(
+    private val fragment: Fragment,
+    private val urls: List<String>,
+    private val onToggleDetails: () -> Unit
+) : androidx.recyclerview.widget.RecyclerView.Adapter<LightboxAlbumAdapter.AlbumPhotoViewHolder>() {
+
+    class AlbumPhotoViewHolder(val imageView: ImageView) : androidx.recyclerview.widget.RecyclerView.ViewHolder(imageView)
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AlbumPhotoViewHolder {
+        val iv = ImageView(parent.context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        return AlbumPhotoViewHolder(iv)
+    }
+
+    override fun onBindViewHolder(holder: AlbumPhotoViewHolder, position: Int) {
+        val url = urls[position]
+        val iv = holder.imageView
+
+        Glide.with(fragment)
+            .load(url)
+            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .placeholder(R.drawable.placeholder_memory)
+            .into(iv)
+
+        var scaleFactor = 1.0f
+
+        val scaleDetector = ScaleGestureDetector(iv.context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                scaleFactor = (scaleFactor * detector.scaleFactor).coerceIn(1.0f, 4.5f)
+                iv.scaleX = scaleFactor
+                iv.scaleY = scaleFactor
+                return true
+            }
+        })
+
+        val gestureDetector = GestureDetector(iv.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                onToggleDetails()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (scaleFactor > 1.0f) {
+                    scaleFactor = 1.0f
+                    iv.animate().scaleX(1.0f).scaleY(1.0f).translationX(0f).translationY(0f).setDuration(200).start()
+                } else {
+                    scaleFactor = 2.5f
+                    iv.animate().scaleX(2.5f).scaleY(2.5f).setDuration(200).start()
+                }
+                return true
+            }
+
+            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+                if (scaleFactor > 1.0f) {
+                    iv.translationX -= distanceX
+                    iv.translationY -= distanceY
+                    return true
+                }
+                return false
+            }
+        })
+
+        iv.setOnTouchListener { v, event ->
+            if (scaleFactor > 1.0f) {
+                v.parent?.requestDisallowInterceptTouchEvent(true)
+            } else {
+                v.parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            scaleDetector.onTouchEvent(event)
+            gestureDetector.onTouchEvent(event)
+            if (event.actionMasked == MotionEvent.ACTION_UP && scaleFactor <= 1.0f) {
+                iv.animate().translationX(0f).translationY(0f).setDuration(150).start()
+            }
+            true
+        }
+    }
+
+    override fun getItemCount(): Int = urls.size
+}
+
+/**
  * Saves the given image to the device's public Pictures/OurBloom gallery.
  * Prioritizes copying the 100% original full-resolution file from Glide cache/network,
  * with fallback to bitmap MediaStore insertion and DownloadManager.

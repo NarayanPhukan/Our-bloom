@@ -11,5 +11,6 @@ data class User(
     val isPremium: Boolean = false,
     val avatarUrl: String = "",
     val nicknameForPartner: String = "",
-    val connectedGoogleEmail: String = ""
+    val connectedGoogleEmail: String = "",
+    val fcmToken: String = ""
 )

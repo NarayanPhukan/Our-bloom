@@ -273,6 +273,42 @@ const setupFirestoreListeners = () => {
 };
 setupFirestoreListeners();
 
+// Automatically verify release manifest on server startup / Render deploy
+const checkAndBroadcastNewRelease = async () => {
+  if (!db) return;
+  try {
+    let manifest = null;
+    const candidatePaths = [
+      path.join(__dirname, 'public/updates/app-update.json'),
+      path.join(__dirname, '../app-update.json'),
+      path.join(__dirname, 'app-update.json')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
+          if (manifest && manifest.versionCode) break;
+        } catch (_) {}
+      }
+    }
+    if (!manifest || !manifest.versionCode) return;
+
+    const latestDoc = await db.collection('app_updates').doc('latest').get();
+    const firestoreCode = latestDoc.exists ? (latestDoc.data()?.versionCode || 0) : 0;
+    
+    if (manifest.versionCode > firestoreCode) {
+      console.log(`✿ New release manifest detected on deploy! Local code=${manifest.versionCode} > Firestore code=${firestoreCode}. Broadcasting update...`);
+      await broadcastAppUpdate(manifest);
+    } else {
+      console.log(`✿ Release manifest is current (Local code=${manifest.versionCode}, Firestore code=${firestoreCode})`);
+    }
+  } catch (err) {
+    console.error('✿ Error checking auto-manifest release:', err.message);
+  }
+};
+checkAndBroadcastNewRelease();
+
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -492,6 +528,7 @@ mongoose
         console.log(`✿ Server running on http://localhost:${PORT}`);
         initAnniversaryEmailJob();
         initDailyLoveNoteJob();
+        setInterval(checkAndBroadcastNewRelease, 60 * 60 * 1000);
       });
     }
   })
