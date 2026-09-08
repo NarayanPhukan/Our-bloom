@@ -99,7 +99,7 @@ async function generateDailyNoteForCouple(idOrSlug, coupleSlug, coupleData = {})
 
     return notePayload;
   } catch (err) {
-    console.error(`✿ Error generating daily love note for couple ${coupleId}:`, err.message);
+    console.error(`✿ Error generating daily love note for couple ${resolvedId || idOrSlug}:`, err?.message || err);
     return null;
   }
 }
@@ -116,6 +116,7 @@ async function runDailyLoveNotes() {
       const coupleId = doc.id;
       const slug = couple.slug || coupleId;
       await generateDailyNoteForCouple(coupleId, slug, couple);
+      await new Promise(res => setTimeout(res, 1000));
     }
   } catch (err) {
     console.error('✿ Error in runDailyLoveNotes:', err);
