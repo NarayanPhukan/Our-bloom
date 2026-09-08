@@ -2,32 +2,76 @@ const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
+const fs = require('fs');
 const path = require('path');
+const { getStorage } = require('firebase-admin/storage');
 
 let isInitialized = false;
 let messaging = null;
 let db = null;
 let auth = null;
+let bucket = null;
 
-try {
-  let serviceAccount;
+function loadServiceAccount() {
   const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (rawServiceAccount) {
-    serviceAccount = JSON.parse(rawServiceAccount);
-  } else {
-    serviceAccount = require(path.join(__dirname, '../firebase-service-account.json'));
+    try {
+      let sa = typeof rawServiceAccount === 'string' ? JSON.parse(rawServiceAccount) : rawServiceAccount;
+      if (typeof sa === 'string') sa = JSON.parse(sa);
+      console.log(`✿ Firebase credentials loaded from environment variable (Key ID: ${sa.private_key_id ? sa.private_key_id.substring(0, 10) + '...' : 'none'})`);
+      return sa;
+    } catch (e) {
+      console.error('✿ Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:', e.message);
+    }
   }
-  
-  const app = getApps().length > 0 ? getApps()[0] : initializeApp({
-    credential: cert(serviceAccount),
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app'
-  });
-  
-  messaging = getMessaging(app);
-  db = getFirestore(app);
-  auth = getAuth(app);
-  isInitialized = true;
-  console.log('✿ Firebase Admin initialized successfully');
+
+  // Check for Render secret file mount
+  if (fs.existsSync('/etc/secrets/firebase-service-account.json')) {
+    try {
+      const sa = JSON.parse(fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8'));
+      console.log(`✿ Firebase credentials loaded from /etc/secrets/firebase-service-account.json (Key ID: ${sa.private_key_id ? sa.private_key_id.substring(0, 10) + '...' : 'none'})`);
+      return sa;
+    } catch (e) {
+      console.error('✿ Failed to parse /etc/secrets/firebase-service-account.json:', e.message);
+    }
+  }
+
+  // Local file fallback
+  const localPath = path.join(__dirname, '../firebase-service-account.json');
+  if (fs.existsSync(localPath)) {
+    try {
+      const sa = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      console.log(`✿ Firebase credentials loaded from local file (Key ID: ${sa.private_key_id ? sa.private_key_id.substring(0, 10) + '...' : 'none'})`);
+      return sa;
+    } catch (e) {
+      console.error('✿ Failed to parse local firebase-service-account.json:', e.message);
+    }
+  }
+
+  return null;
+}
+
+try {
+  const serviceAccount = loadServiceAccount();
+  if (serviceAccount) {
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+
+    const app = getApps().length > 0 ? getApps()[0] : initializeApp({
+      credential: cert(serviceAccount),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app'
+    });
+    
+    messaging = getMessaging(app);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    bucket = getStorage(app).bucket(process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app');
+    isInitialized = true;
+    console.log(`✿ Firebase Admin initialized successfully (Project: ${serviceAccount.project_id}, Key ID: ${serviceAccount.private_key_id ? serviceAccount.private_key_id.substring(0, 10) + '...' : 'none'})`);
+  } else {
+    console.warn('✿ Firebase credentials missing. Push notifications and storage disabled.');
+  }
 } catch (error) {
   console.error('✿ Firebase Admin initialization failed:', error.message);
   console.log('Push notifications will be disabled.');
@@ -95,6 +139,7 @@ module.exports = {
   getAuth: () => auth,
   getFirestore: () => db,
   getMessaging: () => messaging,
+  getBucket: () => bucket,
   sendPushNotification,
   isInitialized
 };

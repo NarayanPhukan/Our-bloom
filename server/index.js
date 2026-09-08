@@ -22,44 +22,17 @@ const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
 const { initDailyLoveNoteJob, generateDailyNoteForCouple } = require('./jobs/dailyLoveNote');
 const { broadcastAppUpdate } = require('./services/updateBroadcast');
 
-// Initialize Firebase Admin
-const { initializeApp, cert, getApps } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
-const { getMessaging } = require('firebase-admin/messaging');
-const { getStorage } = require('firebase-admin/storage');
-let serviceAccount;
-try {
-  serviceAccount = require('./firebase-service-account.json');
-} catch (e) {
-  const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (rawServiceAccount) {
-    serviceAccount = JSON.parse(rawServiceAccount);
-  }
-}
+// Initialize Firebase Admin via unified utility
+const { 
+  getFirestore, 
+  getMessaging, 
+  getBucket, 
+  sendPushNotification: sendPushToToken 
+} = require('./utils/firebase');
 
-let firebaseApp;
-let db = null;
-let messaging = null;
-let bucket = null;
-
-if (serviceAccount || getApps().length > 0) {
-  try {
-    firebaseApp = getApps().length > 0 ? getApps()[0] : initializeApp({
-      credential: cert(serviceAccount),
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app'
-    });
-    db = getFirestore(firebaseApp);
-    messaging = getMessaging(firebaseApp);
-    bucket = getStorage(firebaseApp).bucket(process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app');
-  } catch (e) {
-    console.error('✿ Firebase initialization failed', e);
-  }
-} else {
-  console.warn('✿ Firebase credentials missing. Push notifications and storage disabled.');
-}
-
-// Helper to send push notification via unified firebase utility
-const { sendPushNotification: sendPushToToken } = require('./utils/firebase');
+const db = getFirestore();
+const messaging = getMessaging();
+const bucket = getBucket();
 
 const sendPushNotification = async (userId, title, body, data = {}) => {
   if (!db) return;
