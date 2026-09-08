@@ -1,8 +1,8 @@
 {
-  "versionCode": 34,
-  "versionName": "1.33",
+  "versionCode": 35,
+  "versionName": "1.34",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Direct push notifications via secure backend proxy, eliminates credential leakage, instant partner chat and incoming call ringing",
+  "changelog": "Eliminated double notifications, restored instant double delivery ticks, fixed incoming call background launch, and updated FCM architecture.",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

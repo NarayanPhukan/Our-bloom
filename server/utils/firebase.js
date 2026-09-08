@@ -88,31 +88,22 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
       ? 'ourbloom_heartbeat_channel' 
       : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
 
+    // Pure DATA-ONLY FCM payload (WhatsApp/Signal pattern):
+    // Prevents Google Play Services from showing duplicate tray notifications in background,
+    // and guarantees MyFirebaseMessagingService.onMessageReceived() executes on Android
+    // even when the screen is locked/backgrounded to instantly commit delivery receipts.
     const message = {
+      token: fcmToken,
       data: {
         title: String(title),
         body: String(body),
+        channelId: channelId,
         ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
       },
       android: {
         priority: 'high'
-      },
-      token: fcmToken
+      }
     };
-
-    if (!isVideoCall) {
-      message.notification = {
-        title: String(title),
-        body: String(body)
-      };
-      message.android.notification = {
-        channelId: channelId,
-        priority: 'max',
-        visibility: 'public',
-        defaultSound: true,
-        defaultVibrateTimings: true
-      };
-    }
     
     const response = await messaging.send(message);
     console.log('✿ Push notification sent successfully:', response);

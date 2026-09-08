@@ -168,7 +168,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     if (messageId.isNotBlank()) {
-                        FirestoreRepository().markSingleMessageDelivered(messageId)
+                        FirestoreRepository().markSingleMessageDelivered(messageId, coupleId)
                     } else if (coupleId.isNotBlank() && senderId.isNotBlank()) {
                         FirestoreRepository().markRecentMessagesDelivered(coupleId, senderId)
                     }
@@ -177,7 +177,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
             }
 
-            // 2. Check if notifications for this couple are muted
+            // 3. Check if notifications for this couple are muted
             if (coupleId.isNotBlank()) {
                 val prefs = getSharedPreferences("ourbloom_notif_prefs", Context.MODE_PRIVATE)
                 val muteUntil = prefs.getLong("mute_until_${coupleId}", 0L)
@@ -187,7 +187,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
             }
 
-            // 3. If user is actively reading or typing in ChatFragment, skip floating banner to avoid interruption
+            // 4. If user is actively reading or typing in ChatFragment, skip floating banner to avoid interruption
             if (com.ourbloom.app.chat.ChatFragment.isChatVisible) {
                 Log.d(TAG, "User currently in ChatFragment; skipping pop-up notification")
                 return
@@ -203,18 +203,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 callerId = callerId,
                 callerAvatar = callerAvatar
             )
-            try {
-                val incomingCallIntent = Intent(this, com.ourbloom.app.call.IncomingCallActivity::class.java).apply {
-                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_COUPLE_ID, coupleId)
-                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_NAME, title)
-                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatar)
-                    putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_ID, callerId)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                startActivity(incomingCallIntent)
-            } catch (e: Exception) {
-                Log.d(TAG, "Direct launch from background restricted; fullScreenIntent will handle: ${e.message}")
-            }
+            // Note: fullScreenIntent in sendCallNotification natively handles displaying
+            // the IncomingCallActivity on Android 10-14 without triggering BAL restrictions.
             return
         }
 
@@ -388,7 +378,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(if (isChat) AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT else AudioAttributes.USAGE_NOTIFICATION)
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -443,6 +433,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val history = appendMessageToHistory(
                 context = this,
                 coupleId = coupleId,
+                messageId = messageId,
                 text = messageBody,
                 timestamp = timestamp,
                 senderName = title,
@@ -451,6 +442,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             val messagingStyle = NotificationCompat.MessagingStyle(mePerson)
                 .setConversationTitle(null)
+                .setGroupConversation(false)
 
             for (msg in history) {
                 val senderPerson = Person.Builder()
@@ -624,6 +616,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         private const val MAX_HISTORY_MESSAGES = 15
 
         data class StoredNotifMessage(
+            val messageId: String = "",
             val text: String,
             val timestamp: Long,
             val senderName: String,
@@ -633,13 +626,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         fun appendMessageToHistory(
             context: Context,
             coupleId: String,
+            messageId: String = "",
             text: String,
             timestamp: Long,
             senderName: String,
             senderId: String
         ): List<StoredNotifMessage> {
             if (coupleId.isBlank()) {
-                return listOf(StoredNotifMessage(text, timestamp, senderName, senderId))
+                return listOf(StoredNotifMessage(messageId, text, timestamp, senderName, senderId))
             }
             val prefs = context.getSharedPreferences(PREFS_CONV_HISTORY, Context.MODE_PRIVATE)
             val key = "history_$coupleId"
@@ -652,6 +646,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         val obj = array.getJSONObject(i)
                         list.add(
                             StoredNotifMessage(
+                                messageId = obj.optString("id", ""),
                                 text = obj.optString("text"),
                                 timestamp = obj.optLong("time", System.currentTimeMillis()),
                                 senderName = obj.optString("sender"),
@@ -664,7 +659,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
             }
 
-            list.add(StoredNotifMessage(text, timestamp, senderName, senderId))
+            // Deduplication: prevent adding duplicate notifications if identical push arrives multiple times
+            val isDuplicate = list.any { existing ->
+                (messageId.isNotBlank() && existing.messageId == messageId) ||
+                (existing.text == text && existing.senderId == senderId && kotlin.math.abs(existing.timestamp - timestamp) < 10000L)
+            }
+
+            if (!isDuplicate) {
+                list.add(StoredNotifMessage(messageId, text, timestamp, senderName, senderId))
+            }
 
             val trimmed = if (list.size > MAX_HISTORY_MESSAGES) {
                 list.subList(list.size - MAX_HISTORY_MESSAGES, list.size)
@@ -676,6 +679,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 val array = org.json.JSONArray()
                 for (item in trimmed) {
                     val obj = org.json.JSONObject().apply {
+                        put("id", item.messageId)
                         put("text", item.text)
                         put("time", item.timestamp)
                         put("sender", item.senderName)

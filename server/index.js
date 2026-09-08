@@ -129,6 +129,9 @@ const setupFirestoreListeners = () => {
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added') {
         const msg = change.doc.data();
+        // Skip if client already dispatched direct FCM push
+        if (msg.pushSent) return;
+
         const age = Date.now() - (msg.timestamp || 0);
         if (age < 120000) {
           let bodyText = 'New message';
@@ -396,6 +399,32 @@ app.post('/api/chat/notify', async (req, res) => {
   } catch (err) {
     console.error('✿ Error in /api/chat/notify:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Instant delivery receipt confirmation endpoint (guarantees WhatsApp double tick)
+app.post('/api/chat/delivered', async (req, res) => {
+  try {
+    const { messageId, coupleId } = req.body;
+    if (!messageId) {
+      return res.status(400).json({ error: 'messageId required' });
+    }
+
+    if (db) {
+      const now = Date.now();
+      await db.collection('chat_messages').doc(messageId).update({
+        isDelivered: true,
+        delivered: true,
+        deliveredAt: now
+      });
+      console.log(`✿ Message ${messageId} confirmed delivered via backend`);
+      return res.json({ success: true });
+    }
+    res.status(500).json({ error: 'Database unavailable' });
+  } catch (err) {
+    // If document already deleted or updated, don't crash
+    console.warn('✿ /api/chat/delivered warn:', err.message);
+    res.json({ success: false, error: err.message });
   }
 });
 

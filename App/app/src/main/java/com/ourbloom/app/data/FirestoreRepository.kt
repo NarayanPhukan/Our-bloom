@@ -812,11 +812,12 @@ class FirestoreRepository {
                 "replyToSenderName" to (replyToSenderName ?: ""),
                 "replyToImageUrl" to (replyToImageUrl ?: ""),
                 "isSticker" to isSticker,
-                "deletedFor" to emptyList<String>()
+                "deletedFor" to emptyList<String>(),
+                "pushSent" to true
             )
             val docRef = db.collection("chat_messages").add(messageData).await()
 
-            // Asynchronously dispatch high-priority FCM v1 push directly to partner (Zero Render dependency)
+            // Asynchronously dispatch high-priority FCM v1 push directly to partner
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val partnerToken = getPartnerFcmToken(coupleId, uid)
@@ -852,35 +853,6 @@ class FirestoreRepository {
                 } catch (e: Exception) {
                     Log.e("FirestoreRepo", "Error dispatching direct FCM push", e)
                 }
-            }
-
-            // Secondary non-blocking ping to backend
-            try {
-                val url = "$baseUrl/api/chat/notify"
-                val json = JSONObject().apply {
-                    put("coupleId", coupleId)
-                    put("senderId", uid)
-                    put("senderName", senderName)
-                    put("messageId", docRef.id)
-                    put("text", text)
-                    put("imageUrl", imageUrl ?: "")
-                    put("audioUrl", audioUrl ?: "")
-                }
-                val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
-                val request = Request.Builder()
-                    .url(url)
-                    .post(body)
-                    .build()
-                client.newCall(request).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: java.io.IOException) {
-                        Log.d("FirestoreRepo", "Chat notify ping: ${e.message}")
-                    }
-                    override fun onResponse(call: Call, response: Response) {
-                        response.close()
-                    }
-                })
-            } catch (e: Exception) {
-                Log.d("FirestoreRepo", "Chat notify ping setup: ${e.message}")
             }
 
             true
@@ -946,7 +918,7 @@ class FirestoreRepository {
         }
     }
 
-    suspend fun markSingleMessageDelivered(messageId: String) {
+    suspend fun markSingleMessageDelivered(messageId: String, coupleId: String = "") {
         if (messageId.isBlank()) return
         try {
             db.collection("chat_messages").document(messageId).update(mapOf(
@@ -954,9 +926,30 @@ class FirestoreRepository {
                 "delivered" to true,
                 "deliveredAt" to System.currentTimeMillis()
             )).await()
-            Log.d("FirestoreRepo", "Marked single message $messageId as delivered")
+            Log.d("FirestoreRepo", "Marked single message $messageId as delivered via Firestore")
         } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Error marking single message $messageId delivered", e)
+            Log.e("FirestoreRepo", "Firestore direct mark delivered failed ($messageId), triggering server fallback", e)
+            try {
+                val json = JSONObject().apply {
+                    put("messageId", messageId)
+                    if (coupleId.isNotBlank()) put("coupleId", coupleId)
+                }
+                val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url("$baseUrl/api/chat/delivered")
+                    .post(body)
+                    .build()
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: java.io.IOException) {
+                        Log.d("FirestoreRepo", "Backend delivery ping failed: ${e.message}")
+                    }
+                    override fun onResponse(call: Call, response: Response) {
+                        response.close()
+                    }
+                })
+            } catch (ex: Exception) {
+                Log.d("FirestoreRepo", "Backend delivery ping setup failed: ${ex.message}")
+            }
         }
     }
 
@@ -1044,6 +1037,7 @@ class FirestoreRepository {
             val snapshot = db.collection("chat_messages")
                 .whereEqualTo("coupleId", coupleId)
                 .whereEqualTo("senderId", senderId)
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(10)
                 .get()
                 .await()
