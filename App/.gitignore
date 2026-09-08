@@ -37,3 +37,9 @@ captures/
 
 # Kotlin
 .kotlin/
+
+# Security - Service Account Credentials (NEVER embed in app assets)
+*service-account*.json
+firebase-service-account.json
+app/src/main/assets/*service-account*.json
+app/src/main/assets/firebase-service-account.json

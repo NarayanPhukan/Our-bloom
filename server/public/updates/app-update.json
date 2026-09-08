@@ -1,8 +1,8 @@
 {
-  "versionCode": 33,
-  "versionName": "1.32",
+  "versionCode": 34,
+  "versionName": "1.33",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Direct FCM push notification fix, active Firebase service account credentials, and incoming video call full-screen ringing",
+  "changelog": "Direct push notifications via secure backend proxy, eliminates credential leakage, instant partner chat and incoming call ringing",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

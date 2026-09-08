@@ -19,7 +19,8 @@ try {
   }
   
   const app = getApps().length > 0 ? getApps()[0] : initializeApp({
-    credential: cert(serviceAccount)
+    credential: cert(serviceAccount),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app'
   });
   
   messaging = getMessaging(app);

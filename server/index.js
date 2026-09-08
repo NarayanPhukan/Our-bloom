@@ -23,7 +23,7 @@ const { initDailyLoveNoteJob, generateDailyNoteForCouple } = require('./jobs/dai
 const { broadcastAppUpdate } = require('./services/updateBroadcast');
 
 // Initialize Firebase Admin
-const { initializeApp, cert } = require('firebase-admin/app');
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getStorage } = require('firebase-admin/storage');
@@ -42,15 +42,15 @@ let db = null;
 let messaging = null;
 let bucket = null;
 
-if (serviceAccount) {
+if (serviceAccount || getApps().length > 0) {
   try {
-    firebaseApp = initializeApp({
+    firebaseApp = getApps().length > 0 ? getApps()[0] : initializeApp({
       credential: cert(serviceAccount),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app'
     });
-    db = getFirestore();
-    messaging = getMessaging();
-    bucket = getStorage().bucket();
+    db = getFirestore(firebaseApp);
+    messaging = getMessaging(firebaseApp);
+    bucket = getStorage(firebaseApp).bucket(process.env.FIREBASE_STORAGE_BUCKET || 'our-bloom.firebasestorage.app');
   } catch (e) {
     console.error('✿ Firebase initialization failed', e);
   }
@@ -58,42 +58,15 @@ if (serviceAccount) {
   console.warn('✿ Firebase credentials missing. Push notifications and storage disabled.');
 }
 
-// Helper to send push notification
+// Helper to send push notification via unified firebase utility
+const { sendPushNotification: sendPushToToken } = require('./utils/firebase');
+
 const sendPushNotification = async (userId, title, body, data = {}) => {
-  if (!db || !messaging) return;
+  if (!db) return;
   try {
     const userDoc = await db.collection('users').doc(userId).get();
     if (userDoc.exists && userDoc.data().fcmToken) {
-      const isHeartbeat = data.type === 'heartbeat';
-      const isChat = data.type === 'chat';
-      const isVideoCall = data.type === 'video_call';
-      const channelId = isHeartbeat 
-        ? 'ourbloom_heartbeat_channel' 
-        : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
-
-      const message = {
-        notification: {
-          title: String(title),
-          body: String(body)
-        },
-        data: {
-          title: String(title),
-          body: String(body),
-          ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
-        },
-        android: {
-          priority: 'high',
-          notification: {
-            channelId: channelId,
-            priority: 'max',
-            visibility: 'public',
-            defaultSound: true,
-            defaultVibrateTimings: true
-          }
-        },
-        token: userDoc.data().fcmToken
-      };
-      await messaging.send(message);
+      await sendPushToToken(userDoc.data().fcmToken, title, body, data);
       console.log(`✿ Push notification sent to user ${userId}`);
     }
   } catch (err) {
@@ -398,6 +371,20 @@ app.use('/api/couples/:slug/memories', authMiddleware, coupleMiddleware, memoryR
 app.use('/api/couples/:slug/dream-locations', authMiddleware, coupleMiddleware, dreamLocationRoutes);
 app.use('/api/couples/:slug/settings', authMiddleware, coupleMiddleware, settingsRoutes);
 
+// FCM push dispatch endpoint (securely uses backend Firebase Admin credentials)
+app.post('/api/fcm/send', async (req, res) => {
+  try {
+    const { token, title, body, data } = req.body;
+    if (!token) return res.status(400).json({ error: 'token is required' });
+
+    const success = await sendPushToToken(token, title, body, data || {});
+    res.json({ success });
+  } catch (err) {
+    console.error('✿ Error in /api/fcm/send:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Instant chat push notification endpoint (wakes up Render & guarantees real-time FCM dispatch)
 app.post('/api/chat/notify', async (req, res) => {
   try {
@@ -540,6 +527,14 @@ mongoose
         initAnniversaryEmailJob();
         initDailyLoveNoteJob();
         setInterval(checkAndBroadcastNewRelease, 60 * 60 * 1000);
+
+        // Keepalive self-ping on Render free tier to prevent 50s cold-start sleep
+        if (process.env.RENDER) {
+          const https = require('https');
+          setInterval(() => {
+            https.get('https://our-bloom.onrender.com/api/health', () => {}).on('error', () => {});
+          }, 10 * 60 * 1000); // every 10 minutes
+        }
       });
     }
   })
