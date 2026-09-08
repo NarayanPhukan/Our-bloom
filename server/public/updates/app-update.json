@@ -1,8 +1,8 @@
 {
-  "versionCode": 35,
-  "versionName": "1.34",
+  "versionCode": 36,
+  "versionName": "1.35",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Eliminated double notifications, restored instant double delivery ticks, fixed incoming call background launch, and updated FCM architecture.",
+  "changelog": "Voice Love Notes, On This Day Memory Flashbacks, Home Screen Love Note Widget, Travel & Dream Locations Map, Synchronous ThumbKiss, Audio-Only Calling Mode, and Chat auto-scroll",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

@@ -46,7 +46,7 @@ class LoveNotesViewModel : ViewModel() {
         }
     }
 
-    fun addLoveNote(context: android.content.Context, content: String, imageUri: Uri?) {
+    fun addLoveNote(context: android.content.Context, content: String, imageUri: Uri?, audioFile: java.io.File? = null, audioDuration: Int = 0) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -64,6 +64,18 @@ class LoveNotesViewModel : ViewModel() {
                         }
                     }
 
+                    var uploadedAudioUrl = ""
+                    if (audioFile != null && audioFile.exists()) {
+                        val audioResult = repository.uploadAudioFile(audioFile)
+                        if (audioResult != null) {
+                            uploadedAudioUrl = audioResult
+                        } else {
+                            _error.value = "Failed to upload voice note."
+                            _isLoading.value = false
+                            return@launch
+                        }
+                    }
+
                     val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
                         timeZone = TimeZone.getTimeZone("UTC")
                     }
@@ -73,11 +85,13 @@ class LoveNotesViewModel : ViewModel() {
                     val newNote = LoveNote(
                         id = "", // Let Firestore assign it
                         coupleId = user.coupleId!!,
-                        content = content,
+                        content = content.ifBlank { if (uploadedAudioUrl.isNotBlank()) "🎙️ Voice Love Letter" else "A sweet love note" },
                         author = user.name?.ifEmpty { "With love" } ?: "With love",
                         isDailyAi = false,
                         dateStr = isoString,
                         imageUrl = uploadedImageUrl,
+                        audioUrl = uploadedAudioUrl,
+                        audioDuration = audioDuration,
                         createdAt = isoString
                     )
 

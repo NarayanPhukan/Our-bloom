@@ -39,6 +39,7 @@ class IncomingCallActivity : AppCompatActivity() {
         const val EXTRA_CALLER_AVATAR = "extra_caller_avatar"
         const val EXTRA_CALLER_ID = "extra_caller_id"
         const val EXTRA_OFFER_SDP = "extra_offer_sdp"
+        const val EXTRA_IS_AUDIO_ONLY = "extra_is_audio_only"
         const val CALL_NOTIFICATION_ID = 7777
         private const val RING_TIMEOUT_MS = 45000L // 45 seconds
     }
@@ -48,6 +49,7 @@ class IncomingCallActivity : AppCompatActivity() {
     private var callerAvatar: String = ""
     private var callerId: String = ""
     private var offerSdp: String? = null
+    private var isAudioOnly: Boolean = false
 
     private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
@@ -97,6 +99,7 @@ class IncomingCallActivity : AppCompatActivity() {
         callerAvatar = intent.getStringExtra(EXTRA_CALLER_AVATAR) ?: ""
         callerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
         offerSdp = intent.getStringExtra(EXTRA_OFFER_SDP)
+        isAudioOnly = intent.getBooleanExtra(EXTRA_IS_AUDIO_ONLY, false)
 
         setupUI()
         startPulseAnimation()
@@ -109,11 +112,13 @@ class IncomingCallActivity : AppCompatActivity() {
 
     private fun setupUI() {
         val tvName = findViewById<TextView>(R.id.tv_incoming_name)
+        val tvStatus = findViewById<TextView>(R.id.tv_incoming_status)
         val ivAvatar = findViewById<ImageView>(R.id.iv_incoming_avatar)
         val btnAccept = findViewById<ImageButton>(R.id.btn_accept_incoming)
         val btnDecline = findViewById<ImageButton>(R.id.btn_decline_incoming)
 
         tvName.text = callerName
+        tvStatus.text = if (isAudioOnly) "Incoming Voice Call 📞" else "Incoming Video Call 📹"
 
         if (callerAvatar.isNotBlank()) {
             Glide.with(this)
@@ -239,6 +244,11 @@ class IncomingCallActivity : AppCompatActivity() {
                 if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
                 val status = snapshot.getString("status") ?: ""
 
+                if (snapshot.getBoolean("isAudioOnly") == true) {
+                    isAudioOnly = true
+                    findViewById<TextView>(R.id.tv_incoming_status)?.text = "Incoming Voice Call 📞"
+                }
+
                 when (status) {
                     "ended", "declined" -> {
                         // Caller cancelled or call was declined elsewhere
@@ -281,6 +291,9 @@ class IncomingCallActivity : AppCompatActivity() {
                 .document(coupleId)
                 .get()
                 .addOnSuccessListener { doc ->
+                    if (doc?.getBoolean("isAudioOnly") == true) {
+                        isAudioOnly = true
+                    }
                     val offer = doc?.getString("offer") ?: ""
                     launchVideoCall(offer)
                 }
@@ -300,6 +313,7 @@ class IncomingCallActivity : AppCompatActivity() {
             putExtra(VideoCallActivity.EXTRA_PARTNER_ID, callerId)
             putExtra(VideoCallActivity.EXTRA_IS_CALLER, false)
             putExtra(VideoCallActivity.EXTRA_OFFER_SDP, offer)
+            putExtra(VideoCallActivity.EXTRA_IS_AUDIO_ONLY, isAudioOnly)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         startActivity(intent)

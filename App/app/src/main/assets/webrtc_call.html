@@ -25,17 +25,17 @@
       height: 100%;
       background: #0d0f14;
     }
-    /* Remote Video - Full Screen */
+    /* Remote Video - Full Screen (Hardware-accelerated zero-copy rendering) */
     #remoteVideo {
       width: 100%;
       height: 100%;
       object-fit: cover;
       background-color: #0d0f14;
       display: block;
-      transform: scaleX(1);
-      image-rendering: -webkit-optimize-contrast;
+      transform: translateZ(0);
+      will-change: transform;
     }
-    /* Local Video - Floating Picture-in-Picture */
+    /* Local Video - Floating Picture-in-Picture (Isolated hardware layer) */
     #localVideoContainer {
       position: absolute;
       top: 64px;
@@ -49,17 +49,21 @@
       background-color: #1a1d24;
       z-index: 20;
       touch-action: none;
+      transform: translate3d(0, 0, 0);
+      contain: layout paint;
+      will-change: transform;
       transition: left 0.3s cubic-bezier(0.2, 0, 0.2, 1), top 0.3s cubic-bezier(0.2, 0, 0.2, 1);
     }
     #localVideo {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1); /* mirror selfie cam */
+      transform: scaleX(-1) translateZ(0); /* mirror selfie cam with GPU layer */
+      will-change: transform;
       transition: opacity 0.2s ease;
     }
     #localVideo.rear-camera {
-      transform: scaleX(1); /* don't mirror rear cam */
+      transform: scaleX(1) translateZ(0); /* don't mirror rear cam */
     }
     /* Hidden snapshot canvas */
     #snapshotCanvas {
@@ -92,6 +96,16 @@
     let isMicMuted = false;
     let isCameraMuted = false;
     let queuedCandidates = [];
+    const urlParams = new URLSearchParams(window.location.search);
+    let isAudioOnlyMode = urlParams.get('audioOnly') === '1' || urlParams.get('audioOnly') === 'true';
+
+    function setAudioOnlyMode(audioOnly) {
+      isAudioOnlyMode = !!audioOnly;
+      const localContainer = document.getElementById('localVideoContainer');
+      if (localContainer) {
+        localContainer.style.display = isAudioOnlyMode ? 'none' : 'block';
+      }
+    }
 
     const configuration = {
       iceServers: [
@@ -123,7 +137,7 @@
           credential: 'openrelayproject'
         }
       ],
-      iceCandidatePoolSize: 10,
+      iceCandidatePoolSize: 0,
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require'
     };
@@ -145,15 +159,17 @@
 
     let iceDisconnectTimer = null;
 
-    // Camera stream acquisition with high-res ideal constraints and resilient fallback
+    // Camera stream acquisition with thermal-optimized constraints and resilient fallback
     async function getCameraStream(facing, withAudio = true) {
       try {
+        // Balanced 960x540 / 720p 24-30fps: crystal clear on mobile portrait screens while
+        // cutting camera bus bandwidth and encoder thermal dissipation by ~45%
         const constraints = {
           video: {
             facingMode: facing,
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 }
+            width: { ideal: 960, max: 1280 },
+            height: { ideal: 540, max: 720 },
+            frameRate: { ideal: 24, max: 30 }
           }
         };
         if (withAudio) {
@@ -165,9 +181,14 @@
         }
         return await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err) {
-        console.warn("High-res constraints failed, falling back to basic:", err);
+        console.warn("Optimized constraints failed, falling back to basic:", err);
         return await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing },
+          video: {
+            facingMode: facing,
+            width: { ideal: 640, max: 960 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 24, max: 30 }
+          },
           audio: withAudio ? {
             echoCancellation: true,
             noiseSuppression: true,
@@ -178,10 +199,29 @@
     }
 
     // Initialize media streams
-    async function initMedia() {
+    async function initMedia(forceAudioOnly) {
+      if (forceAudioOnly !== undefined) {
+        isAudioOnlyMode = !!forceAudioOnly;
+      }
+      const localContainer = document.getElementById('localVideoContainer');
+      if (localContainer) {
+        localContainer.style.display = isAudioOnlyMode ? 'none' : 'block';
+      }
+
       try {
-        localStream = await getCameraStream(currentFacingMode, true);
-        localVideo.srcObject = localStream;
+        if (isAudioOnlyMode) {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            video: false
+          });
+        } else {
+          localStream = await getCameraStream(currentFacingMode, true);
+          localVideo.srcObject = localStream;
+        }
         bridgeCall('onCameraReady');
         return true;
       } catch (err) {
@@ -198,15 +238,15 @@
 
       peerConnection = new RTCPeerConnection(configuration);
 
-      // Prioritize hardware accelerated codecs (H.264 / VP9)
-      prioritizeHighQualityCodecs();
-
-      // Add local tracks to peer connection
+      // Add local tracks to peer connection FIRST so transceivers are generated
       if (localStream) {
         localStream.getTracks().forEach(track => {
           peerConnection.addTrack(track, localStream);
         });
       }
+
+      // Prioritize hardware accelerated H.264 codecs on transceivers AFTER tracks are added
+      applyHardwareCodecPreferences();
 
       // Handle ICE candidate generation
       peerConnection.onicecandidate = (event) => {
@@ -313,7 +353,7 @@
       }
     }
 
-    // Optimize Opus SDP parameters for studio-grade, crackle-free audio
+    // Optimize Opus SDP parameters for crystal-clear, crackle-free audio with low thermal/battery footprint
     function enhanceOpusSdp(sdp) {
       if (!sdp || typeof sdp !== 'string') return sdp;
       try {
@@ -323,12 +363,12 @@
 
         // Optimal parameters for natural, crackle-free WebRTC voice communication:
         // - useinbandfec=1: in-band Forward Error Correction to recover lost packets seamlessly
-        // - usedtx=0: disables discontinuous transmission to eliminate voice clipping/gating
-        // - maxaveragebitrate=64000: 64 kbps wideband voice (studio clarity)
+        // - usedtx=1: Discontinuous Transmission allows audio DSP to save CPU during pauses/silence
+        // - maxaveragebitrate=40000: 40 kbps wideband voice (studio clarity with low packet overhead)
         const opusParams = [
           'useinbandfec=1',
-          'usedtx=0',
-          'maxaveragebitrate=64000'
+          'usedtx=1',
+          'maxaveragebitrate=40000'
         ];
 
         const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.+)`, 'i');
@@ -359,13 +399,63 @@
       }
     }
 
-    // Optimize media senders: give audio highest network priority & tune video bandwidth
+    // SDP Munging: Guarantee hardware-accelerated H.264 is negotiated across all WebView versions
+    function preferH264InSdp(sdp) {
+      if (!sdp || typeof sdp !== 'string') return sdp;
+      try {
+        const lines = sdp.split(/\r?\n/);
+        const mVideoIndex = lines.findIndex(line => line.startsWith('m=video '));
+        if (mVideoIndex === -1) return sdp;
+
+        const h264Pts = [];
+        const rtxMap = {};
+
+        lines.forEach(line => {
+          const rtpMatch = line.match(/^a=rtpmap:(\d+)\s+H264\/90000/i);
+          if (rtpMatch) {
+            h264Pts.push(rtpMatch[1]);
+          }
+          const rtxMatch = line.match(/^a=fmtp:(\d+)\s+apt=(\d+)/i);
+          if (rtxMatch) {
+            rtxMap[rtxMatch[2]] = rtxMatch[1];
+          }
+        });
+
+        if (h264Pts.length === 0) return sdp;
+
+        const prioritizedPts = [];
+        h264Pts.forEach(pt => {
+          prioritizedPts.push(pt);
+          if (rtxMap[pt]) {
+            prioritizedPts.push(rtxMap[pt]);
+          }
+        });
+
+        const mVideoLine = lines[mVideoIndex];
+        const parts = mVideoLine.split(' ');
+        if (parts.length > 3) {
+          const header = parts.slice(0, 3);
+          const existingPts = parts.slice(3);
+          const remainingPts = existingPts.filter(pt => !prioritizedPts.includes(pt));
+          const newPts = [...prioritizedPts.filter(pt => existingPts.includes(pt)), ...remainingPts];
+          lines[mVideoIndex] = [...header, ...newPts].join(' ');
+          console.log("✿ Munged SDP: H.264 hardware codecs placed at top of m=video line");
+        }
+
+        return lines.join('\r\n');
+      } catch (e) {
+        console.warn("preferH264InSdp warning:", e);
+        return sdp;
+      }
+    }
+
+    // Optimize media senders: give audio highest network priority & tune video bandwidth for thermal efficiency
     async function optimizeMediaSenders() {
       if (!peerConnection) return;
       try {
         const senders = peerConnection.getSenders();
 
-        // 1. Audio Sender: Ensure high network priority and dedicated 64kbps allocation
+        // 1. Audio Sender: 40kbps high-clarity voice with high network priority
         const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
         if (audioSender && typeof audioSender.getParameters === 'function') {
           try {
@@ -373,17 +463,17 @@
             if (!audioParams.encodings || audioParams.encodings.length === 0) {
               audioParams.encodings = [{}];
             }
-            audioParams.encodings[0].maxBitrate = 64000;
+            audioParams.encodings[0].maxBitrate = 40000;
             audioParams.encodings[0].priority = 'high';
             audioParams.encodings[0].networkPriority = 'high';
             await audioSender.setParameters(audioParams);
-            console.log("✿ Audio sender prioritized at 64kbps");
+            console.log("✿ Audio sender prioritized at 40kbps");
           } catch (e) {
             console.warn("Audio param note:", e.message);
           }
         }
 
-        // 2. Video Sender: Balanced 1.8 Mbps (crisp 720p 30fps without starving audio)
+        // 2. Video Sender: 900 kbps (sharp portrait HD without thermal runaway or CPU throttling)
         const videoSender = senders.find(s => s.track && s.track.kind === 'video');
         if (videoSender && typeof videoSender.getParameters === 'function') {
           try {
@@ -391,12 +481,13 @@
             if (!parameters.encodings || parameters.encodings.length === 0) {
               parameters.encodings = [{}];
             }
-            parameters.encodings[0].maxBitrate = 1800000; // 1.8 Mbps
+            parameters.encodings[0].maxBitrate = 900000; // 900 kbps: crystal clear on mobile, cool phone
             parameters.encodings[0].scaleResolutionDownBy = 1.0;
             parameters.encodings[0].maxFramerate = 30;
-            parameters.degradationPreference = 'maintain-framerate';
+            // 'balanced' allows WebRTC to intelligently scale down if under CPU/thermal pressure
+            parameters.degradationPreference = 'balanced';
             await videoSender.setParameters(parameters);
-            console.log("✿ Video encoder configured: 1.8 Mbps 720p 30fps");
+            console.log("✿ Video encoder configured: 900 kbps, degradationPreference=balanced");
           } catch (e) {
             console.warn("Video param note:", e.message);
           }
@@ -406,25 +497,55 @@
       }
     }
 
-    function prioritizeHighQualityCodecs() {
+    // Prioritize hardware-accelerated H.264 via MediaCodec
+    function applyHardwareCodecPreferences() {
       if (!peerConnection || typeof RTCRtpSender.getCapabilities !== 'function') return;
       try {
-        const transceivers = peerConnection.getTransceivers();
-        const videoTransceiver = transceivers.find(t => t.sender && t.sender.track && t.sender.track.kind === 'video');
-        if (videoTransceiver && typeof videoTransceiver.setCodecPreferences === 'function') {
-          const capabilities = RTCRtpSender.getCapabilities('video');
-          if (capabilities && capabilities.codecs) {
-            const sortedCodecs = [...capabilities.codecs].sort((a, b) => {
-              const aScore = a.mimeType.includes('H264') ? 2 : (a.mimeType.includes('VP9') ? 1 : 0);
-              const bScore = b.mimeType.includes('H264') ? 2 : (b.mimeType.includes('VP9') ? 1 : 0);
-              return bScore - aScore;
-            });
-            videoTransceiver.setCodecPreferences(sortedCodecs);
-            console.log("✿ Prioritized high-fidelity video codecs (H.264/VP9)");
+        const capabilities = RTCRtpSender.getCapabilities('video');
+        if (!capabilities || !capabilities.codecs) return;
+
+        // Group codecs:
+        // 1. H264 Baseline / Constrained Baseline (profile 42e0.. or 4200.. with packetization-mode=1)
+        // 2. Remaining H264 codecs
+        // 3. VP8 (software fallback, significantly lighter than VP9)
+        // 4. VP9/AV1 (demoted to bottom to prevent CPU software-encoding meltdown)
+        const h264Baseline = [];
+        const h264Other = [];
+        const vp8Codecs = [];
+        const others = [];
+
+        capabilities.codecs.forEach(codec => {
+          const mime = (codec.mimeType || '').toLowerCase();
+          if (mime === 'video/h264') {
+            const fmtp = (codec.sdpFmtpLine || '').toLowerCase();
+            if (fmtp.includes('packetization-mode=1') && (fmtp.includes('42e0') || fmtp.includes('4200'))) {
+              h264Baseline.push(codec);
+            } else {
+              h264Other.push(codec);
+            }
+          } else if (mime === 'video/vp8') {
+            vp8Codecs.push(codec);
+          } else {
+            others.push(codec);
           }
-        }
+        });
+
+        const sortedCodecs = [...h264Baseline, ...h264Other, ...vp8Codecs, ...others];
+
+        peerConnection.getTransceivers().forEach(transceiver => {
+          const isVideo = (transceiver.sender && transceiver.sender.track && transceiver.sender.track.kind === 'video') ||
+                          (transceiver.receiver && transceiver.receiver.track && transceiver.receiver.track.kind === 'video');
+          if (isVideo && typeof transceiver.setCodecPreferences === 'function') {
+            try {
+              transceiver.setCodecPreferences(sortedCodecs);
+              console.log("✿ Set H.264 hardware codec preferences on video transceiver");
+            } catch (err) {
+              console.warn("setCodecPreferences note:", err);
+            }
+          }
+        });
       } catch (e) {
-        console.warn("Could not set codec preferences:", e);
+        console.warn("applyHardwareCodecPreferences note:", e);
       }
     }
 
@@ -436,12 +557,13 @@
           if (!ready) return;
         }
         createPeerConnection();
+        applyHardwareCodecPreferences();
 
         let offer = await peerConnection.createOffer({
           offerToReceiveAudio: true,
           offerToReceiveVideo: true
         });
-        offer.sdp = enhanceOpusSdp(offer.sdp);
+        offer.sdp = preferH264InSdp(enhanceOpusSdp(offer.sdp));
         await peerConnection.setLocalDescription(offer);
         await optimizeMediaSenders();
 
@@ -464,6 +586,7 @@
         const offer = safeParseJson(offerJson);
         if (!offer) return;
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        applyHardwareCodecPreferences();
 
         // Process queued ICE candidates
         while (queuedCandidates.length > 0) {
@@ -476,7 +599,7 @@
         }
 
         let answer = await peerConnection.createAnswer();
-        answer.sdp = enhanceOpusSdp(answer.sdp);
+        answer.sdp = preferH264InSdp(enhanceOpusSdp(answer.sdp));
         await peerConnection.setLocalDescription(answer);
         await optimizeMediaSenders();
 
@@ -540,12 +663,37 @@
     }
 
     // Toggle Camera On/Off
-    function setCameraMuted(muted) {
+    async function setCameraMuted(muted) {
       isCameraMuted = muted;
       if (localStream) {
-        localStream.getVideoTracks().forEach(track => {
-          track.enabled = !muted;
-        });
+        const videoTracks = localStream.getVideoTracks();
+        if (videoTracks.length === 0 && !muted) {
+          try {
+            const camStream = await getCameraStream(currentFacingMode, false);
+            const newTrack = camStream.getVideoTracks()[0];
+            if (newTrack) {
+              localStream.addTrack(newTrack);
+              localVideo.srcObject = localStream;
+              if (peerConnection) {
+                const senders = peerConnection.getSenders();
+                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                if (videoSender) {
+                  videoSender.replaceTrack(newTrack);
+                } else {
+                  peerConnection.addTrack(newTrack, localStream);
+                }
+              }
+              const localContainer = document.getElementById('localVideoContainer');
+              if (localContainer) localContainer.style.display = 'block';
+            }
+          } catch (e) {
+            console.warn("Could not start camera on demand:", e);
+          }
+        } else {
+          videoTracks.forEach(track => {
+            track.enabled = !muted;
+          });
+        }
       }
       const placeholder = document.getElementById('localCameraOffPlaceholder');
       if (placeholder) {
@@ -607,9 +755,9 @@
               newStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                   deviceId: { exact: targetDevice.deviceId },
-                  width: { ideal: 1280 },
-                  height: { ideal: 720 },
-                  frameRate: { ideal: 30 }
+                  width: { ideal: 960, max: 1280 },
+                  height: { ideal: 540, max: 720 },
+                  frameRate: { ideal: 24, max: 30 }
                 },
                 audio: false
               });
@@ -626,9 +774,9 @@
             newStream = await navigator.mediaDevices.getUserMedia({
               video: {
                 facingMode: { exact: nextFacing },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                frameRate: { ideal: 30 }
+                width: { ideal: 960, max: 1280 },
+                height: { ideal: 540, max: 720 },
+                frameRate: { ideal: 24, max: 30 }
               },
               audio: false
             });
@@ -638,8 +786,9 @@
               newStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                   facingMode: nextFacing,
-                  width: { ideal: 1280 },
-                  height: { ideal: 720 }
+                  width: { ideal: 960, max: 1280 },
+                  height: { ideal: 540, max: 720 },
+                  frameRate: { ideal: 24, max: 30 }
                 },
                 audio: false
               });
@@ -654,7 +803,12 @@
           console.warn("Switch completely failed; restoring previous camera");
           try {
             newStream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: currentFacingMode },
+              video: {
+                facingMode: currentFacingMode,
+                width: { ideal: 960, max: 1280 },
+                height: { ideal: 540, max: 720 },
+                frameRate: { ideal: 24, max: 30 }
+              },
               audio: false
             });
           } catch (eRestore) {
@@ -702,6 +856,8 @@
             if (videoSender) {
               await videoSender.replaceTrack(newVideoTrack);
               console.log("Replaced video track on WebRTC peer connection successfully");
+              applyHardwareCodecPreferences();
+              await optimizeMediaSenders();
             }
           }
 

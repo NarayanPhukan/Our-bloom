@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0E0A12">
+
+    <!-- Custom Canvas for Auras, Connecting Light Beams, and Floating Blossom Petals -->
+    <com.ourbloom.app.touch.ThumbKissCanvasView
+        android:id="@+id/touch_canvas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top Toolbar Header -->
+    <LinearLayout
+        android:id="@+id/header_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="16dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageButton
+            android:id="@+id/btn_close"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            android:contentDescription="Close"
+            app:tint="#FFD2DD" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_header_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ThumbKiss 💓"
+                android:textColor="#FFF0F5"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_partner_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Waiting for partner to touch..."
+                android:textColor="#FF85A2"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Partner Avatar Indicator -->
+        <FrameLayout
+            android:id="@+id/layout_partner_avatar_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp">
+
+            <View
+                android:id="@+id/view_partner_pulse_ring"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_circle_translucent"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/iv_partner_avatar"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_person_rounded" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Center Guidance Hints (Fades out when touching) -->
+    <LinearLayout
+        android:id="@+id/layout_center_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_touch_icon"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_favorite"
+            app:tint="#FF5E8E" />
+
+        <TextView
+            android:id="@+id/tv_instruction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Touch &amp; Hold Anywhere"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="When both of you touch, you'll feel each other's live heartbeat"
+            android:textColor="#C7B2BD"
+            android:textSize="13sp"
+            android:textAlignment="center"
+            android:maxWidth="280dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_nudge_partner"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginTop="20dp"
+            android:text="Nudge Partner 💌"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            app:backgroundTint="#2D1D2B"
+            app:strokeColor="#FF5E8E"
+            app:strokeWidth="1dp"
+            app:cornerRadius="20dp" />
+    </LinearLayout>
+
+    <!-- Bottom Status Pill -->
+    <TextView
+        android:id="@+id/tv_connection_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="36dp"
+        android:background="@drawable/bg_pill_dark"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="8dp"
+        android:text="Synchronous Touch Active"
+        android:textColor="#D8B4C8"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

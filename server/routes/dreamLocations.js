@@ -41,6 +41,27 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     const savedLocation = await newLocation.save();
     
+    // Dual-sync to Firestore dreamLocations collection
+    try {
+      const { getFirestore } = require('../utils/firebase');
+      const db = getFirestore();
+      if (db) {
+        await db.collection('dreamLocations').doc(savedLocation._id.toString()).set({
+          coupleId: req.coupleId.toString(),
+          title: savedLocation.title,
+          description: savedLocation.description,
+          lat: savedLocation.lat,
+          lng: savedLocation.lng,
+          status: savedLocation.status,
+          photoUrl: savedLocation.photoUrl,
+          createdAt: savedLocation.createdAt.toISOString(),
+          updatedAt: savedLocation.updatedAt.toISOString()
+        });
+      }
+    } catch (fsErr) {
+      console.error('Firestore sync error for dreamLocation:', fsErr.message);
+    }
+
     const io = req.app.get('io');
     if (io) io.to(req.coupleSlug).emit('newLocation', savedLocation);
 
@@ -68,6 +89,27 @@ router.put('/:id', upload.single('image'), async (req, res) => {
 
     const updatedLocation = await location.save();
     
+    // Dual-sync to Firestore dreamLocations collection
+    try {
+      const { getFirestore } = require('../utils/firebase');
+      const db = getFirestore();
+      if (db) {
+        await db.collection('dreamLocations').doc(updatedLocation._id.toString()).set({
+          coupleId: req.coupleId.toString(),
+          title: updatedLocation.title,
+          description: updatedLocation.description,
+          lat: updatedLocation.lat,
+          lng: updatedLocation.lng,
+          status: updatedLocation.status,
+          photoUrl: updatedLocation.photoUrl,
+          createdAt: updatedLocation.createdAt.toISOString(),
+          updatedAt: updatedLocation.updatedAt.toISOString()
+        }, { merge: true });
+      }
+    } catch (fsErr) {
+      console.error('Firestore sync error for updated dreamLocation:', fsErr.message);
+    }
+
     const io = req.app.get('io');
     if (io) io.to(req.coupleSlug).emit('updateLocation', updatedLocation);
 
@@ -83,6 +125,17 @@ router.delete('/:id', async (req, res) => {
     const location = await DreamLocation.findOneAndDelete({ _id: req.params.id, coupleId: req.coupleId });
     if (!location) return res.status(404).json({ error: 'Location not found' });
     
+    // Dual-sync delete to Firestore
+    try {
+      const { getFirestore } = require('../utils/firebase');
+      const db = getFirestore();
+      if (db) {
+        await db.collection('dreamLocations').doc(req.params.id).delete();
+      }
+    } catch (fsErr) {
+      console.error('Firestore sync error for deleted dreamLocation:', fsErr.message);
+    }
+
     const io = req.app.get('io');
     if (io) io.to(req.coupleSlug).emit('deleteLocation', req.params.id);
 

@@ -12,5 +12,7 @@ data class LoveNote(
     val isDailyAi: Boolean = false,
     val dateStr: String = "",
     val imageUrl: String = "",
+    val audioUrl: String = "",
+    val audioDuration: Int = 0,
     val createdAt: String? = null
 )

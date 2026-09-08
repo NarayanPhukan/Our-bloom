@@ -29,6 +29,14 @@ const loveNoteSchema = new mongoose.Schema(
     isDailyAi: {
       type: Boolean,
       default: false,
+    },
+    audioUrl: {
+      type: String,
+      default: '',
+    },
+    audioDuration: {
+      type: Number,
+      default: 0,
     }
   },
   {

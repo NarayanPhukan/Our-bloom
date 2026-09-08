@@ -48,8 +48,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
 
         val type = remoteMessage.data["type"]
+        val action = remoteMessage.data["action"]
         val isHeartbeat = type == "heartbeat"
-        val isVideoCall = type == "video_call"
+        val isAudioOnly = remoteMessage.data["isAudioOnly"] == "true" || remoteMessage.data["callType"] == "audio" || type == "audio_call"
+        val isVideoCall = type == "video_call" || type == "call" || type == "audio_call" || isAudioOnly
+        val isDailyNote = type == "daily_note" || type == "note" || action == "open_love_notes"
         val isUpdate = type == "app_update" || type == "update" ||
             remoteMessage.data.containsKey("versionCode")
         val isChat = type == "chat" || 
@@ -120,6 +123,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         } else if (isChat) {
             // WhatsApp style: Partner's name is the title
             remoteMessage.data["senderName"] ?: remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Your Love"
+        } else if (isDailyNote) {
+            remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Daily Love Note Has Bloomed 🌸"
         } else {
             remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "OurBloom"
         }
@@ -201,7 +206,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 callerName = title,
                 coupleId = coupleId,
                 callerId = callerId,
-                callerAvatar = callerAvatar
+                callerAvatar = callerAvatar,
+                isAudioOnly = isAudioOnly
             )
             // Note: fullScreenIntent in sendCallNotification natively handles displaying
             // the IncomingCallActivity on Android 10-14 without triggering BAL restrictions.
@@ -214,6 +220,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             messageBody = body,
             isHeartbeat = isHeartbeat,
             isChat = isChat,
+            isDailyNote = isDailyNote,
             coupleId = coupleId,
             senderId = senderId,
             messageId = messageId,
@@ -225,7 +232,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         callerName: String,
         coupleId: String,
         callerId: String,
-        callerAvatar: String
+        callerAvatar: String,
+        isAudioOnly: Boolean = false
     ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "ourbloom_call_channel"
@@ -239,10 +247,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             val channel = NotificationChannel(
                 channelId,
-                "Video Calls",
+                "Calls",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Incoming video call alerts"
+                description = "Incoming call alerts"
                 enableLights(true)
                 lightColor = Color.parseColor("#FF4D6D")
                 enableVibration(true)
@@ -258,6 +266,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_NAME, callerName)
             putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_AVATAR, callerAvatar)
             putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_CALLER_ID, callerId)
+            putExtra(com.ourbloom.app.call.IncomingCallActivity.EXTRA_IS_AUDIO_ONLY, isAudioOnly)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
@@ -268,8 +277,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val callIcon = if (isAudioOnly) R.drawable.ic_call else R.drawable.ic_videocam
+        val callLabel = if (isAudioOnly) "Incoming Voice Call 📞" else "Incoming Video Call 📹"
+
         val acceptAction = NotificationCompat.Action.Builder(
-            R.drawable.ic_videocam,
+            callIcon,
             "Accept",
             fullScreenPendingIntent
         ).build()
@@ -292,9 +304,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         ).build()
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_videocam)
+            .setSmallIcon(callIcon)
             .setContentTitle(callerName)
-            .setContentText("Incoming Video Call 📹")
+            .setContentText(callLabel)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
@@ -338,6 +350,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         messageBody: String,
         isHeartbeat: Boolean,
         isChat: Boolean,
+        isDailyNote: Boolean = false,
         coupleId: String = "",
         senderId: String = "",
         messageId: String = "",
@@ -353,11 +366,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 putExtra("action", "open_chat")
                 putExtra("coupleId", coupleId)
                 putExtra("senderId", senderId)
+            } else if (isDailyNote) {
+                putExtra("action", "open_love_notes")
+                putExtra("type", "daily_note")
+                putExtra("coupleId", coupleId)
             }
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 
-            if (isHeartbeat) 4041 else (if (isChat) 4042 else 0), 
+            if (isHeartbeat) 4041 else (if (isChat) 4042 else (if (isDailyNote) 4043 else 0)), 
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -372,6 +389,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val channelName = when {
             isHeartbeat -> "Heartbeat & Thinking of You"
             isChat -> "Couple Chat Messages"
+            isDailyNote -> "Daily Love Notes"
             else -> "Our Bloom Notifications"
         }
 
@@ -399,6 +417,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val notifId = when {
             isHeartbeat -> 8888
+            isDailyNote -> 7777
             isChat -> if (coupleId.isNotBlank()) kotlin.math.abs(coupleId.hashCode()) % 50000 + 10000 else 4042
             else -> (System.currentTimeMillis() % 100000).toInt() + 1000
         }
@@ -414,7 +433,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setVibrate(if (isHeartbeat) longArrayOf(0, 120, 80, 240) else longArrayOf(0, 250, 250, 250))
             .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setCategory(if (isChat) NotificationCompat.CATEGORY_MESSAGE else (if (isHeartbeat) NotificationCompat.CATEGORY_EVENT else NotificationCompat.CATEGORY_STATUS))
+            .setCategory(if (isChat) NotificationCompat.CATEGORY_MESSAGE else (if (isHeartbeat) NotificationCompat.CATEGORY_EVENT else (if (isDailyNote) NotificationCompat.CATEGORY_MESSAGE else NotificationCompat.CATEGORY_STATUS)))
             .setWhen(System.currentTimeMillis())
             .setShowWhen(true)
             .setOnlyAlertOnce(false)

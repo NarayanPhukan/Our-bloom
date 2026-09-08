@@ -82,6 +82,12 @@
             android:theme="@style/Theme.OurBloom"
             android:exported="false" />
 
+        <activity
+            android:name=".touch.ThumbKissActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.OurBloom"
+            android:exported="false" />
+
         <service
             android:name=".fcm.MyFirebaseMessagingService"
             android:exported="false">
@@ -120,6 +126,20 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/love_timer_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LoveNoteWidgetProvider"
+            android:label="@string/widget_love_note_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.ourbloom.app.widget.ACTION_SEND_HEARTBEAT" />
+                <action android:name="com.ourbloom.app.widget.ACTION_REFRESH_LOVE_NOTE_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/love_note_widget_info" />
         </receiver>
 
         <receiver

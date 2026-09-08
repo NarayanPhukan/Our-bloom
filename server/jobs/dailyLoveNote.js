@@ -1,7 +1,17 @@
 const cron = require('node-cron');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { getFirestore } = require('../utils/firebase');
+const { getFirestore, sendPushNotification } = require('../utils/firebase');
 const LoveNote = require('../models/LoveNote');
+
+let ioInstance = null;
+
+function setIo(io) {
+  ioInstance = io;
+}
+
+function getIo() {
+  return ioInstance;
+}
 
 function getTodayDateStr() {
   return new Date().toLocaleDateString('en-US', {
@@ -11,11 +21,60 @@ function getTodayDateStr() {
   });
 }
 
-async function generateDailyNoteForCouple(idOrSlug, coupleSlug, coupleData = {}) {
+async function getFcmTokenForUser(userId, db) {
+  if (!userId) return null;
+  const uidStr = String(userId);
+
+  // 1. Check Firestore direct document lookup
+  if (db) {
+    try {
+      const userDoc = await db.collection('users').doc(uidStr).get();
+      if (userDoc.exists && userDoc.data()?.fcmToken) {
+        return userDoc.data().fcmToken;
+      }
+    } catch (_) {}
+
+    // 2. Query Firestore where uid == uidStr
+    try {
+      const qUid = await db.collection('users').where('uid', '==', uidStr).limit(1).get();
+      if (!qUid.empty && qUid.docs[0].data()?.fcmToken) {
+        return qUid.docs[0].data().fcmToken;
+      }
+    } catch (_) {}
+
+    // 3. Query Firestore where _id == uidStr
+    try {
+      const qId = await db.collection('users').where('_id', '==', uidStr).limit(1).get();
+      if (!qId.empty && qId.docs[0].data()?.fcmToken) {
+        return qId.docs[0].data().fcmToken;
+      }
+    } catch (_) {}
+  }
+
+  // 4. Check MongoDB User model
+  try {
+    const User = require('../models/User');
+    const mongoose = require('mongoose');
+    let mUser = null;
+    if (mongoose.Types.ObjectId.isValid(uidStr)) {
+      mUser = await User.findById(uidStr);
+    }
+    if (!mUser) {
+      mUser = await User.findOne({ email: uidStr });
+    }
+    if (mUser && mUser.fcmToken) {
+      return mUser.fcmToken;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+async function generateDailyNoteForCouple(idOrSlug, coupleSlug, coupleData = {}, options = {}) {
+  let resolvedId = idOrSlug;
   try {
     const todayStr = getTodayDateStr();
     const db = getFirestore();
-    let resolvedId = idOrSlug;
     let resolvedSlug = coupleSlug || idOrSlug;
 
     // Resolve couple document if needed (e.g. if slug passed as idOrSlug)
@@ -83,9 +142,11 @@ async function generateDailyNoteForCouple(idOrSlug, coupleSlug, coupleData = {})
       updatedAt: new Date().toISOString()
     };
 
+    let docRef = null;
+
     // 3. Save to Firestore
     if (db) {
-      const docRef = await db.collection('loveNotes').add(notePayload);
+      docRef = await db.collection('loveNotes').add(notePayload);
       console.log(`✿ Gemini daily love note saved to Firestore (${docRef.id}) for couple ${resolvedId} (${todayStr})`);
     }
 
@@ -95,6 +156,106 @@ async function generateDailyNoteForCouple(idOrSlug, coupleSlug, coupleData = {})
       await mongoNote.save();
     } catch (mErr) {
       // Non-fatal if MongoDB has separate schema/connection
+    }
+
+    // 5. Send push notification to the partner (or both partners if automated cron)
+    try {
+      let user1 = coupleData?.user1 || '';
+      let user2 = coupleData?.user2 || '';
+
+      if (db && (!user1 || !user2)) {
+        try {
+          let coupleDoc = await db.collection('couples').doc(resolvedId).get();
+          if (!coupleDoc.exists && resolvedSlug) {
+            const q = await db.collection('couples').where('slug', '==', resolvedSlug).limit(1).get();
+            if (!q.empty) coupleDoc = q.docs[0];
+          }
+          if (coupleDoc && coupleDoc.exists) {
+            const cData = coupleDoc.data();
+            user1 = user1 || cData.user1;
+            user2 = user2 || cData.user2;
+            resolvedSlug = resolvedSlug || cData.slug;
+          }
+        } catch (cErr) {
+          console.warn('✿ Could not fetch couple from Firestore for daily note notification:', cErr.message);
+        }
+      }
+
+      if (!user1 || !user2) {
+        try {
+          const Couple = require('../models/Couple');
+          const mongoose = require('mongoose');
+          let mongoCouple = null;
+          if (mongoose.Types.ObjectId.isValid(resolvedId)) {
+            mongoCouple = await Couple.findById(resolvedId);
+          }
+          if (!mongoCouple && resolvedSlug) {
+            mongoCouple = await Couple.findOne({ slug: resolvedSlug });
+          }
+          if (mongoCouple) {
+            user1 = user1 || mongoCouple.user1?.toString();
+            user2 = user2 || mongoCouple.user2?.toString();
+            resolvedSlug = resolvedSlug || mongoCouple.slug;
+          }
+        } catch (_) {}
+      }
+
+      const requestingUserId = options.requestingUserId ? String(options.requestingUserId) : null;
+      let targetUserIds = [];
+
+      const u1Str = user1 ? String(user1) : '';
+      const u2Str = user2 ? String(user2) : '';
+
+      if (requestingUserId) {
+        // If a specific user triggered this generation on-demand, notify their partner
+        if (requestingUserId === u1Str && u2Str) {
+          targetUserIds = [u2Str];
+        } else if (requestingUserId === u2Str && u1Str) {
+          targetUserIds = [u1Str];
+        } else {
+          targetUserIds = [u1Str, u2Str].filter(id => id && id !== requestingUserId);
+        }
+      } else {
+        // Automated background generation (cron job or startup check): notify both partners
+        targetUserIds = [u1Str, u2Str].filter(Boolean);
+      }
+
+      const previewContent = content.length > 120 ? `${content.substring(0, 117)}...` : content;
+      const pushTitle = 'Daily Love Note Has Bloomed 🌸';
+      const pushBody = previewContent;
+      const pushData = {
+        type: 'daily_note',
+        action: 'open_love_notes',
+        coupleId: String(resolvedId),
+        slug: String(resolvedSlug),
+        dateStr: String(todayStr),
+        noteId: String(docRef?.id || '')
+      };
+
+      for (const targetId of targetUserIds) {
+        const fcmToken = await getFcmTokenForUser(targetId, db);
+        if (fcmToken) {
+          await sendPushNotification(fcmToken, pushTitle, pushBody, pushData);
+          console.log(`✿ Sent daily love note push notification to partner ${targetId}`);
+        } else {
+          console.log(`✿ No FCM token found for partner ${targetId}`);
+        }
+      }
+
+      // Broadcast real-time Socket.io event if connected
+      const activeIo = options.io || getIo();
+      if (activeIo && resolvedSlug) {
+        activeIo.to(resolvedSlug).emit('dailyNote', notePayload);
+        activeIo.to(resolvedSlug).emit('notification', {
+          type: 'daily_note_generated',
+          coupleId: resolvedId,
+          title: pushTitle,
+          message: previewContent,
+          dateStr: todayStr
+        });
+      }
+    } catch (notifErr) {
+      console.error('✿ Error sending daily love note partner notification:', notifErr?.message || notifErr);
     }
 
     return notePayload;
@@ -140,5 +301,7 @@ function initDailyLoveNoteJob() {
 module.exports = {
   initDailyLoveNoteJob,
   generateDailyNoteForCouple,
-  getTodayDateStr
+  getTodayDateStr,
+  setIo,
+  getIo
 };

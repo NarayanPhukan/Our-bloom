@@ -40,6 +40,51 @@
             android:gravity="center"
             android:alpha="0.8" />
 
+        <!-- Voice Note Playback Row -->
+        <LinearLayout
+            android:id="@+id/layout_audio_playback"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_whatsapp_pill"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginTop="12dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btn_play_audio"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_call_btn_round"
+                android:src="@drawable/ic_play_arrow"
+                app:tint="#FFFFFF"
+                android:padding="6dp"
+                android:contentDescription="Play Voice Note" />
+
+            <TextView
+                android:id="@+id/tv_audio_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="🎙️ Voice Note"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/bloom_primary" />
+
+            <TextView
+                android:id="@+id/tv_audio_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="0:00"
+                android:textSize="12sp"
+                android:textColor="?attr/colorOutline" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/tv_date"
             android:layout_width="match_parent"

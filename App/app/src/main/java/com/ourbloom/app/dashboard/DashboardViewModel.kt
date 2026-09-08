@@ -41,6 +41,14 @@ class DashboardViewModel : ViewModel() {
     private val _partnerUser = MutableLiveData<com.ourbloom.app.data.models.User?>()
     val partnerUser: LiveData<com.ourbloom.app.data.models.User?> = _partnerUser
 
+    data class FlashbackMemory(
+        val memory: Memory,
+        val badgeText: String
+    )
+
+    private val _flashbackMemory = MutableLiveData<FlashbackMemory?>()
+    val flashbackMemory: LiveData<FlashbackMemory?> = _flashbackMemory
+
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
 
@@ -103,7 +111,57 @@ class DashboardViewModel : ViewModel() {
             }
 
             try {
-                _memories.value = repository.getRecentMemories(cId)
+                val mems = repository.getRecentMemories(cId)
+                _memories.value = mems
+
+                // Compute "On This Day" / Flashback
+                val calNow = java.util.Calendar.getInstance()
+                val todayMonth = calNow.get(java.util.Calendar.MONTH)
+                val todayDay = calNow.get(java.util.Calendar.DAY_OF_MONTH)
+                val todayYear = calNow.get(java.util.Calendar.YEAR)
+
+                var foundFlashback: FlashbackMemory? = null
+                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                val simpleFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+                for (mem in mems) {
+                    val dateStr = mem.createdAt ?: mem.dateStr
+                    var d: Date? = null
+                    try {
+                        d = isoFormat.parse(dateStr)
+                    } catch (_: Exception) {
+                        try {
+                            d = simpleFormat.parse(dateStr.take(10))
+                        } catch (_: Exception) {}
+                    }
+
+                    if (d != null) {
+                        val calMem = java.util.Calendar.getInstance().apply { time = d }
+                        if (calMem.get(java.util.Calendar.MONTH) == todayMonth &&
+                            calMem.get(java.util.Calendar.DAY_OF_MONTH) == todayDay &&
+                            calMem.get(java.util.Calendar.YEAR) < todayYear) {
+                            val yearsAgo = todayYear - calMem.get(java.util.Calendar.YEAR)
+                            val badge = if (yearsAgo == 1) "1 year ago today ❤️" else "$yearsAgo years ago today ❤️"
+                            foundFlashback = FlashbackMemory(mem, badge)
+                            break
+                        }
+                    }
+                }
+
+                if (foundFlashback == null) {
+                    val fav = mems.find { it.isFavorite }
+                    if (fav != null) {
+                        foundFlashback = FlashbackMemory(fav, "Favorite Moment ✨")
+                    } else if (mems.isNotEmpty()) {
+                        val oldest = mems.lastOrNull { it.imageUrl.isNotBlank() }
+                        if (oldest != null) {
+                            foundFlashback = FlashbackMemory(oldest, "Cherished Throwback 📸")
+                        }
+                    }
+                }
+                _flashbackMemory.value = foundFlashback
             } catch (e: Exception) {
                 Log.w("DashboardViewModel", "Error fetching memories: ${e.message}")
             }

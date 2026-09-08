@@ -102,4 +102,10 @@
         android:label="Chat"
         tools:layout="@layout/fragment_chat" />
 
+    <fragment
+        android:id="@+id/dreamMapFragment"
+        android:name="com.ourbloom.app.dashboard.DreamMapFragment"
+        android:label="Dream Locations"
+        tools:layout="@layout/fragment_dream_map" />
+
 </navigation>

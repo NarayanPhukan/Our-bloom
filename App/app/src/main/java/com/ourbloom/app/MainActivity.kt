@@ -193,6 +193,9 @@ class MainActivity : AppCompatActivity() {
         val isChat = intent?.getStringExtra("action") == "open_chat" ||
                      intent?.getStringExtra("type") == "chat" ||
                      intent?.hasExtra("messageId") == true
+        val isLoveNote = intent?.getStringExtra("action") == "open_love_notes" ||
+                         intent?.getStringExtra("type") == "daily_note" ||
+                         intent?.getStringExtra("type") == "note"
         val isVideoCall = intent?.getStringExtra("type") == "video_call"
 
         if (isVideoCall) {
@@ -212,6 +215,8 @@ class MainActivity : AppCompatActivity() {
                 MyFirebaseMessagingService.dismissChatNotifications(this)
             } catch (_: Exception) {}
             navController.navigate(R.id.chatFragment)
+        } else if (isLoveNote) {
+            navController.navigate(R.id.loveNotesFragment)
         } else if (isUpdate) {
             try {
                 AppUpdateHelper.dismissUpdateNotification(this)
@@ -235,6 +240,9 @@ class MainActivity : AppCompatActivity() {
         val isChat = intent.getStringExtra("action") == "open_chat" ||
                      intent.getStringExtra("type") == "chat" ||
                      intent.hasExtra("messageId")
+        val isLoveNote = intent.getStringExtra("action") == "open_love_notes" ||
+                         intent.getStringExtra("type") == "daily_note" ||
+                         intent.getStringExtra("type") == "note"
         val isVideoCall = intent.getStringExtra("type") == "video_call"
 
         if (isVideoCall) {
@@ -254,6 +262,8 @@ class MainActivity : AppCompatActivity() {
                 MyFirebaseMessagingService.dismissChatNotifications(this)
             } catch (_: Exception) {}
             navController?.navigate(R.id.chatFragment)
+        } else if (isLoveNote) {
+            navController?.navigate(R.id.loveNotesFragment)
         } else if (isUpdate) {
             try {
                 AppUpdateHelper.dismissUpdateNotification(this)

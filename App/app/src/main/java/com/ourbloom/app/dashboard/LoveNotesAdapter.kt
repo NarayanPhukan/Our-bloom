@@ -37,28 +37,100 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         }
     }
 
+    private var mediaPlayer: android.media.MediaPlayer? = null
+    private var currentPlayingNoteId: String? = null
+    private var currentPlayingButton: android.widget.ImageButton? = null
+
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val note = getItem(position)
         if (holder is ImageNoteViewHolder) {
-            holder.bind(note)
+            holder.bind(note) { btn -> toggleAudioPlayback(note, btn) }
         } else if (holder is TextNoteViewHolder) {
-            holder.bind(note)
+            holder.bind(note) { btn -> toggleAudioPlayback(note, btn) }
         }
+    }
+
+    private fun toggleAudioPlayback(note: LoveNote, button: android.widget.ImageButton) {
+        if (note.audioUrl.isBlank()) return
+
+        if (currentPlayingNoteId == note.id && mediaPlayer != null) {
+            if (mediaPlayer?.isPlaying == true) {
+                mediaPlayer?.pause()
+                button.setImageResource(R.drawable.ic_play_arrow)
+            } else {
+                mediaPlayer?.start()
+                button.setImageResource(R.drawable.ic_pause)
+            }
+            return
+        }
+
+        stopAudioPlayback()
+
+        try {
+            val player = android.media.MediaPlayer().apply {
+                setDataSource(note.audioUrl)
+                prepareAsync()
+                setOnPreparedListener { mp ->
+                    mp.start()
+                    button.setImageResource(R.drawable.ic_pause)
+                }
+                setOnCompletionListener {
+                    button.setImageResource(R.drawable.ic_play_arrow)
+                    stopAudioPlayback()
+                }
+                setOnErrorListener { _, _, _ ->
+                    button.setImageResource(R.drawable.ic_play_arrow)
+                    stopAudioPlayback()
+                    true
+                }
+            }
+            mediaPlayer = player
+            currentPlayingNoteId = note.id
+            currentPlayingButton = button
+        } catch (e: Exception) {
+            button.setImageResource(R.drawable.ic_play_arrow)
+        }
+    }
+
+    fun stopAudioPlayback() {
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+        } catch (_: Exception) {}
+        mediaPlayer = null
+        currentPlayingButton?.setImageResource(R.drawable.ic_play_arrow)
+        currentPlayingButton = null
+        currentPlayingNoteId = null
     }
 
     class TextNoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvDate: TextView = itemView.findViewById(R.id.tv_date)
         private val tvContent: TextView = itemView.findViewById(R.id.tv_content)
         private val tvAuthor: TextView = itemView.findViewById(R.id.tv_author)
+        private val layoutAudio: View? = itemView.findViewById(R.id.layout_audio_playback)
+        private val btnPlayAudio: android.widget.ImageButton? = itemView.findViewById(R.id.btn_play_audio)
+        private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
 
-        fun bind(note: LoveNote) {
+        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit) {
             tvDate.text = formatDate(note.createdAt ?: note.dateStr)
             
             // Basic HTML strip since content might contain basic HTML from ReactQuill
             val cleanContent = note.content.replace(Regex("<.*?>"), "").replace("&nbsp;", " ")
             tvContent.text = cleanContent
-            
             tvAuthor.text = "— ${note.author}"
+
+            if (!note.audioUrl.isNullOrBlank()) {
+                layoutAudio?.visibility = View.VISIBLE
+                val durSec = note.audioDuration.takeIf { it > 0 } ?: 0
+                val mins = durSec / 60
+                val secs = durSec % 60
+                tvAudioDuration?.text = if (durSec > 0) String.format(Locale.US, "%d:%02d", mins, secs) else "Voice Note"
+                btnPlayAudio?.setOnClickListener {
+                    btnPlayAudio?.let { btn -> onAudioClick(btn) }
+                }
+            } else {
+                layoutAudio?.visibility = View.GONE
+            }
         }
     }
 
@@ -66,8 +138,11 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         private val ivImage: ImageView = itemView.findViewById(R.id.iv_image)
         private val tvContent: TextView = itemView.findViewById(R.id.tv_content)
         private val tvDate: TextView = itemView.findViewById(R.id.tv_date)
+        private val layoutAudio: View? = itemView.findViewById(R.id.layout_audio_playback)
+        private val btnPlayAudio: android.widget.ImageButton? = itemView.findViewById(R.id.btn_play_audio)
+        private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
 
-        fun bind(note: LoveNote) {
+        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit) {
             tvDate.text = formatDate(note.createdAt ?: note.dateStr)
             
             if (note.content.isNotBlank()) {
@@ -79,11 +154,23 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
             }
 
             if (note.imageUrl.startsWith("/uploads")) {
-                // If it's a relative URL from MongoDB, construct a fallback full URL
-                val baseUrl = "http://10.0.2.2:5000" // Emulator localhost fallback
+                val baseUrl = "http://10.0.2.2:5000"
                 Glide.with(itemView.context).load(baseUrl + note.imageUrl).into(ivImage)
             } else {
                 Glide.with(itemView.context).load(note.imageUrl).into(ivImage)
+            }
+
+            if (!note.audioUrl.isNullOrBlank()) {
+                layoutAudio?.visibility = View.VISIBLE
+                val durSec = note.audioDuration.takeIf { it > 0 } ?: 0
+                val mins = durSec / 60
+                val secs = durSec % 60
+                tvAudioDuration?.text = if (durSec > 0) String.format(Locale.US, "%d:%02d", mins, secs) else "Voice Note"
+                btnPlayAudio?.setOnClickListener {
+                    btnPlayAudio?.let { btn -> onAudioClick(btn) }
+                }
+            } else {
+                layoutAudio?.visibility = View.GONE
             }
         }
     }

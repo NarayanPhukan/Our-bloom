@@ -1,6 +1,7 @@
 package com.ourbloom.app.dashboard
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -222,10 +223,57 @@ class DashboardFragment : Fragment() {
             if (note != null) {
                 tvDailyNoteText.text = "\"${note.content}\""
                 tvDailyNoteAuthor.text = "— From ${note.author}"
+                context?.let { ctx ->
+                    com.ourbloom.app.widget.LoveNoteWidgetProvider.saveWidgetData(ctx, note.content, note.author)
+                }
             } else {
                 tvDailyNoteText.text = "No daily love note today."
                 tvDailyNoteAuthor.text = ""
             }
+        }
+
+        // Observe "On This Day" / Flashback Memory
+        val cardOnThisDay = view.findViewById<View>(R.id.card_on_this_day)
+        val ivFlashbackImage = view.findViewById<ImageView>(R.id.iv_flashback_image)
+        val tvFlashbackBadge = view.findViewById<TextView>(R.id.tv_flashback_badge)
+        val tvFlashbackTitle = view.findViewById<TextView>(R.id.tv_flashback_title)
+        val tvFlashbackDate = view.findViewById<TextView>(R.id.tv_flashback_date)
+
+        viewModel.flashbackMemory.observe(viewLifecycleOwner) { flashback ->
+            if (flashback != null && flashback.memory.imageUrl.isNotBlank()) {
+                cardOnThisDay?.visibility = View.VISIBLE
+                tvFlashbackBadge?.text = flashback.badgeText
+                tvFlashbackTitle?.text = flashback.memory.title.ifBlank { "A beautiful memory" }
+                tvFlashbackDate?.text = flashback.memory.dateStr.ifBlank { "Our Bloom" }
+                ivFlashbackImage?.let { iv ->
+                    Glide.with(this)
+                        .load(flashback.memory.imageUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.placeholder_memory)
+                        .into(iv)
+                }
+
+                cardOnThisDay?.setOnClickListener {
+                    showLightbox(flashback.memory)
+                }
+            } else {
+                cardOnThisDay?.visibility = View.GONE
+            }
+        }
+
+        // Wire ThumbKiss card
+        val cardThumbKiss = view.findViewById<View>(R.id.card_thumb_kiss)
+        cardThumbKiss?.setOnClickListener {
+            val intent = Intent(requireContext(), com.ourbloom.app.touch.ThumbKissActivity::class.java)
+            startActivity(intent)
+        }
+
+        // Wire Dream Map card
+        val cardDreamMap = view.findViewById<View>(R.id.card_dream_map)
+        cardDreamMap?.setOnClickListener {
+            try {
+                findNavController().navigate(R.id.dreamMapFragment)
+            } catch (_: Exception) {}
         }
 
         viewModel.error.observe(viewLifecycleOwner) { errorMsg ->

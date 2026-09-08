@@ -98,6 +98,38 @@ class ChatFragment : Fragment() {
     private lateinit var ivPartnerAvatar: ImageView
     private lateinit var layoutEmpty: View
 
+    // Intelligent scroll state management
+    private var isUserDraggingOrFlinging = false
+    private var isFirstChatLoad = true
+    private var lastRenderedMessageCount = 0
+    private var lastRenderedMessageId: String? = null
+    private var userJustSentMessage = false
+
+    private fun isScrolledToBottom(): Boolean {
+        if (!::rvMessages.isInitialized) return true
+        val lm = rvMessages.layoutManager as? LinearLayoutManager ?: return true
+        val lastPos = lm.findLastVisibleItemPosition()
+        val total = chatAdapter.itemCount
+        if (total == 0) return true
+        return lastPos >= total - 2
+    }
+
+    private fun scrollChatToBottom(smooth: Boolean = false) {
+        if (!::rvMessages.isInitialized || isUserDraggingOrFlinging) return
+        val count = chatAdapter.itemCount
+        if (count > 0) {
+            rvMessages.post {
+                if (!isUserDraggingOrFlinging) {
+                    if (smooth) {
+                        rvMessages.smoothScrollToPosition(count - 1)
+                    } else {
+                        rvMessages.scrollToPosition(count - 1)
+                    }
+                }
+            }
+        }
+    }
+
     // Contextual Action Bar views
     private lateinit var layoutActionBar: View
     private lateinit var chatHeader: View
@@ -193,9 +225,11 @@ class ChatFragment : Fragment() {
         val cameraGranted = permissions[android.Manifest.permission.CAMERA] == true
         val audioGranted = permissions[android.Manifest.permission.RECORD_AUDIO] == true
         if (cameraGranted && audioGranted) {
-            launchVideoCall()
+            launchCall(isAudioOnly = false)
+        } else if (audioGranted) {
+            launchCall(isAudioOnly = true)
         } else {
-            Toast.makeText(requireContext(), "Camera and Microphone permissions are required for video calls", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Microphone permission is required for calls", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -304,6 +338,8 @@ class ChatFragment : Fragment() {
         }
         val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
+        userJustSentMessage = true
+        scrollChatToBottom(smooth = false)
 
         Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
 
@@ -429,17 +465,26 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun startAudioCallFlow() {
+        val hasAudio = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (hasAudio) {
+            launchCall(isAudioOnly = true)
+        } else {
+            callPermissionsLauncher.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
+        }
+    }
+
     private fun startVideoCallFlow() {
         val hasCamera = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         val hasAudio = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         if (hasCamera && hasAudio) {
-            launchVideoCall()
+            launchCall(isAudioOnly = false)
         } else {
             callPermissionsLauncher.launch(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO))
         }
     }
 
-    private fun launchVideoCall() {
+    private fun launchCall(isAudioOnly: Boolean) {
         val coupleId = currentCouple?.id ?: run {
             Toast.makeText(requireContext(), "Couple connection not loaded yet", Toast.LENGTH_SHORT).show()
             return
@@ -455,7 +500,13 @@ class ChatFragment : Fragment() {
             putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_AVATAR, partnerAvatar)
             putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_PARTNER_ID, partnerId)
             putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_IS_CALLER, true)
+            putExtra(com.ourbloom.app.call.VideoCallActivity.EXTRA_IS_AUDIO_ONLY, isAudioOnly)
         }
+        startActivity(intent)
+    }
+
+    private fun launchThumbKiss() {
+        val intent = Intent(requireContext(), com.ourbloom.app.touch.ThumbKissActivity::class.java)
         startActivity(intent)
     }
 
@@ -537,7 +588,15 @@ class ChatFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        // WhatsApp-style header Video Call button
+        // WhatsApp-style header buttons
+        view.findViewById<ImageButton>(R.id.btn_thumb_kiss)?.setOnClickListener {
+            launchThumbKiss()
+        }
+
+        view.findViewById<ImageButton>(R.id.btn_audio_call)?.setOnClickListener {
+            startAudioCallFlow()
+        }
+
         view.findViewById<ImageButton>(R.id.btn_video_call)?.setOnClickListener {
             startVideoCallFlow()
         }
@@ -592,6 +651,31 @@ class ChatFragment : Fragment() {
         }
         rvMessages.layoutManager = layoutManager
         rvMessages.adapter = chatAdapter
+
+        // Track user drag/fling gestures so incoming messages never interrupt scrolling
+        rvMessages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                when (newState) {
+                    RecyclerView.SCROLL_STATE_DRAGGING -> {
+                        isUserDraggingOrFlinging = true
+                    }
+                    RecyclerView.SCROLL_STATE_IDLE -> {
+                        isUserDraggingOrFlinging = false
+                    }
+                    RecyclerView.SCROLL_STATE_SETTLING -> {
+                        // Preserves current drag state: true if settling from finger fling, false if programmatic
+                    }
+                }
+            }
+        })
+
+        // Adjust scroll position when keyboard appears if user was already at the bottom
+        rvMessages.addOnLayoutChangeListener { _, _, _, _, bottom, _, _, _, oldBottom ->
+            if (bottom < oldBottom && isScrolledToBottom() && !isUserDraggingOrFlinging) {
+                scrollChatToBottom(smooth = false)
+            }
+        }
 
         // WhatsApp-style Swipe-to-Reply ItemTouchHelper
         val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
@@ -1158,11 +1242,42 @@ class ChatFragment : Fragment() {
 
     private fun setupMessagesListener(coupleId: String) {
         messagesListener?.remove()
+        isFirstChatLoad = true
+        lastRenderedMessageCount = 0
+        lastRenderedMessageId = null
+        userJustSentMessage = false
+        isUserDraggingOrFlinging = false
+
         messagesListener = repository.getChatMessagesListener(coupleId) { messages ->
+            val wasNearBottom = isScrolledToBottom()
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val newLastMessage = messages.lastOrNull()
+            val isNewMessage = newLastMessage != null &&
+                (newLastMessage.id != lastRenderedMessageId || messages.size > lastRenderedMessageCount)
+            val isSentByMe = newLastMessage != null && newLastMessage.senderId == currentUid
+
             chatAdapter.submitList(messages)
+            lastRenderedMessageCount = messages.size
+            lastRenderedMessageId = newLastMessage?.id
+
             if (messages.isNotEmpty()) {
                 layoutEmpty.visibility = View.GONE
-                rvMessages.scrollToPosition(messages.size - 1)
+                if (isFirstChatLoad) {
+                    isFirstChatLoad = false
+                    userJustSentMessage = false
+                    scrollChatToBottom(smooth = false)
+                } else if (isNewMessage) {
+                    if (userJustSentMessage || isSentByMe) {
+                        userJustSentMessage = false
+                        scrollChatToBottom(smooth = false)
+                    } else {
+                        // Incoming new message from partner:
+                        // Only scroll to it if user was near the bottom and not actively scrolling up/down
+                        if (wasNearBottom) {
+                            scrollChatToBottom(smooth = true)
+                        }
+                    }
+                }
             } else {
                 layoutEmpty.visibility = View.VISIBLE
             }
@@ -1181,7 +1296,6 @@ class ChatFragment : Fragment() {
 
             // Real-time WhatsApp double blue ticks: ONLY mark partner messages as read
             // if the user is ACTUALLY present and actively viewing the chat screen!
-            val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
             if (currentUid.isNotBlank() && isChatVisible && isResumed && isAdded) {
                 val unreadPartnerIds = messages.filter { 
                     it.senderId.isNotBlank() && it.senderId != currentUid && !it.isRead
@@ -1427,6 +1541,8 @@ class ChatFragment : Fragment() {
             clearReplyMode()
 
             triggerSendHaptic()
+            userJustSentMessage = true
+            scrollChatToBottom(smooth = false)
             val appContext = requireContext().applicationContext
             Toast.makeText(requireContext(), "Sending voice note...", Toast.LENGTH_SHORT).show()
             viewLifecycleOwner.lifecycleScope.launch {
@@ -1489,6 +1605,8 @@ class ChatFragment : Fragment() {
 
         etInput.setText("")
         triggerSendHaptic()
+        userJustSentMessage = true
+        scrollChatToBottom(smooth = false)
 
         if (isCurrentlyTyping) {
             isCurrentlyTyping = false
@@ -1532,6 +1650,8 @@ class ChatFragment : Fragment() {
                 val filename = "sticker_${UUID.randomUUID()}.webp"
                 val uploadedUrl = repository.uploadImageBytes(bytes, filename)
                 if (!uploadedUrl.isNullOrBlank()) {
+                    userJustSentMessage = true
+                    scrollChatToBottom(smooth = false)
                     repository.sendChatMessage(
                         coupleId = cId,
                         text = "",
@@ -1572,6 +1692,8 @@ class ChatFragment : Fragment() {
         }
 
         val totalCount = uris.size
+        userJustSentMessage = true
+        scrollChatToBottom(smooth = false)
         if (totalCount == 1) {
             Toast.makeText(requireContext(), "Uploading photo...", Toast.LENGTH_SHORT).show()
         } else {

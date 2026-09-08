@@ -19,7 +19,7 @@ const uploadRoutes = require('./routes/upload');
 const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
-const { initDailyLoveNoteJob, generateDailyNoteForCouple } = require('./jobs/dailyLoveNote');
+const { initDailyLoveNoteJob, generateDailyNoteForCouple, setIo: setDailyLoveNoteIo } = require('./jobs/dailyLoveNote');
 const { broadcastAppUpdate } = require('./services/updateBroadcast');
 
 // Initialize Firebase Admin via unified utility
@@ -107,8 +107,18 @@ const setupFirestoreListeners = () => {
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added') {
         const note = change.doc.data();
+        // Skip AI daily notes here to avoid duplicate or misattributed notifications
+        // (daily notes are dispatched with rich previews and proper partner resolution in generateDailyNoteForCouple)
+        if (note.isDailyAi) {
+          return;
+        }
         if (note.createdAt && (Date.now() - new Date(note.createdAt).getTime() < 120000)) {
-          notifyPartner(note.coupleId, note.author, 'New Love Note! 💌', 'Your partner left you a sweet note.');
+          notifyPartner(note.coupleId, note.author, 'New Love Note! 💌', 'Your partner left you a sweet note.', {
+            type: 'note',
+            action: 'open_love_notes',
+            coupleId: note.coupleId,
+            noteId: change.doc.id
+          });
         }
       }
     });
@@ -279,6 +289,7 @@ const io = new Server(server, {
 });
 app.set('io', io);
 app.set('bucket', bucket);
+setDailyLoveNoteIo(io);
 
 // Socket.io with JWT authentication and couple rooms
 io.on('connection', (socket) => {
@@ -504,7 +515,11 @@ app.get('/api/health', (req, res) => {
 app.get('/api/couples/:idOrSlug/daily-love-note', async (req, res) => {
   try {
     const { idOrSlug } = req.params;
-    const note = await generateDailyNoteForCouple(idOrSlug, idOrSlug);
+    const requestingUserId = req.query.userId || req.query.requestingUserId || null;
+    const note = await generateDailyNoteForCouple(idOrSlug, idOrSlug, {}, {
+      requestingUserId,
+      io: app.get('io')
+    });
     res.json(note || {});
   } catch (err) {
     res.status(500).json({ error: err.message });

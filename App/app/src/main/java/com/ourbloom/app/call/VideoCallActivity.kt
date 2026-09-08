@@ -88,6 +88,7 @@ class VideoCallActivity : AppCompatActivity() {
         const val EXTRA_PARTNER_ID = "extra_partner_id"
         const val EXTRA_IS_CALLER = "extra_is_caller"
         const val EXTRA_OFFER_SDP = "extra_offer_sdp"
+        const val EXTRA_IS_AUDIO_ONLY = "extra_is_audio_only"
     }
 
     private var coupleId: String = ""
@@ -96,6 +97,7 @@ class VideoCallActivity : AppCompatActivity() {
     private var partnerId: String = ""
     private var isCaller: Boolean = true
     private var initialOfferSdp: String? = null
+    private var isAudioOnly: Boolean = false
 
     private var sessionStartTime: Long = 0L
     private var callStartTime: Long = 0L
@@ -180,6 +182,7 @@ class VideoCallActivity : AppCompatActivity() {
         partnerId = intent.getStringExtra(EXTRA_PARTNER_ID) ?: ""
         isCaller = intent.getBooleanExtra(EXTRA_IS_CALLER, true)
         initialOfferSdp = intent.getStringExtra(EXTRA_OFFER_SDP)
+        isAudioOnly = intent.getBooleanExtra(EXTRA_IS_AUDIO_ONLY, false)
 
         sessionStartTime = System.currentTimeMillis()
 
@@ -208,7 +211,8 @@ class VideoCallActivity : AppCompatActivity() {
                 "answer" to "",
                 "callerCandidates" to emptyList<String>(),
                 "receiverCandidates" to emptyList<String>(),
-                "endedAt" to 0L
+                "endedAt" to 0L,
+                "isAudioOnly" to isAudioOnly
             )
             // Clean slate: completely overwrite any previous call's document
             db.collection("video_calls").document(coupleId).set(initData)
@@ -224,9 +228,11 @@ class VideoCallActivity : AppCompatActivity() {
                             context = this@VideoCallActivity,
                             token = partnerToken,
                             title = callerName,
-                            body = "Incoming Video Call 📹",
+                            body = if (isAudioOnly) "Incoming Voice Call 📞" else "Incoming Video Call 📹",
                             data = mapOf(
-                                "type" to "video_call",
+                                "type" to (if (isAudioOnly) "audio_call" else "video_call"),
+                                "callType" to (if (isAudioOnly) "audio" else "video"),
+                                "isAudioOnly" to isAudioOnly.toString(),
                                 "coupleId" to coupleId,
                                 "callerId" to currentUid,
                                 "callerName" to callerName,
@@ -271,8 +277,14 @@ class VideoCallActivity : AppCompatActivity() {
 
         tvCallingPartnerName.text = partnerName
         tvCallPartnerName.text = partnerName
-        tvCallingStatus.text = if (isCaller) "Calling $partnerName..." else "Connecting..."
+        tvCallingStatus.text = if (isAudioOnly) (if (isCaller) "Voice Calling $partnerName..." else "Connecting Voice Call...") else (if (isCaller) "Calling $partnerName..." else "Connecting...")
         tvCallTimer.text = if (isCaller) "Calling..." else "Connecting..."
+
+        if (isAudioOnly) {
+            isCameraMuted = true
+            btnCallToggleCam.setImageResource(R.drawable.ic_videocam_off)
+            btnCallToggleCam.alpha = 0.6f
+        }
 
         if (partnerAvatar.isNotBlank()) {
             Glide.with(this)
@@ -342,7 +354,11 @@ class VideoCallActivity : AppCompatActivity() {
             audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
 
             requestCallAudioFocus()
-            routeAudioToSpeaker(true)
+            if (isAudioOnly) {
+                routeAudioToSpeaker(false)
+            } else {
+                routeAudioToSpeaker(true)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error setting up audio manager: ${e.message}")
         }
@@ -482,6 +498,17 @@ class VideoCallActivity : AppCompatActivity() {
         webView.evaluateJavascript(script, null)
         btnCallToggleCam.setImageResource(if (isCameraMuted) R.drawable.ic_videocam_off else R.drawable.ic_videocam)
         btnCallToggleCam.alpha = if (isCameraMuted) 0.6f else 1.0f
+
+        if (isAudioOnly && !isCameraMuted) {
+            isAudioOnly = false
+            stopRadarAnimation()
+            layoutCallingOverlay.animate()
+                .alpha(0f)
+                .setDuration(400)
+                .withEndAction { layoutCallingOverlay.visibility = View.GONE }
+                .start()
+        }
+
         Toast.makeText(this, if (isCameraMuted) "Camera Turned Off" else "Camera Turned On", Toast.LENGTH_SHORT).show()
     }
 
@@ -580,10 +607,15 @@ class VideoCallActivity : AppCompatActivity() {
     private fun startInCallMessageListener() {
         if (coupleId.isBlank()) return
         inCallMessageListener?.remove()
+        var isFirstSnapshot = true
         inCallMessageListener = db.collection("chat_messages")
             .whereEqualTo("coupleId", coupleId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) return@addSnapshotListener
+                if (isFirstSnapshot) {
+                    isFirstSnapshot = false
+                    return@addSnapshotListener
+                }
                 val currentUid = auth.currentUser?.uid ?: ""
                 val recentMessages = snapshot.documentChanges
                     .filter { it.type == com.google.firebase.firestore.DocumentChange.Type.ADDED }
@@ -657,7 +689,9 @@ class VideoCallActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        // Do NOT use LAYER_TYPE_HARDWARE on WebView: the Activity is already hardware-accelerated.
+        // LAYER_TYPE_HARDWARE forces off-screen FBO allocations causing GPU double-buffering & overheating.
+        webView.setLayerType(View.LAYER_TYPE_NONE, null)
         val settings = webView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -682,7 +716,8 @@ class VideoCallActivity : AppCompatActivity() {
         }
 
         webView.addJavascriptInterface(CallBridge(), "AndroidCallBridge")
-        webView.loadUrl("file:///android_asset/webrtc_call.html")
+        val callUrl = if (isAudioOnly) "file:///android_asset/webrtc_call.html?audioOnly=1" else "file:///android_asset/webrtc_call.html"
+        webView.loadUrl(callUrl)
     }
 
     // ==========================================
@@ -830,6 +865,9 @@ class VideoCallActivity : AppCompatActivity() {
             }
 
             val status = snapshot.getString("status") ?: ""
+            if (snapshot.getBoolean("isAudioOnly") == true) {
+                isAudioOnly = true
+            }
             Log.d(TAG, "Call doc update: status=$status, isCaller=$isCaller")
 
             if (isEndingCall) return@addSnapshotListener
@@ -1006,7 +1044,8 @@ class VideoCallActivity : AppCompatActivity() {
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
             val startStr = timeFormat.format(Date(callStartTime))
             val endStr = timeFormat.format(Date(callEndTime))
-            val text = "📹 Video call • $startStr - $endStr"
+            val prefix = if (isAudioOnly) "📞 Voice call" else "📹 Video call"
+            val text = "$prefix • $startStr - $endStr"
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     repository.sendChatMessage(
@@ -1129,16 +1168,18 @@ class VideoCallActivity : AppCompatActivity() {
                                     context = this@VideoCallActivity,
                                     token = partnerToken,
                                     title = callerName,
-                                    body = "Incoming Video Call 📹",
+                                    body = if (isAudioOnly) "Incoming Voice Call 📞" else "Incoming Video Call 📹",
                                     data = mapOf(
-                                        "type" to "video_call",
+                                        "type" to (if (isAudioOnly) "audio_call" else "video_call"),
+                                        "callType" to (if (isAudioOnly) "audio" else "video"),
+                                        "isAudioOnly" to isAudioOnly.toString(),
                                         "coupleId" to coupleId,
                                         "callerId" to currentUid,
                                         "callerName" to callerName,
                                         "callerAvatar" to callerAvatar
                                     )
                                 )
-                                Log.d(TAG, "Direct FCM video call push successfully dispatched to partner")
+                                Log.d(TAG, "Direct FCM call push successfully dispatched to partner")
                             } else {
                                 Log.w(TAG, "Partner FCM token not available for direct call push")
                             }
@@ -1203,19 +1244,26 @@ class VideoCallActivity : AppCompatActivity() {
             runOnUiThread {
                 if (!isCallConnected) {
                     isCallConnected = true
-                    stopRadarAnimation()
                     if (callStartTime == 0L) {
                         callStartTime = System.currentTimeMillis()
                     }
-                    layoutCallingOverlay.animate()
-                        .alpha(0f)
-                        .setDuration(400)
-                        .withEndAction { layoutCallingOverlay.visibility = View.GONE }
-                        .start()
+
+                    if (isAudioOnly) {
+                        tvCallingStatus.text = "Voice Call Connected 💓"
+                        pbCalling.visibility = View.GONE
+                    } else {
+                        stopRadarAnimation()
+                        layoutCallingOverlay.animate()
+                            .alpha(0f)
+                            .setDuration(400)
+                            .withEndAction { layoutCallingOverlay.visibility = View.GONE }
+                            .start()
+                    }
 
                     startTimer()
                     triggerHaptic(60)
-                    Toast.makeText(this@VideoCallActivity, "Video call connected 💕", Toast.LENGTH_SHORT).show()
+                    val toastMsg = if (isAudioOnly) "Voice call connected 💕" else "Video call connected 💕"
+                    Toast.makeText(this@VideoCallActivity, toastMsg, Toast.LENGTH_SHORT).show()
                 }
             }
         }

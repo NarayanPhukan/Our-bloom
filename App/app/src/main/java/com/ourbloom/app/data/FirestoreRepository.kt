@@ -471,7 +471,8 @@ class FirestoreRepository {
 
             // 2. If not yet generated for today, request backend to generate via Gemini
             try {
-                val url = "$baseUrl/api/couples/$coupleId/daily-love-note"
+                val currentUid = auth.currentUser?.uid ?: ""
+                val url = "$baseUrl/api/couples/$coupleId/daily-love-note?userId=$currentUid"
                 val request = Request.Builder().url(url).get().build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
@@ -774,6 +775,58 @@ class FirestoreRepository {
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error deleting memory", e)
+            false
+        }
+    }
+
+    suspend fun getDreamLocations(coupleId: String): List<com.ourbloom.app.data.models.DreamLocation> {
+        return try {
+            val snapshot = db.collection("dreamLocations")
+                .whereEqualTo("coupleId", coupleId)
+                .get()
+                .await()
+            snapshot.toObjects(com.ourbloom.app.data.models.DreamLocation::class.java)
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error fetching dream locations", e)
+            emptyList()
+        }
+    }
+
+    suspend fun createDreamLocation(location: com.ourbloom.app.data.models.DreamLocation): Boolean {
+        return try {
+            db.collection("dreamLocations").add(location).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error creating dream location", e)
+            false
+        }
+    }
+
+    suspend fun updateDreamLocation(locationId: String, title: String, description: String, status: String): Boolean {
+        return try {
+            db.collection("dreamLocations").document(locationId).update(
+                mapOf(
+                    "title" to title,
+                    "description" to description,
+                    "status" to status,
+                    "updatedAt" to java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }.format(java.util.Date())
+                )
+            ).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating dream location", e)
+            false
+        }
+    }
+
+    suspend fun deleteDreamLocation(locationId: String): Boolean {
+        return try {
+            db.collection("dreamLocations").document(locationId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting dream location", e)
             false
         }
     }
