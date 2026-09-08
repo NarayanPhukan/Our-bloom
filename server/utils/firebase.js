@@ -44,27 +44,30 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
       : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
 
     const message = {
-      notification: {
-        title: String(title),
-        body: String(body)
-      },
       data: {
         title: String(title),
         body: String(body),
         ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
       },
       android: {
-        priority: 'high',
-        notification: {
-          channelId: channelId,
-          priority: 'max',
-          visibility: 'public',
-          defaultSound: true,
-          defaultVibrateTimings: true
-        }
+        priority: 'high'
       },
       token: fcmToken
     };
+
+    if (!isVideoCall) {
+      message.notification = {
+        title: String(title),
+        body: String(body)
+      };
+      message.android.notification = {
+        channelId: channelId,
+        priority: 'max',
+        visibility: 'public',
+        defaultSound: true,
+        defaultVibrateTimings: true
+      };
+    }
     
     const response = await messaging.send(message);
     console.log('✿ Push notification sent successfully:', response);

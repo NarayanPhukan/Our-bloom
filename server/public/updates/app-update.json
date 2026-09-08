@@ -1,8 +1,8 @@
 {
-  "versionCode": 32,
-  "versionName": "1.31",
+  "versionCode": 33,
+  "versionName": "1.32",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "WhatsApp sticker import, frameless floating sticker chat rendering, sticker bottom tray with favorites and recents",
+  "changelog": "Direct FCM push notification fix, active Firebase service account credentials, and incoming video call full-screen ringing",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

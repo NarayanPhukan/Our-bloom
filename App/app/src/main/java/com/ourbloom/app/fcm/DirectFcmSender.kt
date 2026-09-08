@@ -203,14 +203,6 @@ object DirectFcmSender {
                         else -> "ourbloom_chat_heads_up_v3"
                     }
 
-                    // Top-level notification block: Guarantees Google Play Services displays
-                    // the notification directly on Android status bar even if the app process is closed/killed/in Doze
-                    val notifObj = JSONObject().apply {
-                        put("title", title)
-                        put("body", body)
-                    }
-                    put("notification", notifObj)
-
                     val dataObj = JSONObject().apply {
                         put("title", title)
                         put("body", body)
@@ -220,16 +212,30 @@ object DirectFcmSender {
 
                     val androidObj = JSONObject().apply {
                         put("priority", "HIGH")
-                        val androidNotif = JSONObject().apply {
-                            put("channel_id", channelId)
-                            put("notification_priority", "PRIORITY_MAX")
-                            put("visibility", "PUBLIC")
-                            put("default_sound", true)
-                            put("default_vibrate_timings", true)
+                        if (!isCall) {
+                            val androidNotif = JSONObject().apply {
+                                put("channel_id", channelId)
+                                put("notification_priority", "PRIORITY_MAX")
+                                put("visibility", "PUBLIC")
+                                put("default_sound", true)
+                                put("default_vibrate_timings", true)
+                            }
+                            put("notification", androidNotif)
                         }
-                        put("notification", androidNotif)
                     }
                     put("android", androidObj)
+
+                    if (!isCall) {
+                        // Top-level notification block: Guarantees Google Play Services displays
+                        // the notification directly on Android status bar even if the app process is closed/killed/in Doze.
+                        // For video calls, we intentionally OMIT this so Google Play Services invokes
+                        // MyFirebaseMessagingService.onMessageReceived() to launch the full-screen IncomingCallActivity and ringtone.
+                        val notifObj = JSONObject().apply {
+                            put("title", title)
+                            put("body", body)
+                        }
+                        put("notification", notifObj)
+                    }
                 }
                 put("message", msg)
             }
