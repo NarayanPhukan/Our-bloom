@@ -55,6 +55,14 @@ class ScratchCardView @JvmOverloads constructor(
 
     var onScratchRevealed: (() -> Unit)? = null
 
+    private val gestureDetector = android.view.GestureDetector(context, object : android.view.GestureDetector.SimpleOnGestureListener() {
+        override fun onLongPress(e: MotionEvent) {
+            if (!performLongClick()) {
+                (parent as? View)?.performLongClick() ?: (parent?.parent as? View)?.performLongClick()
+            }
+        }
+    })
+
     private val vibrator: Vibrator? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
@@ -130,6 +138,8 @@ class ScratchCardView @JvmOverloads constructor(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (isRevealed || scratchCanvas == null) return false
+
+        gestureDetector.onTouchEvent(event)
 
         val x = event.x
         val y = event.y

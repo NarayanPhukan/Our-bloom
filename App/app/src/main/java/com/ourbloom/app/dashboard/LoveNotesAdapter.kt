@@ -38,12 +38,17 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
     }
 
     var onNoteRevealed: ((LoveNote) -> Unit)? = null
+    var onNoteLongClick: ((LoveNote) -> Unit)? = null
     private var mediaPlayer: android.media.MediaPlayer? = null
     private var currentPlayingNoteId: String? = null
     private var currentPlayingButton: android.widget.ImageButton? = null
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val note = getItem(position)
+        holder.itemView.setOnLongClickListener {
+            onNoteLongClick?.invoke(note)
+            true
+        }
         if (holder is ImageNoteViewHolder) {
             holder.bind(note, onAudioClick = { btn -> toggleAudioPlayback(note, btn) }, onRevealed = { onNoteRevealed?.invoke(note) })
         } else if (holder is TextNoteViewHolder) {

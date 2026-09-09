@@ -532,6 +532,17 @@ class FirestoreRepository {
         }
     }
 
+    // Delete a love note
+    suspend fun deleteLoveNote(noteId: String): Boolean {
+        return try {
+            db.collection("loveNotes").document(noteId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting love note", e)
+            false
+        }
+    }
+
     // Fetch recent memories for the gallery
     suspend fun getRecentMemories(coupleId: String): List<com.ourbloom.app.data.models.Memory> {
         return try {

@@ -154,6 +154,17 @@ router.delete('/:id', async (req, res) => {
     const note = await LoveNote.findOneAndDelete({ _id: req.params.id, coupleId: req.coupleId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
     
+    // Dual-sync deletion to Firestore
+    try {
+      const { getFirestore } = require('../utils/firebase');
+      const db = getFirestore();
+      if (db) {
+        await db.collection('loveNotes').doc(req.params.id).delete();
+      }
+    } catch (fsErr) {
+      console.warn('✿ Firestore dual-sync delete warning for loveNote:', fsErr.message);
+    }
+
     const io = req.app.get('io');
     if (io) io.to(req.coupleSlug).emit('deleteNote', req.params.id);
 

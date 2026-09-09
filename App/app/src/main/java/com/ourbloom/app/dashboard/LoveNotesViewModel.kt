@@ -119,16 +119,35 @@ class LoveNotesViewModel : ViewModel() {
         }
     }
 
+    fun deleteLoveNote(note: LoveNote, onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            if (note.id.isBlank()) {
+                onComplete?.invoke(false)
+                return@launch
+            }
+            try {
+                val success = repository.deleteLoveNote(note.id)
+                if (success) {
+                    _notes.value = _notes.value?.filter { it.id != note.id }
+                    onComplete?.invoke(true)
+                } else {
+                    _error.value = "Failed to delete love note."
+                    onComplete?.invoke(false)
+                }
+            } catch (e: Exception) {
+                _error.value = "Error deleting love note: ${e.message}"
+                onComplete?.invoke(false)
+            }
+        }
+    }
+
     fun markNoteRevealed(note: LoveNote) {
         viewModelScope.launch {
             try {
-                val user = repository.getCurrentUser()
-                val cId = user?.coupleId
-                if (!cId.isNullOrBlank() && note.id.isNotBlank()) {
+                if (note.id.isNotBlank()) {
                     com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        .collection("couples").document(cId)
-                        .collection("love_notes").document(note.id)
-                        .update("isRevealed", true)
+                        .collection("loveNotes").document(note.id)
+                        .update(mapOf("revealed" to true, "isRevealed" to true))
                 }
             } catch (_: Exception) {}
         }

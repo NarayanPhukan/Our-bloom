@@ -48,6 +48,9 @@ class LoveNotesFragment : Fragment() {
         adapter.onNoteRevealed = { note ->
             viewModel.markNoteRevealed(note)
         }
+        adapter.onNoteLongClick = { note ->
+            confirmAndDeleteNote(note)
+        }
         rvNotes.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         rvNotes.adapter = adapter
 
@@ -206,5 +209,23 @@ class LoveNotesFragment : Fragment() {
         }
 
         dialog.show()
+    }
+
+    private fun confirmAndDeleteNote(note: com.ourbloom.app.data.models.LoveNote) {
+        val excerpt = if (note.content.length > 40) note.content.take(40) + "..." else note.content.ifBlank { "this love note" }
+        AlertDialog.Builder(requireContext())
+            .setTitle("Delete Love Note")
+            .setMessage("Are you sure you want to delete \"$excerpt\"?")
+            .setPositiveButton("Delete") { _, _ ->
+                viewModel.deleteLoveNote(note) { success ->
+                    if (success) {
+                        Toast.makeText(requireContext(), "Love note deleted", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(requireContext(), "Failed to delete note", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }
