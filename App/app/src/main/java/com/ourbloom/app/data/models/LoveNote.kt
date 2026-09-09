@@ -14,5 +14,7 @@ data class LoveNote(
     val imageUrl: String = "",
     val audioUrl: String = "",
     val audioDuration: Int = 0,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val isScratchSecret: Boolean = false,
+    val isRevealed: Boolean = false
 )

@@ -25,7 +25,8 @@ data class ChatMessage(
     val deletedFor: List<String> = emptyList(),
     val readAt: Long? = null,
     val deliveredAt: Long? = null,
-    @get:PropertyName("isSticker") @set:PropertyName("isSticker") var isSticker: Boolean = false
+    @get:PropertyName("isSticker") @set:PropertyName("isSticker") var isSticker: Boolean = false,
+    val reactions: Map<String, String> = emptyMap()
 ) {
     val isStickerMessage: Boolean
         get() = isSticker || (!imageUrl.isNullOrBlank() && text == "[Sticker]")

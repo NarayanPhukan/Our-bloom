@@ -10,11 +10,15 @@
     app:strokeColor="@color/bloom_primary"
     app:cardBackgroundColor="?attr/colorSurfaceContainerLowest">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -121,4 +125,13 @@
             android:gravity="end" />
 
     </LinearLayout>
+
+    <com.ourbloom.app.ui.ScratchCardView
+        android:id="@+id/view_scratch_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    </FrameLayout>
+
 </com.google.android.material.card.MaterialCardView>

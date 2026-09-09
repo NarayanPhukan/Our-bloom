@@ -1,8 +1,8 @@
 {
-  "versionCode": 37,
-  "versionName": "1.36",
+  "versionCode": 38,
+  "versionName": "1.37",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Fixed ThumbKiss vibration, removed duplicate disconnect button, and stabilized WebRTC calling",
+  "changelog": "• Real-time partner phone battery & charging status on Dashboard & Chat\n• In-chat double-tap flying heart reactions & floating badges\n• Scratch-to-reveal surprise romantic love notes\n• Ambient cherry blossom petal particle animations",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

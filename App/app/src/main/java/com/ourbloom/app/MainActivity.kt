@@ -5,6 +5,9 @@ import android.util.Log
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.BroadcastReceiver
+import android.os.BatteryManager
 import android.os.Build
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -347,9 +350,14 @@ class MainActivity : AppCompatActivity() {
 
     private var deliveryListener: com.google.firebase.firestore.ListenerRegistration? = null
     private var incomingCallListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var batteryReceiver: BroadcastReceiver? = null
+    private var lastSyncedBatteryPct: Int = -1
+    private var lastSyncedCharging: Boolean = false
+    private var lastBatterySyncTime: Long = 0L
 
     override fun onPause() {
         super.onPause()
+        stopBatterySync()
         deliveryListener?.remove()
         deliveryListener = null
         incomingCallListener?.remove()
@@ -366,6 +374,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopBatterySync()
         deliveryListener?.remove()
         deliveryListener = null
         incomingCallListener?.remove()
@@ -401,6 +410,7 @@ class MainActivity : AppCompatActivity() {
                         withContext(Dispatchers.Main) {
                             startDeliveryListener(cId, uid)
                             startIncomingCallListener(cId, uid)
+                            startBatterySync(cId, uid)
                         }
                     }
                 } catch (_: Exception) {}
@@ -457,6 +467,92 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
             }
+    }
+
+    private fun startBatterySync(cId: String, currentUid: String) {
+        stopBatterySync()
+
+        // Immediate sync using sticky battery intent so status is available right away
+        try {
+            val stickyIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            if (stickyIntent != null) {
+                val level = stickyIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = stickyIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val pct = if (level >= 0 && scale > 0) ((level / scale.toFloat()) * 100).toInt() else -1
+                val status = stickyIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+                val now = System.currentTimeMillis()
+                if (pct >= 0) {
+                    lastSyncedBatteryPct = pct
+                    lastSyncedCharging = isCharging
+                    lastBatterySyncTime = now
+                    val data = hashMapOf(
+                        "battery" to pct,
+                        "isCharging" to isCharging,
+                        "updatedAt" to now
+                    )
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("couples").document(cId)
+                        .collection("live").document("status_$currentUid")
+                        .set(data, com.google.firebase.firestore.SetOptions.merge())
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Initial battery sync error: ${e.message}")
+        }
+
+        batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent == null) return
+                val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val pct = if (level >= 0 && scale > 0) ((level / scale.toFloat()) * 100).toInt() else -1
+                val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+
+                val now = System.currentTimeMillis()
+                val delta = kotlin.math.abs(pct - lastSyncedBatteryPct)
+                val stateChanged = isCharging != lastSyncedCharging
+                val timePassed = now - lastBatterySyncTime > 10 * 60 * 1000L
+
+                if (pct >= 0 && (delta >= 2 || stateChanged || timePassed)) {
+                    lastSyncedBatteryPct = pct
+                    lastSyncedCharging = isCharging
+                    lastBatterySyncTime = now
+
+                    val data = hashMapOf(
+                        "battery" to pct,
+                        "isCharging" to isCharging,
+                        "updatedAt" to now
+                    )
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("couples").document(cId)
+                        .collection("live").document("status_$currentUid")
+                        .set(data, com.google.firebase.firestore.SetOptions.merge())
+                }
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(batteryReceiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(batteryReceiver, filter)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error registering battery receiver: ${e.message}")
+        }
+    }
+
+    private fun stopBatterySync() {
+        batteryReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+        }
+        batteryReceiver = null
     }
 }
 

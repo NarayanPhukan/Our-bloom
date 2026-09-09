@@ -37,6 +37,7 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         }
     }
 
+    var onNoteRevealed: ((LoveNote) -> Unit)? = null
     private var mediaPlayer: android.media.MediaPlayer? = null
     private var currentPlayingNoteId: String? = null
     private var currentPlayingButton: android.widget.ImageButton? = null
@@ -44,9 +45,9 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val note = getItem(position)
         if (holder is ImageNoteViewHolder) {
-            holder.bind(note) { btn -> toggleAudioPlayback(note, btn) }
+            holder.bind(note, onAudioClick = { btn -> toggleAudioPlayback(note, btn) }, onRevealed = { onNoteRevealed?.invoke(note) })
         } else if (holder is TextNoteViewHolder) {
-            holder.bind(note) { btn -> toggleAudioPlayback(note, btn) }
+            holder.bind(note, onAudioClick = { btn -> toggleAudioPlayback(note, btn) }, onRevealed = { onNoteRevealed?.invoke(note) })
         }
     }
 
@@ -110,8 +111,9 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         private val layoutAudio: View? = itemView.findViewById(R.id.layout_audio_playback)
         private val btnPlayAudio: android.widget.ImageButton? = itemView.findViewById(R.id.btn_play_audio)
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
+        private val viewScratchOverlay: com.ourbloom.app.ui.ScratchCardView? = itemView.findViewById(R.id.view_scratch_overlay)
 
-        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit) {
+        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit, onRevealed: () -> Unit) {
             tvDate.text = formatDate(note.createdAt ?: note.dateStr)
             
             // Basic HTML strip since content might contain basic HTML from ReactQuill
@@ -131,6 +133,13 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
             } else {
                 layoutAudio?.visibility = View.GONE
             }
+
+            if (note.isScratchSecret && !note.isRevealed && viewScratchOverlay != null) {
+                viewScratchOverlay.reset()
+                viewScratchOverlay.onScratchRevealed = onRevealed
+            } else {
+                viewScratchOverlay?.revealInstantly()
+            }
         }
     }
 
@@ -141,8 +150,9 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         private val layoutAudio: View? = itemView.findViewById(R.id.layout_audio_playback)
         private val btnPlayAudio: android.widget.ImageButton? = itemView.findViewById(R.id.btn_play_audio)
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
+        private val viewScratchOverlay: com.ourbloom.app.ui.ScratchCardView? = itemView.findViewById(R.id.view_scratch_overlay)
 
-        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit) {
+        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit, onRevealed: () -> Unit) {
             tvDate.text = formatDate(note.createdAt ?: note.dateStr)
             
             if (note.content.isNotBlank()) {
@@ -171,6 +181,13 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
                 }
             } else {
                 layoutAudio?.visibility = View.GONE
+            }
+
+            if (note.isScratchSecret && !note.isRevealed && viewScratchOverlay != null) {
+                viewScratchOverlay.reset()
+                viewScratchOverlay.onScratchRevealed = onRevealed
+            } else {
+                viewScratchOverlay?.revealInstantly()
             }
         }
     }

@@ -46,7 +46,14 @@ class LoveNotesViewModel : ViewModel() {
         }
     }
 
-    fun addLoveNote(context: android.content.Context, content: String, imageUri: Uri?, audioFile: java.io.File? = null, audioDuration: Int = 0) {
+    fun addLoveNote(
+        context: android.content.Context,
+        content: String,
+        imageUri: Uri?,
+        audioFile: java.io.File? = null,
+        audioDuration: Int = 0,
+        isScratchSecret: Boolean = false
+    ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -92,7 +99,9 @@ class LoveNotesViewModel : ViewModel() {
                         imageUrl = uploadedImageUrl,
                         audioUrl = uploadedAudioUrl,
                         audioDuration = audioDuration,
-                        createdAt = isoString
+                        createdAt = isoString,
+                        isScratchSecret = isScratchSecret,
+                        isRevealed = false
                     )
 
                     val success = repository.createLoveNote(newNote)
@@ -107,6 +116,21 @@ class LoveNotesViewModel : ViewModel() {
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun markNoteRevealed(note: LoveNote) {
+        viewModelScope.launch {
+            try {
+                val user = repository.getCurrentUser()
+                val cId = user?.coupleId
+                if (!cId.isNullOrBlank() && note.id.isNotBlank()) {
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("couples").document(cId)
+                        .collection("love_notes").document(note.id)
+                        .update("isRevealed", true)
+                }
+            } catch (_: Exception) {}
         }
     }
 }

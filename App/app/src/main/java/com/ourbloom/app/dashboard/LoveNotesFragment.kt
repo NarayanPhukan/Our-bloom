@@ -45,6 +45,9 @@ class LoveNotesFragment : Fragment() {
         
         val rvNotes = view.findViewById<RecyclerView>(R.id.rv_notes)
         adapter = LoveNotesAdapter()
+        adapter.onNoteRevealed = { note ->
+            viewModel.markNoteRevealed(note)
+        }
         rvNotes.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         rvNotes.adapter = adapter
 
@@ -92,6 +95,7 @@ class LoveNotesFragment : Fragment() {
         val tvVoiceStatus = dialogView.findViewById<TextView>(R.id.tv_voice_status)
         val btnRemoveVoice = dialogView.findViewById<ImageButton>(R.id.btn_remove_voice)
         previewImageView = dialogView.findViewById<ImageView>(R.id.iv_preview)
+        val switchScratchSecret = dialogView.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switch_scratch_secret)
         
         btnAddImage.setOnClickListener {
             pickImage.launch("image/*")
@@ -163,13 +167,15 @@ class LoveNotesFragment : Fragment() {
                     activeMediaRecorder = null
                 }
                 val content = etContent.text.toString()
+                val isScratch = switchScratchSecret?.isChecked == true
                 if (content.isNotBlank() || selectedImageUri != null || recordedAudioFile != null) {
                     viewModel.addLoveNote(
                         requireContext(), 
                         content, 
                         selectedImageUri, 
                         recordedAudioFile, 
-                        recordedAudioDuration
+                        recordedAudioDuration,
+                        isScratchSecret = isScratch
                     )
                 } else {
                     Toast.makeText(requireContext(), "Please write a note, attach a photo, or record a voice letter", Toast.LENGTH_SHORT).show()

@@ -40,6 +40,8 @@ class DashboardFragment : Fragment() {
     private val viewModel: DashboardViewModel by viewModels()
     private lateinit var galleryAdapter: GalleryAdapter
     private var heartbeatListener: ListenerRegistration? = null
+    private var partnerBatteryListener: ListenerRegistration? = null
+    private var tvDashboardPartnerBattery: TextView? = null
     private var cooldownTimer: CountDownTimer? = null
     private val sessionStartTime = System.currentTimeMillis()
     private var profileBottomSheetDialog: BottomSheetDialog? = null
@@ -74,6 +76,7 @@ class DashboardFragment : Fragment() {
 
         val tvDailyNoteText = view.findViewById<TextView>(R.id.tv_daily_note_text)
         val tvDailyNoteAuthor = view.findViewById<TextView>(R.id.tv_daily_note_author)
+        tvDashboardPartnerBattery = view.findViewById(R.id.tv_dashboard_partner_battery)
 
         // Setup gallery RecyclerView
         galleryAdapter = GalleryAdapter { memory ->
@@ -146,6 +149,11 @@ class DashboardFragment : Fragment() {
         viewModel.couple.observe(viewLifecycleOwner) { couple ->
             if (couple != null) {
                 setupHeartbeatListener(couple.id)
+                val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                val pId = if (couple.user1 == myUid) couple.user2 else couple.user1
+                if (pId.isNotBlank()) {
+                    setupPartnerBatteryListener(couple.id, pId)
+                }
                 // Format since date
                 try {
                     val formatIn = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
@@ -501,10 +509,43 @@ class DashboardFragment : Fragment() {
         }
     }
 
+    private fun setupPartnerBatteryListener(coupleId: String, partnerId: String) {
+        if (coupleId.isBlank() || partnerId.isBlank()) return
+        partnerBatteryListener?.remove()
+        partnerBatteryListener = FirebaseFirestore.getInstance()
+            .collection("couples").document(coupleId)
+            .collection("live").document("status_$partnerId")
+            .addSnapshotListener { snapshot, error ->
+                if (!isAdded || error != null || snapshot == null || !snapshot.exists()) {
+                    tvDashboardPartnerBattery?.visibility = View.GONE
+                    return@addSnapshotListener
+                }
+                val battery = snapshot.getLong("battery")?.toInt() ?: -1
+                val isCharging = snapshot.getBoolean("isCharging") == true
+                val updatedAt = snapshot.getLong("updatedAt") ?: 0L
+                val now = System.currentTimeMillis()
+                val isRecent = updatedAt == 0L || (now - updatedAt) in -3600000L..(24 * 3600 * 1000L)
+
+                if (battery in 0..100 && isRecent) {
+                    val partnerName = viewModel.currentUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
+                        ?: viewModel.partnerUser.value?.name?.takeIf { it.isNotBlank() }
+                        ?: "Partner"
+                    val icon = if (isCharging) "⚡" else if (battery <= 20) "🪫" else "🔋"
+                    val statusText = if (isCharging) "$partnerName's phone: $icon $battery% ⚡ Charging" else "$partnerName's phone: $icon $battery%"
+                    tvDashboardPartnerBattery?.text = statusText
+                    tvDashboardPartnerBattery?.visibility = View.VISIBLE
+                } else {
+                    tvDashboardPartnerBattery?.visibility = View.GONE
+                }
+            }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         heartbeatListener?.remove()
         heartbeatListener = null
+        partnerBatteryListener?.remove()
+        partnerBatteryListener = null
         cooldownTimer?.cancel()
         cooldownTimer = null
     }
@@ -628,5 +669,15 @@ class DashboardFragment : Fragment() {
         }
 
         dialog.show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        view?.findViewById<com.ourbloom.app.ui.BlossomPetalView>(R.id.blossom_petal_view)?.resume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        view?.findViewById<com.ourbloom.app.ui.BlossomPetalView>(R.id.blossom_petal_view)?.pause()
     }
 }

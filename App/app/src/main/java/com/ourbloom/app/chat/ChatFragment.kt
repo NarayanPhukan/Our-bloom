@@ -140,6 +140,11 @@ class ChatFragment : Fragment() {
     private lateinit var btnActionDelete: ImageButton
     private lateinit var btnActionInfo: ImageButton
     private var btnActionStar: ImageButton? = null
+    private var btnActionReact: ImageButton? = null
+    private var flyingHeartView: FlyingHeartView? = null
+    private var chatBlossomPetalView: com.ourbloom.app.ui.BlossomPetalView? = null
+    private var tvPartnerBattery: TextView? = null
+    private var partnerStatusListener: ListenerRegistration? = null
 
     // Reply preview views
     private lateinit var layoutReplyPreview: View
@@ -545,10 +550,13 @@ class ChatFragment : Fragment() {
         btnSettings = view.findViewById(R.id.btn_chat_settings)
         tvPartnerName = view.findViewById(R.id.tv_chat_partner_name)
         tvChatStatus = view.findViewById(R.id.tv_chat_status)
+        tvPartnerBattery = view.findViewById(R.id.tv_partner_battery)
         ivPartnerAvatar = view.findViewById(R.id.iv_partner_avatar)
         layoutEmpty = view.findViewById(R.id.layout_chat_empty)
         ivChatBackground = view.findViewById(R.id.iv_chat_background)
         viewChatWallpaperDim = view.findViewById(R.id.view_chat_wallpaper_dim)
+        chatBlossomPetalView = view.findViewById(R.id.view_chat_blossom_petals)
+        flyingHeartView = view.findViewById(R.id.view_flying_hearts)
 
         // Action Bar & Reply Preview Views
         layoutActionBar = view.findViewById(R.id.layout_chat_action_bar)
@@ -569,6 +577,13 @@ class ChatFragment : Fragment() {
                 }
             }
             clearSelection()
+        }
+
+        btnActionReact = view.findViewById(R.id.btn_action_react)
+        btnActionReact?.setOnClickListener {
+            selectedMessage?.let { msg ->
+                showReactionPicker(msg)
+            }
         }
 
         layoutReplyPreview = view.findViewById(R.id.layout_reply_preview)
@@ -650,6 +665,30 @@ class ChatFragment : Fragment() {
                     selectMessage(message)
                 }
             }
+        }
+
+        chatAdapter.onMessageDoubleTap = { message, tappedView ->
+            val location = IntArray(2)
+            tappedView.getLocationOnScreen(location)
+            val overlayLocation = IntArray(2)
+            flyingHeartView?.getLocationOnScreen(overlayLocation)
+            val startX = (location[0] - overlayLocation[0] + tappedView.width / 2f).coerceAtLeast(60f)
+            val startY = (location[1] - overlayLocation[1] + tappedView.height / 2f).coerceAtLeast(60f)
+            flyingHeartView?.spawnHeartBurst(startX, startY, "❤️")
+            triggerSendHaptic()
+
+            val cId = currentCouple?.id ?: currentUser?.coupleId ?: ""
+            val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            if (cId.isNotBlank() && myUid.isNotBlank() && message.id.isNotBlank()) {
+                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("couples").document(cId)
+                    .collection("messages").document(message.id)
+                    .update("reactions.$myUid", "❤️")
+            }
+        }
+
+        chatAdapter.onReactionBadgeClick = { message ->
+            showReactionDetailsOrRemoveDialog(message)
         }
 
         chatAdapter.onQuoteClick = { targetMsgId ->
@@ -1175,6 +1214,7 @@ class ChatFragment : Fragment() {
                     setupMessagesListener(cId)
                     if (partnerId.isNotBlank()) {
                         setupPresenceListener(cId, partnerId)
+                        setupPartnerStatusListener(cId, partnerId)
                     }
 
                     // Apply and listen to shared chat wallpaper in real time
@@ -1219,6 +1259,103 @@ class ChatFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun setupPartnerStatusListener(coupleId: String, partnerId: String) {
+        partnerStatusListener?.remove()
+        partnerStatusListener = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("couples").document(coupleId)
+            .collection("live").document("status_$partnerId")
+            .addSnapshotListener { snapshot, error ->
+                if (!isAdded || error != null || snapshot == null || !snapshot.exists()) {
+                    tvPartnerBattery?.visibility = View.GONE
+                    return@addSnapshotListener
+                }
+                val battery = snapshot.getLong("battery")?.toInt() ?: -1
+                val isCharging = snapshot.getBoolean("isCharging") == true
+                val updatedAt = snapshot.getLong("updatedAt") ?: 0L
+                val now = System.currentTimeMillis()
+                val isRecent = updatedAt == 0L || (now - updatedAt) in -3600000L..(24 * 3600 * 1000L)
+
+                if (battery in 0..100 && isRecent) {
+                    val icon = if (isCharging) "⚡" else if (battery <= 20) "🪫" else "🔋"
+                    val label = if (isCharging) "• $icon $battery% ⚡" else "• $icon $battery%"
+                    tvPartnerBattery?.text = label
+                    tvPartnerBattery?.visibility = View.VISIBLE
+                } else {
+                    tvPartnerBattery?.visibility = View.GONE
+                }
+            }
+    }
+
+    private fun showReactionPicker(message: ChatMessage) {
+        val emojis = arrayOf("❤️", "🌸", "💋", "🥺", "🔥", "💖", "🧸", "✨")
+        val grid = android.widget.GridLayout(requireContext()).apply {
+            columnCount = 4
+            setPadding(32, 24, 32, 24)
+        }
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Send a Reaction 💖")
+            .setView(grid)
+            .create()
+
+        emojis.forEach { emoji ->
+            val tv = TextView(requireContext()).apply {
+                text = emoji
+                textSize = 30f
+                gravity = android.view.Gravity.CENTER
+                setPadding(24, 20, 24, 20)
+                setBackgroundResource(android.R.drawable.list_selector_background)
+                setOnClickListener {
+                    dialog.dismiss()
+                    val cId = currentCouple?.id ?: currentUser?.coupleId ?: ""
+                    val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                    if (cId.isNotBlank() && myUid.isNotBlank() && message.id.isNotBlank()) {
+                        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection("couples").document(cId)
+                            .collection("messages").document(message.id)
+                            .update("reactions.$myUid", emoji)
+                    }
+                    val cx = (flyingHeartView?.width ?: 400) / 2f
+                    val cy = (flyingHeartView?.height ?: 800) / 2f
+                    flyingHeartView?.spawnHeartBurst(cx, cy, emoji)
+                    triggerSendHaptic()
+                    clearSelection()
+                }
+            }
+            grid.addView(tv)
+        }
+        dialog.show()
+    }
+
+    private fun showReactionDetailsOrRemoveDialog(message: ChatMessage) {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        val hasMyReaction = message.reactions.containsKey(myUid)
+        val cId = currentCouple?.id ?: currentUser?.coupleId ?: ""
+
+        val partnerLabel = tvPartnerName.text.toString().ifBlank { "Partner" }
+        val lines = message.reactions.entries.map { (uid, emoji) ->
+            val who = if (uid == myUid) "You" else partnerLabel
+            "$emoji  $who"
+        }
+
+        val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Reactions 💖")
+            .setMessage(if (lines.isNotEmpty()) lines.joinToString("\n") else "No reactions yet")
+
+        if (hasMyReaction && cId.isNotBlank() && message.id.isNotBlank()) {
+            builder.setNegativeButton("Remove My Reaction") { _, _ ->
+                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("couples").document(cId)
+                    .collection("messages").document(message.id)
+                    .update("reactions.$myUid", com.google.firebase.firestore.FieldValue.delete())
+            }
+        }
+        builder.setPositiveButton("Change") { _, _ ->
+            showReactionPicker(message)
+        }
+        builder.setNeutralButton("Close", null)
+        builder.show()
     }
 
     private fun formatLastSeenTime(lastSeen: Long): String {
@@ -2036,6 +2173,7 @@ class ChatFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         isChatVisible = true
+        chatBlossomPetalView?.resumeAnimation()
         startPresenceHeartbeat()
         try {
             MyFirebaseMessagingService.dismissChatNotifications(requireContext())
@@ -2058,6 +2196,7 @@ class ChatFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         isChatVisible = false
+        chatBlossomPetalView?.pauseAnimation()
         messagesListener?.remove()
         messagesListener = null
         heartbeatJob?.cancel()
@@ -2081,6 +2220,9 @@ class ChatFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         isChatVisible = false
+        chatBlossomPetalView?.pauseAnimation()
+        partnerStatusListener?.remove()
+        partnerStatusListener = null
         heartbeatJob?.cancel()
         val cId = currentCouple?.id
         val uid = FirebaseAuth.getInstance().currentUser?.uid

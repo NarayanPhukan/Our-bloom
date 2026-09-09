@@ -96,7 +96,30 @@ class ChatAdapter(
     var onAlbumImageClick: ((albumMessages: List<ChatMessage>, clickedIndex: Int) -> Unit)? = null
     var onMessageLongClick: ((ChatMessage) -> Unit)? = null
     var onMessageClick: ((ChatMessage) -> Unit)? = null
+    var onMessageDoubleTap: ((ChatMessage, View) -> Unit)? = null
+    var onReactionBadgeClick: ((ChatMessage) -> Unit)? = null
     var onQuoteClick: ((String) -> Unit)? = null
+
+    private fun bindReactions(message: ChatMessage, badgeView: TextView?) {
+        if (badgeView == null) return
+        val reactions = message.reactions
+        if (reactions.isEmpty()) {
+            badgeView.visibility = View.GONE
+            return
+        }
+        val uniqueEmojis = reactions.values.distinct()
+        val totalCount = reactions.size
+        val text = if (totalCount <= 1) {
+            uniqueEmojis.firstOrNull() ?: "❤️"
+        } else {
+            "${uniqueEmojis.joinToString("")} $totalCount"
+        }
+        badgeView.text = text
+        badgeView.visibility = View.VISIBLE
+        badgeView.setOnClickListener {
+            onReactionBadgeClick?.invoke(message)
+        }
+    }
 
     // Audio Playback State
     private var mediaPlayer: MediaPlayer? = null
@@ -797,6 +820,8 @@ class ChatAdapter(
         private val waveformAudio: VoiceWaveformView? = itemView.findViewById(R.id.waveform_audio)
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
         private val tvAudioSpeed: TextView? = itemView.findViewById(R.id.tv_audio_speed)
+        private val tvReactionBadge: TextView? = itemView.findViewById(R.id.tv_reaction_badge)
+        private var lastBubbleTapTime = 0L
 
         fun bind(item: ChatGroupItem) {
             val message = item.message
@@ -816,6 +841,8 @@ class ChatAdapter(
             val bottomPad = if (item.isConsecutiveWithNext) (1 * density).toInt() else (5 * density).toInt()
             rootLayout.setPaddingRelative(rootLayout.paddingStart, topPad, rootLayout.paddingEnd, bottomPad)
 
+            bindReactions(message, tvReactionBadge)
+
             val longClickListener = View.OnLongClickListener {
                 onMessageLongClick?.invoke(message)
                 true
@@ -823,13 +850,23 @@ class ChatAdapter(
             val clickListener = View.OnClickListener {
                 onMessageClick?.invoke(message)
             }
+            val doubleTapAwareClickListener = View.OnClickListener { v ->
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastBubbleTapTime < 350) {
+                    lastBubbleTapTime = 0L
+                    onMessageDoubleTap?.invoke(message, v)
+                } else {
+                    lastBubbleTapTime = now
+                    onMessageClick?.invoke(message)
+                }
+            }
 
             itemView.setOnLongClickListener(longClickListener)
             itemView.setOnClickListener(clickListener)
             rootLayout.setOnLongClickListener(longClickListener)
             rootLayout.setOnClickListener(clickListener)
             bubbleContainer?.setOnLongClickListener(longClickListener)
-            bubbleContainer?.setOnClickListener(clickListener)
+            bubbleContainer?.setOnClickListener(doubleTapAwareClickListener)
 
             // Quoted reply binding (WhatsApp Style)
             if (message.isReply) {
@@ -1005,6 +1042,8 @@ class ChatAdapter(
         private val waveformAudio: VoiceWaveformView? = itemView.findViewById(R.id.waveform_audio)
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
         private val tvAudioSpeed: TextView? = itemView.findViewById(R.id.tv_audio_speed)
+        private val tvReactionBadge: TextView? = itemView.findViewById(R.id.tv_reaction_badge)
+        private var lastBubbleTapTime = 0L
 
         fun bind(item: ChatGroupItem, partnerAvatarUrl: String?) {
             val message = item.message
@@ -1023,6 +1062,8 @@ class ChatAdapter(
             val topPad = if (item.isConsecutiveWithPrev) (1 * density).toInt() else (5 * density).toInt()
             val bottomPad = if (item.isConsecutiveWithNext) (1 * density).toInt() else (5 * density).toInt()
             rootLayout.setPaddingRelative(rootLayout.paddingStart, topPad, rootLayout.paddingEnd, bottomPad)
+
+            bindReactions(message, tvReactionBadge)
 
             // Redundant partner avatar suppression: only visible on the LAST message of consecutive group
             if (item.isConsecutiveWithNext) {
@@ -1046,13 +1087,23 @@ class ChatAdapter(
             val clickListener = View.OnClickListener {
                 onMessageClick?.invoke(message)
             }
+            val doubleTapAwareClickListener = View.OnClickListener { v ->
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastBubbleTapTime < 350) {
+                    lastBubbleTapTime = 0L
+                    onMessageDoubleTap?.invoke(message, v)
+                } else {
+                    lastBubbleTapTime = now
+                    onMessageClick?.invoke(message)
+                }
+            }
 
             itemView.setOnLongClickListener(longClickListener)
             itemView.setOnClickListener(clickListener)
             rootLayout.setOnLongClickListener(longClickListener)
             rootLayout.setOnClickListener(clickListener)
             bubbleContainer?.setOnLongClickListener(longClickListener)
-            bubbleContainer?.setOnClickListener(clickListener)
+            bubbleContainer?.setOnClickListener(doubleTapAwareClickListener)
 
             // Quoted reply binding (WhatsApp Style)
             if (message.isReply) {
@@ -1182,6 +1233,7 @@ class ChatAdapter(
         val ivSticker: ImageView = itemView.findViewById(R.id.iv_chat_sticker)
         val tvTime: TextView = itemView.findViewById(R.id.tv_sticker_time)
         val ivTick: ImageView = itemView.findViewById(R.id.iv_sticker_tick)
+        private var lastStickerTapTime = 0L
 
         fun bind(item: ChatGroupItem) {
             val message = item.message
@@ -1234,10 +1286,13 @@ class ChatAdapter(
                 }
             }
 
-            itemView.setOnClickListener {
-                if (selectedMessageId != null) {
-                    onMessageClick?.invoke(message)
+            itemView.setOnClickListener { v ->
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastStickerTapTime < 350) {
+                    lastStickerTapTime = 0L
+                    onMessageDoubleTap?.invoke(message, v)
                 } else {
+                    lastStickerTapTime = now
                     onMessageClick?.invoke(message)
                 }
             }
@@ -1255,6 +1310,7 @@ class ChatAdapter(
         val ivAvatar: ImageView = itemView.findViewById(R.id.iv_chat_partner_avatar)
         val ivSticker: ImageView = itemView.findViewById(R.id.iv_chat_sticker)
         val tvTime: TextView = itemView.findViewById(R.id.tv_sticker_time)
+        private var lastStickerTapTime = 0L
 
         fun bind(item: ChatGroupItem, partnerAvatarUrl: String?) {
             val message = item.message
@@ -1304,10 +1360,13 @@ class ChatAdapter(
                 ivSticker.setImageDrawable(null)
             }
 
-            itemView.setOnClickListener {
-                if (selectedMessageId != null) {
-                    onMessageClick?.invoke(message)
+            itemView.setOnClickListener { v ->
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastStickerTapTime < 350) {
+                    lastStickerTapTime = 0L
+                    onMessageDoubleTap?.invoke(message, v)
                 } else {
+                    lastStickerTapTime = now
                     onMessageClick?.invoke(message)
                 }
             }

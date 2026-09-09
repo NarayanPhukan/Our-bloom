@@ -107,6 +107,23 @@
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant" />
 
+        <!-- Partner Live Battery & Status Pill -->
+        <TextView
+            android:id="@+id/tv_dashboard_partner_battery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_reaction_pill"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:textColor="#E85D75"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium"
+            android:visibility="gone" />
+
         <!-- Where it all started card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -972,6 +989,14 @@
 
     </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Ambient Falling Sakura Petals Overlay -->
+    <com.ourbloom.app.ui.BlossomPetalView
+        android:id="@+id/blossom_petal_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        android:focusable="false" />
 
     <!-- Our Anthem FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
