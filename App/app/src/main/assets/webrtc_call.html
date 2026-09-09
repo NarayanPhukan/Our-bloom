@@ -117,24 +117,8 @@
             'stun:stun3.l.google.com:19302',
             'stun:stun4.l.google.com:19302',
             'stun:stun.cloudflare.com:3478',
-            'stun:standard.relay.metered.ca:80'
+            'stun:global.stun.twilio.com:3478'
           ]
-        },
-        {
-          urls: [
-            'turn:standard.relay.metered.ca:80',
-            'turn:standard.relay.metered.ca:443',
-            'turn:standard.relay.metered.ca:443?transport=tcp'
-          ],
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        },
-        {
-          urls: [
-            'turns:standard.relay.metered.ca:443?transport=tcp'
-          ],
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
         }
       ],
       iceCandidatePoolSize: 0,
@@ -918,15 +902,25 @@
         iceDisconnectTimer = null;
       }
       if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
+        try {
+          localStream.getTracks().forEach(t => {
+            try { t.stop(); } catch (e) { console.error("Error stopping track:", e); }
+          });
+        } catch (e) {
+          console.error("Error stopping localStream tracks:", e);
+        }
         localStream = null;
       }
       if (peerConnection) {
-        peerConnection.close();
+        try {
+          peerConnection.close();
+        } catch (e) {
+          console.error("Error closing peerConnection:", e);
+        }
         peerConnection = null;
       }
-      localVideo.srcObject = null;
-      remoteVideo.srcObject = null;
+      if (localVideo) localVideo.srcObject = null;
+      if (remoteVideo) remoteVideo.srcObject = null;
       queuedCandidates = [];
     }
 
@@ -997,6 +991,14 @@
     window.addEventListener('DOMContentLoaded', () => {
       initMedia();
       setupPipDrag();
+    });
+
+    window.addEventListener('pagehide', () => {
+      endCall();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      endCall();
     });
   </script>
 </body>

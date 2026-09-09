@@ -33,7 +33,9 @@ import android.app.PictureInPictureParams
 import android.content.res.Configuration
 import android.util.Rational
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -123,7 +125,6 @@ class VideoCallActivity : AppCompatActivity() {
     private lateinit var btnCallSwitchCam: ImageButton
     private lateinit var btnCaptureMoment: ImageButton
     private lateinit var btnCallEnd: ImageButton
-    private lateinit var btnCallingCancel: ImageButton
     private lateinit var viewRadarPulse1: View
     private lateinit var viewRadarPulse2: View
     private lateinit var cardMomentSaved: MaterialCardView
@@ -268,7 +269,6 @@ class VideoCallActivity : AppCompatActivity() {
         btnCallSwitchCam = findViewById(R.id.btn_call_switch_cam)
         btnCaptureMoment = findViewById(R.id.btn_capture_moment)
         btnCallEnd = findViewById(R.id.btn_call_end)
-        btnCallingCancel = findViewById(R.id.btn_calling_cancel)
         viewRadarPulse1 = findViewById(R.id.view_radar_pulse_1)
         viewRadarPulse2 = findViewById(R.id.view_radar_pulse_2)
         cardMomentSaved = findViewById(R.id.card_moment_saved)
@@ -299,6 +299,21 @@ class VideoCallActivity : AppCompatActivity() {
             enterPipMode()
         }
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!isCallFinished && !isEndingCall) {
+                    if (isCallConnected) {
+                        enterPipMode()
+                    } else {
+                        endCallAndFinish("Call cancelled by user")
+                    }
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
         cardInCallMessage?.setOnClickListener {
             enterPipMode()
             val chatIntent = Intent(this, MainActivity::class.java).apply {
@@ -320,10 +335,6 @@ class VideoCallActivity : AppCompatActivity() {
 
         btnCallToggleCam.setOnClickListener {
             toggleCamera()
-        }
-
-        btnCallingCancel.setOnClickListener {
-            endCallAndFinish("Call cancelled by user")
         }
 
         btnCallSwitchCam.setOnClickListener {
@@ -672,9 +683,12 @@ class VideoCallActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!isEndingCall) {
+        if (!isEndingCall && !isCallFinished) {
             audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
             routeAudioToSpeaker(isSpeakerOn)
+            try {
+                webView.onResume()
+            } catch (_: Exception) {}
         }
     }
 
@@ -1073,11 +1087,29 @@ class VideoCallActivity : AppCompatActivity() {
             webView.evaluateJavascript("endCall()", null)
         } catch (_: Exception) {}
 
-        finish()
+        // Allow WebRTC & Camera HAL to cleanly release capture sessions before Activity teardown
+        webView.postDelayed({
+            if (!isFinishing && !isDestroyed) {
+                finish()
+            }
+        }, 120L)
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+            // Keep WebView actively running during Picture-in-Picture mode
+            return
+        }
+        if (isCallFinished || isEndingCall) {
+            try {
+                webView.onPause()
+            } catch (_: Exception) {}
+        }
+    }
+
+
     override fun onDestroy() {
-        super.onDestroy()
         isEndingCall = true
         isCallFinished = true
         stopTimer()
@@ -1103,8 +1135,15 @@ class VideoCallActivity : AppCompatActivity() {
 
         try {
             webView.evaluateJavascript("endCall()", null)
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.stopLoading()
+            webView.loadUrl("about:blank")
+            webView.clearHistory()
+            webView.removeAllViews()
             webView.destroy()
         } catch (_: Exception) {}
+
+        super.onDestroy()
     }
 
     // ==========================================

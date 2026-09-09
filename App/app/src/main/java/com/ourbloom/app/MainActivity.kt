@@ -62,16 +62,17 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "AppUpdateHelper error: ${e.message}")
         }
         
-        requestPermissions.launch(arrayOf(
+        val initialPermissions = mutableListOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
-        ).let { 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                it + Manifest.permission.POST_NOTIFICATIONS
-            } else {
-                it
-            }
-        })
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            initialPermissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            initialPermissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        requestPermissions.launch(initialPermissions.toTypedArray())
         
         setupNavigation()
         setupBackgroundWorkers()

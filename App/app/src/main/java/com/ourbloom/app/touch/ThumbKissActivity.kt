@@ -1,11 +1,15 @@
 package com.ourbloom.app.touch
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageButton
@@ -48,9 +52,11 @@ class ThumbKissActivity : AppCompatActivity() {
     private lateinit var viewPartnerPulseRing: View
     private lateinit var btnNudgePartner: MaterialButton
 
+    private val TAG = "ThumbKissActivity"
     private var partnerListener: ListenerRegistration? = null
     private var vibrator: Vibrator? = null
     private var isVibratingHeartbeat = false
+    private var wasLocalTouching = false
     private var lastWriteTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,13 +73,19 @@ class ThumbKissActivity : AppCompatActivity() {
     }
 
     private fun initVibrator() {
+        getAppVibrator()
+    }
+
+    private fun getAppVibrator(): Vibrator? {
+        if (vibrator != null) return vibrator
         vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vibratorManager?.defaultVibrator
+            vibratorManager?.defaultVibrator ?: (getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
         } else {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
+        return vibrator
     }
 
     private fun bindViews() {
@@ -96,8 +108,15 @@ class ThumbKissActivity : AppCompatActivity() {
         touchCanvas.onLocalTouchChanged = { xRatio, yRatio, isTouching ->
             if (isTouching) {
                 layoutCenterHint.animate().alpha(0f).setDuration(200).start()
-            } else if (!touchCanvas.isPartnerTouching) {
-                layoutCenterHint.animate().alpha(1f).setDuration(200).start()
+                if (!wasLocalTouching) {
+                    wasLocalTouching = true
+                    triggerHapticPulse(45)
+                }
+            } else {
+                wasLocalTouching = false
+                if (!touchCanvas.isPartnerTouching) {
+                    layoutCenterHint.animate().alpha(1f).setDuration(200).start()
+                }
             }
             streamLocalTouch(xRatio, yRatio, isTouching)
         }
@@ -120,9 +139,21 @@ class ThumbKissActivity : AppCompatActivity() {
                     tvPartnerStatus.text = "Partner is touching the screen! Place your thumb to connect 💓"
                     tvConnectionStatus.text = "Partner Active"
                 } else {
-                    tvPartnerStatus.text = "Waiting for partner to touch..."
+                    val partnerName = partnerUser?.name?.ifBlank { "partner" } ?: "partner"
+                    tvPartnerStatus.text = "Waiting for $partnerName to touch..."
                     tvConnectionStatus.text = "Synchronous Touch Active"
                 }
+            }
+        }
+
+        touchCanvas.onKissCollisionChanged = { isKissing ->
+            if (isKissing) {
+                triggerHapticPulse(150)
+                tvPartnerStatus.text = "💋 THUMBKISS! 💋 Melting in each other's touch"
+                tvConnectionStatus.text = "💋 Passionate Touch Synced 💋"
+            } else if (touchCanvas.isLocalTouching && touchCanvas.isPartnerTouching) {
+                tvPartnerStatus.text = "Connected in Love! 💓 Feeling each other's touch"
+                tvConnectionStatus.text = "💓 Heartbeat Synced Across Distance 💓"
             }
         }
     }
@@ -186,8 +217,12 @@ class ThumbKissActivity : AppCompatActivity() {
             val isFresh = (System.currentTimeMillis() - updatedAt) < 6000L
             val activeTouching = isTouching && isFresh
 
+            val wasPartnerTouching = touchCanvas.isPartnerTouching
             touchCanvas.updatePartnerTouch(x, y, activeTouching)
             if (activeTouching) {
+                if (!wasPartnerTouching) {
+                    triggerHapticPulse(50)
+                }
                 val partnerName = partnerUser?.name ?: "Partner"
                 if (!touchCanvas.isLocalTouching) {
                     tvPartnerStatus.text = "$partnerName is touching the screen! 💓"
@@ -233,23 +268,101 @@ class ThumbKissActivity : AppCompatActivity() {
         }
     }
 
-    private fun triggerLubDubHaptic() {
-        val vib = vibrator ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val timings = longArrayOf(0, 75, 110, 110)
-            val amplitudes = intArrayOf(0, 190, 0, 255)
-            vib.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
-        } else {
-            @Suppress("DEPRECATION")
-            vib.vibrate(120)
+    private fun triggerHapticPulse(durationMs: Long) {
+        val vib = getAppVibrator()
+        try {
+            if (vib != null && vib.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val effect = VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val attrs = VibrationAttributes.Builder()
+                            .setUsage(VibrationAttributes.USAGE_COMMUNICATION_REQUEST)
+                            .build()
+                        vib.vibrate(effect, attrs)
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        val audioAttrs = AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                            .build()
+                        vib.vibrate(effect, audioAttrs)
+                    } else {
+                        vib.vibrate(effect)
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(durationMs)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Haptic pulse fallback: ${e.message}")
+            try {
+                @Suppress("DEPRECATION")
+                vib?.vibrate(durationMs)
+            } catch (_: Exception) {}
         }
+        try {
+            window.decorView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        } catch (_: Exception) {}
+    }
+
+    private fun triggerLubDubHaptic() {
+        val vib = getAppVibrator()
+        try {
+            if (vib != null && vib.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val effect = try {
+                        if (vib.hasAmplitudeControl()) {
+                            val timings = longArrayOf(0, 75, 100, 110)
+                            val amplitudes = intArrayOf(0, 190, 0, 255)
+                            VibrationEffect.createWaveform(timings, amplitudes, -1)
+                        } else {
+                            val timings = longArrayOf(0, 75, 100, 110)
+                            VibrationEffect.createWaveform(timings, -1)
+                        }
+                    } catch (_: Exception) {
+                        val timings = longArrayOf(0, 75, 100, 110)
+                        VibrationEffect.createWaveform(timings, -1)
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val attrs = VibrationAttributes.Builder()
+                            .setUsage(VibrationAttributes.USAGE_COMMUNICATION_REQUEST)
+                            .build()
+                        vib.vibrate(effect, attrs)
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        val audioAttrs = AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                            .build()
+                        vib.vibrate(effect, audioAttrs)
+                    } else {
+                        vib.vibrate(effect)
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    val timings = longArrayOf(0, 75, 100, 110)
+                    vib.vibrate(timings, -1)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Heartbeat vibration fallback: ${e.message}")
+            try {
+                @Suppress("DEPRECATION")
+                vib?.vibrate(120)
+            } catch (_: Exception) {}
+        }
+        try {
+            window.decorView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        } catch (_: Exception) {}
     }
 
     private fun stopHeartbeatVibration() {
         isVibratingHeartbeat = false
         heartbeatJob?.cancel()
         heartbeatJob = null
-        vibrator?.cancel()
+        try {
+            vibrator?.cancel()
+        } catch (_: Exception) {}
     }
 
     private fun sendNudge() {

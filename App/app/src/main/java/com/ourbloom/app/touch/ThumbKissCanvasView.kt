@@ -16,6 +16,7 @@ class ThumbKissCanvasView @JvmOverloads constructor(
 
     var onLocalTouchChanged: ((xRatio: Float, yRatio: Float, isTouching: Boolean) -> Unit)? = null
     var onKissContactStateChanged: ((isInContact: Boolean) -> Unit)? = null
+    var onKissCollisionChanged: ((isKissing: Boolean) -> Unit)? = null
 
     // Local touch coordinates
     private var localX = -1f
@@ -29,9 +30,12 @@ class ThumbKissCanvasView @JvmOverloads constructor(
     var isPartnerTouching = false
         private set
 
+    var isRemotePartnerActive = false
+        private set
+
     private var pulsePhase = 0f
     private val particles = mutableListOf<PetalParticle>()
-    private val maxParticles = 60
+    private val maxParticles = 80
 
     private val localPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val partnerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -58,7 +62,7 @@ class ThumbKissCanvasView @JvmOverloads constructor(
     }
 
     fun updatePartnerTouch(xRatio: Float, yRatio: Float, isTouching: Boolean) {
-        val wasTouching = isPartnerTouching
+        isRemotePartnerActive = isTouching
         isPartnerTouching = isTouching
         partnerX = xRatio * width
         partnerY = yRatio * height
@@ -71,8 +75,18 @@ class ThumbKissCanvasView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 isLocalTouching = true
-                localX = event.x
-                localY = event.y
+                localX = event.getX(0)
+                localY = event.getY(0)
+
+                // When testing solo with 2 fingers and no remote partner is active, finger 1 acts as partner touch
+                if (event.pointerCount >= 2 && !isRemotePartnerActive) {
+                    partnerX = event.getX(1)
+                    partnerY = event.getY(1)
+                    isPartnerTouching = true
+                } else if (!isRemotePartnerActive) {
+                    isPartnerTouching = false
+                }
+
                 val xRatio = if (width > 0) localX / width else 0.5f
                 val yRatio = if (height > 0) localY / height else 0.5f
                 onLocalTouchChanged?.invoke(xRatio, yRatio, true)
@@ -80,8 +94,39 @@ class ThumbKissCanvasView @JvmOverloads constructor(
                 postInvalidateOnAnimation()
                 return true
             }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount >= 2 && !isRemotePartnerActive) {
+                    partnerX = event.getX(1)
+                    partnerY = event.getY(1)
+                    isPartnerTouching = true
+                    checkContactState()
+                    postInvalidateOnAnimation()
+                }
+                return true
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                val index = event.actionIndex
+                if (index == 1 && !isRemotePartnerActive) {
+                    isPartnerTouching = false
+                    checkContactState()
+                    postInvalidateOnAnimation()
+                } else if (index == 0 && event.pointerCount >= 2 && !isRemotePartnerActive) {
+                    localX = event.getX(1)
+                    localY = event.getY(1)
+                    isPartnerTouching = false
+                    val xRatio = if (width > 0) localX / width else 0.5f
+                    val yRatio = if (height > 0) localY / height else 0.5f
+                    onLocalTouchChanged?.invoke(xRatio, yRatio, true)
+                    checkContactState()
+                    postInvalidateOnAnimation()
+                }
+                return true
+            }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isLocalTouching = false
+                if (!isRemotePartnerActive) {
+                    isPartnerTouching = false
+                }
                 val xRatio = if (width > 0) localX / width else 0.5f
                 val yRatio = if (height > 0) localY / height else 0.5f
                 onLocalTouchChanged?.invoke(xRatio, yRatio, false)
@@ -94,11 +139,30 @@ class ThumbKissCanvasView @JvmOverloads constructor(
     }
 
     private var wasContact = false
+    private var wasKissing = false
+
     private fun checkContactState() {
         val isContact = isLocalTouching && isPartnerTouching
         if (isContact != wasContact) {
             wasContact = isContact
             onKissContactStateChanged?.invoke(isContact)
+        }
+
+        if (isContact) {
+            val dist = hypot((partnerX - localX).toDouble(), (partnerY - localY).toDouble()).toFloat()
+            val isKissing = dist < 220f
+            if (isKissing != wasKissing) {
+                wasKissing = isKissing
+                if (isKissing) {
+                    spawnBurst((localX + partnerX) / 2f, (localY + partnerY) / 2f, 25)
+                }
+                onKissCollisionChanged?.invoke(isKissing)
+            }
+        } else {
+            if (wasKissing) {
+                wasKissing = false
+                onKissCollisionChanged?.invoke(false)
+            }
         }
     }
 
@@ -239,5 +303,12 @@ class ThumbKissCanvasView @JvmOverloads constructor(
             color = colors[Random.nextInt(colors.size)]
         )
         particles.add(particle)
+    }
+
+    fun spawnBurst(originX: Float, originY: Float, count: Int = 25) {
+        for (i in 0 until count) {
+            spawnParticle(originX, originY)
+        }
+        postInvalidateOnAnimation()
     }
 }

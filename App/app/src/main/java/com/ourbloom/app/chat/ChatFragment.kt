@@ -467,20 +467,34 @@ class ChatFragment : Fragment() {
 
     private fun startAudioCallFlow() {
         val hasAudio = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val hasBt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else true
         if (hasAudio) {
             launchCall(isAudioOnly = true)
         } else {
-            callPermissionsLauncher.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
+            val perms = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasBt) {
+                perms.add(android.Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            callPermissionsLauncher.launch(perms.toTypedArray())
         }
     }
 
     private fun startVideoCallFlow() {
         val hasCamera = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         val hasAudio = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val hasBt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else true
         if (hasCamera && hasAudio) {
             launchCall(isAudioOnly = false)
         } else {
-            callPermissionsLauncher.launch(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO))
+            val perms = mutableListOf(android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasBt) {
+                perms.add(android.Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            callPermissionsLauncher.launch(perms.toTypedArray())
         }
     }
 
