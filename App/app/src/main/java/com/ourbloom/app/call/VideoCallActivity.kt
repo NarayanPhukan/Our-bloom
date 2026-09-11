@@ -55,6 +55,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -165,6 +166,23 @@ class VideoCallActivity : AppCompatActivity() {
     private var mediaActionSound: MediaActionSound? = null
     private var lastCapturedBytes: ByteArray? = null
 
+    private val callPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
+        if (cameraGranted && audioGranted) {
+            Log.d(TAG, "Permissions granted via in-activity request, reloading webView")
+            webView.reload()
+        } else {
+            Toast.makeText(this, "Camera and microphone permissions are required for video call", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun toBase64(str: String): String {
+        return Base64.encodeToString(str.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -192,6 +210,19 @@ class VideoCallActivity : AppCompatActivity() {
         setupAudio()
         setupMediaSound()
         setupWebView()
+
+        // Check and request runtime permissions if not already granted
+        val hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val hasAudio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (!hasCamera || !hasAudio) {
+            val perms = mutableListOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+                }
+            }
+            callPermissionsLauncher.launch(perms.toTypedArray())
+        }
 
         if (coupleId.isBlank()) {
             Toast.makeText(this, "Couple connection not found", Toast.LENGTH_SHORT).show()
@@ -872,47 +903,49 @@ class VideoCallActivity : AppCompatActivity() {
             if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
             val timestamp = snapshot.getLong("timestamp") ?: 0L
-            // Ignore stale documents from a previous call session
-            if (timestamp < sessionStartTime - 3000L) {
-                Log.d(TAG, "Ignoring stale call document (doc ts=$timestamp, sessionStartTime=$sessionStartTime)")
+            val status = snapshot.getString("status") ?: ""
+            val endedAt = snapshot.getLong("endedAt") ?: 0L
+
+            // Only ignore truly stale/abandoned calls (> 3 minutes old) or past ended sessions
+            val now = System.currentTimeMillis()
+            if (timestamp > 0L && (now - timestamp > 180_000L)) {
+                Log.d(TAG, "Ignoring expired call document (>3 min old, doc ts=$timestamp, now=$now)")
+                return@addSnapshotListener
+            }
+            if ((status == "ended" || status == "declined") && endedAt > 0L && endedAt < sessionStartTime - 5000L) {
+                Log.d(TAG, "Ignoring past ended call (endedAt=$endedAt, sessionStartTime=$sessionStartTime)")
                 return@addSnapshotListener
             }
 
-            val status = snapshot.getString("status") ?: ""
-            if (snapshot.getBoolean("isAudioOnly") == true) {
-                isAudioOnly = true
+            val docAudioOnly = snapshot.getBoolean("isAudioOnly")
+            if (docAudioOnly != null) {
+                isAudioOnly = docAudioOnly
             }
-            Log.d(TAG, "Call doc update: status=$status, isCaller=$isCaller")
+            Log.d(TAG, "Call doc update: status=$status, isCaller=$isCaller, isAudioOnly=$isAudioOnly")
 
             if (isEndingCall) return@addSnapshotListener
 
             if (status == "declined") {
-                val endedAt = snapshot.getLong("endedAt") ?: timestamp
-                if (endedAt >= sessionStartTime - 3000L) {
-                    if (!isEndingCall) {
-                        isEndingCall = true
-                        callDocListener?.remove()
-                        callDocListener = null
-                        runOnUiThread {
-                            Toast.makeText(this, "$partnerName declined the call", Toast.LENGTH_LONG).show()
-                            endCallAndFinish("Call declined")
-                        }
+                if (!isEndingCall) {
+                    isEndingCall = true
+                    callDocListener?.remove()
+                    callDocListener = null
+                    runOnUiThread {
+                        Toast.makeText(this, "$partnerName declined the call", Toast.LENGTH_LONG).show()
+                        endCallAndFinish("Call declined")
                     }
                 }
                 return@addSnapshotListener
             }
 
             if (status == "ended") {
-                val endedAt = snapshot.getLong("endedAt") ?: timestamp
-                if (endedAt >= sessionStartTime - 3000L) {
-                    if (!isEndingCall) {
-                        isEndingCall = true
-                        callDocListener?.remove()
-                        callDocListener = null
-                        runOnUiThread {
-                            Toast.makeText(this, "Call ended", Toast.LENGTH_SHORT).show()
-                            endCallAndFinish("Call ended by remote")
-                        }
+                if (!isEndingCall) {
+                    isEndingCall = true
+                    callDocListener?.remove()
+                    callDocListener = null
+                    runOnUiThread {
+                        Toast.makeText(this, "Call ended", Toast.LENGTH_SHORT).show()
+                        endCallAndFinish("Call ended by remote")
                     }
                 }
                 return@addSnapshotListener
@@ -923,8 +956,8 @@ class VideoCallActivity : AppCompatActivity() {
                 val answerJson = snapshot.getString("answer")
                 if (!answerJson.isNullOrBlank() && !hasHandledAnswer && !isCallConnected) {
                     hasHandledAnswer = true
-                    val encoded = Uri.encode(answerJson)
-                    webView.evaluateJavascript("handleAnswer('$encoded')", null)
+                    val b64 = toBase64(answerJson)
+                    webView.evaluateJavascript("handleAnswer('$b64')", null)
                 }
 
                 // Process ICE candidates from receiver (deduplicated)
@@ -937,8 +970,8 @@ class VideoCallActivity : AppCompatActivity() {
                         else -> null
                     }
                     if (candStr != null && processedCandidates.add(candStr)) {
-                        val encoded = Uri.encode(candStr)
-                        webView.evaluateJavascript("handleCandidate('$encoded')", null)
+                        val b64 = toBase64(candStr)
+                        webView.evaluateJavascript("handleCandidate('$b64')", null)
                     }
                 }
             } else {
@@ -947,8 +980,8 @@ class VideoCallActivity : AppCompatActivity() {
                 if (!offerJson.isNullOrBlank() && !hasHandledOffer && !isCallConnected) {
                     if (isCameraReady) {
                         hasHandledOffer = true
-                        val encoded = Uri.encode(offerJson)
-                        webView.evaluateJavascript("handleOffer('$encoded')", null)
+                        val b64 = toBase64(offerJson)
+                        webView.evaluateJavascript("handleOffer('$b64')", null)
                         Log.d(TAG, "Receiver received offer via live Firestore update and triggered handleOffer")
                     } else {
                         pendingOfferSdp = offerJson
@@ -966,8 +999,8 @@ class VideoCallActivity : AppCompatActivity() {
                         else -> null
                     }
                     if (candStr != null && processedCandidates.add(candStr)) {
-                        val encoded = Uri.encode(candStr)
-                        webView.evaluateJavascript("handleCandidate('$encoded')", null)
+                        val b64 = toBase64(candStr)
+                        webView.evaluateJavascript("handleCandidate('$b64')", null)
                     }
                 }
             }
@@ -991,8 +1024,8 @@ class VideoCallActivity : AppCompatActivity() {
                 if (!offerJson.isNullOrBlank() && !hasHandledOffer) {
                     hasHandledOffer = true
                     withContext(Dispatchers.Main) {
-                        val encoded = Uri.encode(offerJson)
-                        webView.evaluateJavascript("handleOffer('$encoded')", null)
+                        val b64 = toBase64(offerJson)
+                        webView.evaluateJavascript("handleOffer('$b64')", null)
                         Log.d(TAG, "Receiver handled offer successfully in handleReceiverOfferFlow")
                     }
                 }
@@ -1160,8 +1193,8 @@ class VideoCallActivity : AppCompatActivity() {
                 } else {
                     if (!pendingOfferSdp.isNullOrBlank() && !hasHandledOffer) {
                         hasHandledOffer = true
-                        val encoded = Uri.encode(pendingOfferSdp!!)
-                        webView.evaluateJavascript("handleOffer('$encoded')", null)
+                        val b64 = toBase64(pendingOfferSdp!!)
+                        webView.evaluateJavascript("handleOffer('$b64')", null)
                         pendingOfferSdp = null
                         Log.d(TAG, "Receiver dispatched cached pending offer on camera ready")
                     } else {
@@ -1177,7 +1210,7 @@ class VideoCallActivity : AppCompatActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     if (type == "offer") {
-                        val callData = hashMapOf(
+                        val callData = hashMapOf<String, Any>(
                             "callerId" to currentUid,
                             "callerName" to (auth.currentUser?.displayName ?: "Your Partner"),
                             "callerAvatar" to (auth.currentUser?.photoUrl?.toString() ?: ""),
@@ -1185,10 +1218,9 @@ class VideoCallActivity : AppCompatActivity() {
                             "offer" to sdpJson,
                             "status" to "calling",
                             "timestamp" to System.currentTimeMillis(),
-                            "callerCandidates" to emptyList<String>(),
-                            "receiverCandidates" to emptyList<String>()
+                            "isAudioOnly" to isAudioOnly
                         )
-                        db.collection("video_calls").document(coupleId).set(callData)
+                        db.collection("video_calls").document(coupleId).set(callData, SetOptions.merge())
 
                         // Dispatch high-priority FCM v1 push directly to partner (Zero Render dependency)
                         try {
@@ -1303,6 +1335,21 @@ class VideoCallActivity : AppCompatActivity() {
                     triggerHaptic(60)
                     val toastMsg = if (isAudioOnly) "Voice call connected 💕" else "Video call connected 💕"
                     Toast.makeText(this@VideoCallActivity, toastMsg, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun onRemoteVideoTrackReceived() {
+            runOnUiThread {
+                Log.d(TAG, "onRemoteVideoTrackReceived: remote video is rendering")
+                if (!isAudioOnly) {
+                    stopRadarAnimation()
+                    layoutCallingOverlay.animate()
+                        .alpha(0f)
+                        .setDuration(300)
+                        .withEndAction { layoutCallingOverlay.visibility = View.GONE }
+                        .start()
                 }
             }
         }

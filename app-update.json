@@ -1,8 +1,8 @@
 {
-  "versionCode": 38,
-  "versionName": "1.37",
+  "versionCode": 39,
+  "versionName": "1.38",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Real-time partner phone battery & charging status on Dashboard & Chat\n• In-chat double-tap flying heart reactions & floating badges\n• Scratch-to-reveal surprise romantic love notes\n• Ambient cherry blossom petal particle animations",
+  "changelog": "• Fixed Video Call: Restored live video streaming between partners with reliable TURN relays\n• Instant video render & calling overlay dismissal\n• Fixed incoming call WebRTC signaling & network candidate preservation\n• Love note deletion dual-sync support",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

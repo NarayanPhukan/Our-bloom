@@ -244,9 +244,11 @@ class IncomingCallActivity : AppCompatActivity() {
                 if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
                 val status = snapshot.getString("status") ?: ""
 
-                if (snapshot.getBoolean("isAudioOnly") == true) {
-                    isAudioOnly = true
-                    findViewById<TextView>(R.id.tv_incoming_status)?.text = "Incoming Voice Call 📞"
+                val docAudioOnly = snapshot.getBoolean("isAudioOnly")
+                if (docAudioOnly != null) {
+                    isAudioOnly = docAudioOnly
+                    findViewById<TextView>(R.id.tv_incoming_status)?.text =
+                        if (isAudioOnly) "Incoming Voice Call 📞" else "Incoming Video Call 📹"
                 }
 
                 when (status) {
@@ -291,8 +293,9 @@ class IncomingCallActivity : AppCompatActivity() {
                 .document(coupleId)
                 .get()
                 .addOnSuccessListener { doc ->
-                    if (doc?.getBoolean("isAudioOnly") == true) {
-                        isAudioOnly = true
+                    val docAudioOnly = doc?.getBoolean("isAudioOnly")
+                    if (docAudioOnly != null) {
+                        isAudioOnly = docAudioOnly
                     }
                     val offer = doc?.getString("offer") ?: ""
                     launchVideoCall(offer)

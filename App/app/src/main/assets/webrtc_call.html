@@ -117,11 +117,27 @@
             'stun:stun3.l.google.com:19302',
             'stun:stun4.l.google.com:19302',
             'stun:stun.cloudflare.com:3478',
-            'stun:global.stun.twilio.com:3478'
+            'stun:openrelay.metered.ca:80'
           ]
+        },
+        {
+          urls: [
+            'turn:openrelay.metered.ca:80',
+            'turn:openrelay.metered.ca:443',
+            'turn:openrelay.metered.ca:443?transport=tcp'
+          ],
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: [
+            'turns:openrelay.metered.ca:443?transport=tcp'
+          ],
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
         }
       ],
-      iceCandidatePoolSize: 0,
+      iceCandidatePoolSize: 2,
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require'
     };
@@ -242,16 +258,34 @@
 
       // Remote stream received
       peerConnection.ontrack = (event) => {
-        console.log("Remote track received:", event.streams, event.track ? event.track.kind : '');
-        if (event.streams && event.streams[0]) {
-          const stream = event.streams[0];
-          remoteStream = stream;
-          // Guard against resetting srcObject if already assigned (prevents interrupting audio play)
-          if (remoteVideo.srcObject !== stream) {
-            remoteVideo.srcObject = stream;
-            remoteVideo.play().catch(e => console.log("Remote play note:", e.message));
+        const kind = event.track ? event.track.kind : (event.streams && event.streams[0] ? 'stream' : 'unknown');
+        console.log("Remote track received:", kind, event.track ? event.track.id : '');
+
+        if (!remoteStream) {
+          remoteStream = new MediaStream();
+        }
+
+        if (event.track) {
+          const existing = remoteStream.getTracks().find(t => t.id === event.track.id);
+          if (!existing) {
+            remoteStream.addTrack(event.track);
           }
-          bridgeCall('onCallConnected');
+        } else if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach(t => {
+            if (!remoteStream.getTracks().find(existing => existing.id === t.id)) {
+              remoteStream.addTrack(t);
+            }
+          });
+        }
+
+        if (remoteVideo.srcObject !== remoteStream) {
+          remoteVideo.srcObject = remoteStream;
+        }
+
+        remoteVideo.play().catch(e => console.log("Remote play note:", e.message));
+        bridgeCall('onCallConnected');
+        if (event.track && event.track.kind === 'video') {
+          bridgeCall('onRemoteVideoTrackReceived');
         }
       };
 
@@ -322,6 +356,19 @@
     function safeParseJson(data) {
       if (!data) return null;
       if (typeof data !== 'string') return data;
+      const trimmed = data.trim();
+      // Try Base64 decode first if looks like base64
+      if (/^[A-Za-z0-9+/=]+$/.test(trimmed) && trimmed.length > 20) {
+        try {
+          const decoded = decodeURIComponent(escape(window.atob(trimmed)));
+          return JSON.parse(decoded);
+        } catch (_) {
+          try {
+            return JSON.parse(window.atob(trimmed));
+          } catch (_) {}
+        }
+      }
+      // Try URI decode
       try {
         if (data.includes('%')) {
           data = decodeURIComponent(data);
@@ -331,7 +378,7 @@
         try {
           return JSON.parse(data);
         } catch (err) {
-          console.error("JSON parse error:", err, data);
+          console.error("JSON parse error:", err, data ? data.slice(0, 100) : '');
           return null;
         }
       }
@@ -344,37 +391,27 @@
         const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000\/2/i);
         if (!opusMatch) return sdp;
         const pt = opusMatch[1];
-
-        // Optimal parameters for natural, crackle-free WebRTC voice communication:
-        // - useinbandfec=1: in-band Forward Error Correction to recover lost packets seamlessly
-        // - usedtx=1: Discontinuous Transmission allows audio DSP to save CPU during pauses/silence
-        // - maxaveragebitrate=40000: 40 kbps wideband voice (studio clarity with low packet overhead)
-        const opusParams = [
-          'useinbandfec=1',
-          'usedtx=1',
-          'maxaveragebitrate=40000'
-        ];
+        const opusParams = 'useinbandfec=1;usedtx=1;maxaveragebitrate=40000';
 
         const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.+)`, 'i');
         const fmtpMatch = sdp.match(fmtpRegex);
 
         if (fmtpMatch) {
-          const existing = fmtpMatch[1].split(';').map(p => p.trim());
-          const merged = [...existing];
-          opusParams.forEach(p => {
-            const key = p.split('=')[0];
-            const idx = merged.findIndex(ep => ep.startsWith(key + '='));
-            if (idx >= 0) {
-              merged[idx] = p;
-            } else {
-              merged.push(p);
-            }
+          const existing = fmtpMatch[1].replace(/\r$/, '').split(';').map(p => p.trim()).filter(Boolean);
+          const paramsMap = {};
+          existing.forEach(p => {
+            const parts = p.split('=');
+            if (parts.length > 0) paramsMap[parts[0]] = p;
           });
-          return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${merged.join(';')}`);
+          paramsMap['useinbandfec'] = 'useinbandfec=1';
+          paramsMap['usedtx'] = 'usedtx=1';
+          paramsMap['maxaveragebitrate'] = 'maxaveragebitrate=40000';
+          const merged = Object.values(paramsMap).join(';');
+          return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${merged}`);
         } else {
           return sdp.replace(
             new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000\\/2\\r?\\n)`, 'i'),
-            `$1a=fmtp:${pt} ${opusParams.join(';')}\r\n`
+            `$1a=fmtp:${pt} ${opusParams}\r\n`
           );
         }
       } catch (e) {
@@ -383,54 +420,9 @@
       }
     }
 
-    // SDP Munging: Guarantee hardware-accelerated H.264 is negotiated across all WebView versions
+    // Preserve clean, standards-compliant SDP for universal VP8/H.264 negotiation
     function preferH264InSdp(sdp) {
-      if (!sdp || typeof sdp !== 'string') return sdp;
-      try {
-        const lines = sdp.split(/\r?\n/);
-        const mVideoIndex = lines.findIndex(line => line.startsWith('m=video '));
-        if (mVideoIndex === -1) return sdp;
-
-        const h264Pts = [];
-        const rtxMap = {};
-
-        lines.forEach(line => {
-          const rtpMatch = line.match(/^a=rtpmap:(\d+)\s+H264\/90000/i);
-          if (rtpMatch) {
-            h264Pts.push(rtpMatch[1]);
-          }
-          const rtxMatch = line.match(/^a=fmtp:(\d+)\s+apt=(\d+)/i);
-          if (rtxMatch) {
-            rtxMap[rtxMatch[2]] = rtxMatch[1];
-          }
-        });
-
-        if (h264Pts.length === 0) return sdp;
-
-        const prioritizedPts = [];
-        h264Pts.forEach(pt => {
-          prioritizedPts.push(pt);
-          if (rtxMap[pt]) {
-            prioritizedPts.push(rtxMap[pt]);
-          }
-        });
-
-        const mVideoLine = lines[mVideoIndex];
-        const parts = mVideoLine.split(' ');
-        if (parts.length > 3) {
-          const header = parts.slice(0, 3);
-          const existingPts = parts.slice(3);
-          const remainingPts = existingPts.filter(pt => !prioritizedPts.includes(pt));
-          const newPts = [...prioritizedPts.filter(pt => existingPts.includes(pt)), ...remainingPts];
-          lines[mVideoIndex] = [...header, ...newPts].join(' ');
-          console.log("✿ Munged SDP: H.264 hardware codecs placed at top of m=video line");
-        }
-
-        return lines.join('\r\n');
-      } catch (e) {
-        console.warn("preferH264InSdp warning:", e);
-        return sdp;
-      }
+      return sdp;
     }
 
     // Optimize media senders: give audio highest network priority & tune video bandwidth for thermal efficiency

@@ -20,7 +20,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:background="#E60D0F14"
+        android:background="#CC0D0F14"
         android:visibility="visible">
 
         <FrameLayout
