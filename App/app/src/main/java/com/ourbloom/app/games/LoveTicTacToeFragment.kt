@@ -423,12 +423,13 @@ class LoveTicTacToeFragment : Fragment() {
 
     private fun showWagerSelectionDialog() {
         val wagers = arrayOf(
-            "💆 10-Minute Romantic Massage",
-            "🍕 Winner picks dinner & movie tonight",
-            "🍦 Loser treats winner to favorite dessert",
+            "💆 10-Minute Romantic Full Body Massage",
+            "🔥 Seductive lap dance or sensual massage",
             "💋 50 Sweet Kisses on demand",
+            "🤫 Winner controls the bedroom tonight",
+            "🍕 Winner picks dinner & dessert tonight",
             "🍳 Breakfast in bed tomorrow morning",
-            "🤫 Whisper a cute secret or love letter",
+            "🍦 Loser treats winner to favorite ice cream",
             "✍️ Custom Couple Dare..."
         )
 

@@ -62,15 +62,32 @@ class TruthOrDareFragment : Fragment() {
         TruthOrDareCard("p_d_3", "DARE", "PLAYFUL", "Sing the chorus of our favorite song in the most exaggerated opera voice possible! 🎶"),
         TruthOrDareCard("p_d_4", "DARE", "PLAYFUL", "Let your partner style your hair however they want and take a cute selfie together!"),
 
-        // SPICY (TRUTH)
-        TruthOrDareCard("sp_t_1", "TRUTH", "SPICY", "What is one romantic or teasing fantasy you would love for us to try on our next weekend getaway? 🔥"),
-        TruthOrDareCard("sp_t_2", "TRUTH", "SPICY", "What outfit or style of mine makes you find me most breathtakingly attractive?"),
-        TruthOrDareCard("sp_t_3", "TRUTH", "SPICY", "Where is the most exciting or romantic place you'd ever want to share a kiss with me?"),
-        TruthOrDareCard("sp_t_4", "TRUTH", "SPICY", "Describe in 3 words the feeling of when our lips first touched."),
-        // SPICY (DARE)
-        TruthOrDareCard("sp_d_1", "DARE", "SPICY", "Whisper the thing you find most attractive about your partner directly into their ear in your softest voice. 🔥"),
-        TruthOrDareCard("sp_d_2", "DARE", "SPICY", "Give your partner a slow 2-minute shoulder & neck massage followed by 5 gentle kisses on their collarbone."),
-        TruthOrDareCard("sp_d_3", "DARE", "SPICY", "Close your eyes and let your partner kiss you anywhere on your cheek, neck, or lips 3 times ♡")
+        // SPICY & INTIMATE (TRUTH)
+        TruthOrDareCard("sp_t_1", "TRUTH", "SPICY", "What is your absolute favorite part of my body to kiss, touch, and caress? 🔥"),
+        TruthOrDareCard("sp_t_2", "TRUTH", "SPICY", "What is a secret romantic or sexual fantasy you have about me that you haven't shared yet?"),
+        TruthOrDareCard("sp_t_3", "TRUTH", "SPICY", "What is the hottest dream or daydream you've ever had about us being intimate together?"),
+        TruthOrDareCard("sp_t_4", "TRUTH", "SPICY", "What is something I do in bed or while kissing that drives you completely wild?"),
+        TruthOrDareCard("sp_t_5", "TRUTH", "SPICY", "What kind of outfit, sleepwear, or lingerie would drive you completely crazy if I wore it for you?"),
+        TruthOrDareCard("sp_t_6", "TRUTH", "SPICY", "Where is your most sensitive erogenous zone that makes you shiver when I touch or kiss it?"),
+        TruthOrDareCard("sp_t_7", "TRUTH", "SPICY", "Do you prefer slow, deeply emotional intimacy, or spontaneous, intense, breathless passion?"),
+        TruthOrDareCard("sp_t_8", "TRUTH", "SPICY", "If we had the whole house to ourselves with no clothes allowed for a whole weekend, what would we do first?"),
+        TruthOrDareCard("sp_t_9", "TRUTH", "SPICY", "What is your biggest instant turn-on that makes you desire me immediately?"),
+        TruthOrDareCard("sp_t_10", "TRUTH", "SPICY", "Describe our most passionate time being intimate together in delicious detail."),
+        TruthOrDareCard("sp_t_11", "TRUTH", "SPICY", "What dirty or naughty thought about me crossed your mind recently when you looked at me?"),
+        TruthOrDareCard("sp_t_12", "TRUTH", "SPICY", "Where is the most daring or adventurous place you'd ever want to make love with me?"),
+
+        // SPICY & INTIMATE (DARE)
+        TruthOrDareCard("sp_d_1", "DARE", "SPICY", "Give your partner a slow, passionate 60-second French kiss with your hands tangled in their hair or waist. 🔥"),
+        TruthOrDareCard("sp_d_2", "DARE", "SPICY", "Slowly remove one item of your partner's clothing using only your fingertips or teeth with a seductive smile."),
+        TruthOrDareCard("sp_d_3", "DARE", "SPICY", "Close your eyes (or wear a blindfold) and let your partner kiss 3 sensitive intimate spots; guess each one!"),
+        TruthOrDareCard("sp_d_4", "DARE", "SPICY", "Spend 60 seconds planting soft, warm kisses on your partner's neck, jawline, and earlobes without touching their lips."),
+        TruthOrDareCard("sp_d_5", "DARE", "SPICY", "Whisper into your partner's ear the exact naughty, passionate thing you want to do to them tonight in bed."),
+        TruthOrDareCard("sp_d_6", "DARE", "SPICY", "Bite your partner's bottom lip gently, pull them tightly by the waist, and tell them what you find irresistible about them."),
+        TruthOrDareCard("sp_d_7", "DARE", "SPICY", "Sit on your partner's lap facing them, look deep into their eyes, and share a 30-second breathless kiss."),
+        TruthOrDareCard("sp_d_8", "DARE", "SPICY", "Give your partner a sensual 2-minute massage on their lower back and inner thighs with warm hands."),
+        TruthOrDareCard("sp_d_9", "DARE", "SPICY", "Trace your fingertips slowly down your partner's chest and stomach, leaving a soft kiss trail behind."),
+        TruthOrDareCard("sp_d_10", "DARE", "SPICY", "Take off one piece of your own clothing of your partner's choice with a slow, teasing smile."),
+        TruthOrDareCard("sp_d_11", "DARE", "SPICY", "Let your partner leave a gentle love mark or soft kiss trail anywhere on your neck, shoulder, or chest.")
     )
 
     override fun onCreateView(
