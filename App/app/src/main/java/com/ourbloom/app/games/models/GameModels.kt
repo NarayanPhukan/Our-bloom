@@ -13,6 +13,7 @@ data class TicTacToeState(
     val playerOUid: String = "",
     val playerOName: String = "",
     val turnUid: String = "",
+    val lastMovePlayerUid: String = "",
     val wager: String = "50 Sweet Kisses 💋",
     val winnerUid: String? = null, // uid, "DRAW", or null
     val winningLine: List<Int> = emptyList(),

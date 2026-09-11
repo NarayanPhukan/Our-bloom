@@ -1,8 +1,8 @@
 {
-  "versionCode": 44,
-  "versionName": "1.43",
+  "versionCode": 45,
+  "versionName": "1.44",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix Tic-Tac-Toe crash when playing 🎮\n• Keep game models safe from Proguard minification\n• Clean 2x2 Minimalist Dashboard Hub 💖",
+  "changelog": "• Strict alternating turns in Love Tic-Tac-Toe (no consecutive moves) ❌⭕\n• Immediate optimistic turn-handover and double-click lock\n• Clean 2x2 Minimalist Dashboard Hub 💖",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

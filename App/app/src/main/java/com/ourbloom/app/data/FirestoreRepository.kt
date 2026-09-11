@@ -2220,6 +2220,7 @@ class FirestoreRepository {
             playerOUid = playerOUid,
             playerOName = playerOName,
             turnUid = playerXUid,
+            lastMovePlayerUid = "",
             wager = wager,
             winnerUid = null,
             winningLine = emptyList(),

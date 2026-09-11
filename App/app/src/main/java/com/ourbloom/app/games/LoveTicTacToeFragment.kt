@@ -42,6 +42,7 @@ class LoveTicTacToeFragment : Fragment() {
     private var isOnlineMode: Boolean = true
     private var gameState = TicTacToeState()
     private var gameListener: ListenerRegistration? = null
+    private var isSubmittingMove: Boolean = false
 
     // Local Pass & Play State
     private var localTurnSymbol = "♡"
@@ -195,8 +196,61 @@ class LoveTicTacToeFragment : Fragment() {
         gameListener?.remove()
         gameListener = repository.observeTicTacToeState(coupleId) { state ->
             if (!isAdded) return@observeTicTacToeState
+            isSubmittingMove = false
             gameState = state
+
+            // Auto-sync partner IDs from game state if missing
+            if (partnerId.isBlank()) {
+                if (state.playerXUid.isNotBlank() && state.playerXUid != currentUserId) {
+                    partnerId = state.playerXUid
+                    if (state.playerXName.isNotBlank()) partnerName = state.playerXName
+                } else if (state.playerOUid.isNotBlank() && state.playerOUid != currentUserId) {
+                    partnerId = state.playerOUid
+                    if (state.playerOName.isNotBlank()) partnerName = state.playerOName
+                }
+                updateModeUI()
+            }
+
             renderOnlineState(state)
+        }
+    }
+
+    private fun isMyTurnToPlay(state: TicTacToeState): Boolean {
+        if (state.status == "FINISHED") return false
+
+        // 1. Strict anti-consecutive check: if current user made the last move, they cannot move again
+        if (state.lastMovePlayerUid.isNotBlank() && state.lastMovePlayerUid == currentUserId) {
+            return false
+        }
+
+        // 2. Count current marks on board
+        val countX = state.board.count { it == "♡" }
+        val countO = state.board.count { it == "✕" }
+
+        // Determine player role
+        val isPlayerX = when {
+            state.playerXUid == currentUserId -> true
+            state.playerOUid == currentUserId -> false
+            state.playerXUid.isBlank() -> true // First to place a move is Player X
+            else -> false
+        }
+
+        val isPlayerO = when {
+            state.playerOUid == currentUserId -> true
+            state.playerXUid == currentUserId -> false
+            state.playerOUid.isBlank() && state.playerXUid.isNotBlank() && state.playerXUid != currentUserId -> true
+            else -> false
+        }
+
+        return if (isPlayerX) {
+            // Player X (Hearts ♡) only moves when counts are equal (0-0, 1-1, 2-2, etc.)
+            countX == countO
+        } else if (isPlayerO) {
+            // Player O (Kisses ✕) only moves after Player X has moved (1-0, 2-1, 3-2, etc.)
+            countX > countO
+        } else {
+            // Fallback for edge cases
+            if (state.turnUid.isNotBlank()) state.turnUid == currentUserId else (countX == countO)
         }
     }
 
@@ -243,16 +297,17 @@ class LoveTicTacToeFragment : Fragment() {
                 cardTurnBanner.strokeColor = 0xFF4CAF50.toInt()
             }
         } else {
-            val isMyTurn = state.turnUid == currentUserId || state.turnUid.isBlank()
-            val mySymbol = if (state.playerXUid == currentUserId) "Hearts ♡" else "Kisses ✕"
-            val partnerSymbol = if (state.playerXUid == currentUserId) "Kisses ✕" else "Hearts ♡"
+            val myTurn = isMyTurnToPlay(state)
+            val isPlayerX = (state.playerXUid == currentUserId || (state.playerXUid.isBlank() && state.playerOUid != currentUserId))
+            val mySymbol = if (isPlayerX) "Hearts ♡" else "Kisses ✕"
+            val partnerSymbol = if (isPlayerX) "Kisses ✕" else "Hearts ♡"
 
-            if (isMyTurn) {
-                tvTurnSymbol.text = if (state.playerXUid == currentUserId) "♡" else "✕"
+            if (myTurn) {
+                tvTurnSymbol.text = if (isPlayerX) "♡" else "✕"
                 tvTurnStatus.text = "Your Turn ($mySymbol)"
                 cardTurnBanner.strokeColor = 0xFFFFCDD2.toInt()
             } else {
-                tvTurnSymbol.text = if (state.playerXUid == currentUserId) "✕" else "♡"
+                tvTurnSymbol.text = if (isPlayerX) "✕" else "♡"
                 tvTurnStatus.text = "$partnerName's Turn ($partnerSymbol)"
                 cardTurnBanner.strokeColor = 0xFFE0E0E0.toInt()
             }
@@ -270,14 +325,17 @@ class LoveTicTacToeFragment : Fragment() {
     }
 
     private fun handleOnlineCellClick(index: Int) {
+        if (isSubmittingMove) {
+            return
+        }
+
         if (gameState.status == "FINISHED") {
             Toast.makeText(requireContext(), "Round complete! Tap 'New Round' to play again 🔄", Toast.LENGTH_SHORT).show()
             return
         }
 
         // Check if current user is authorized for this turn
-        val isMyTurn = gameState.turnUid == currentUserId || gameState.turnUid.isBlank()
-        if (!isMyTurn) {
+        if (!isMyTurnToPlay(gameState)) {
             Toast.makeText(requireContext(), "Wait for $partnerName's move ⏳", Toast.LENGTH_SHORT).show()
             return
         }
@@ -288,7 +346,16 @@ class LoveTicTacToeFragment : Fragment() {
             return
         }
 
-        val mySymbol = if (gameState.playerXUid == currentUserId || gameState.playerXUid.isBlank()) "♡" else "✕"
+        isSubmittingMove = true
+
+        val isPlayerX = when {
+            gameState.playerXUid == currentUserId -> true
+            gameState.playerOUid == currentUserId -> false
+            gameState.playerXUid.isBlank() -> true
+            else -> false
+        }
+
+        val mySymbol = if (isPlayerX) "♡" else "✕"
         val newBoard = gameState.board.toMutableList()
         newBoard[index] = mySymbol
 
@@ -303,16 +370,22 @@ class LoveTicTacToeFragment : Fragment() {
             else -> null
         }
 
-        val nextTurnUid = if (isWin || isDraw) "" else partnerId
+        val effectivePartnerUid = when {
+            gameState.playerXUid == currentUserId -> gameState.playerOUid.ifBlank { partnerId }
+            else -> gameState.playerXUid.ifBlank { partnerId }
+        }
+
+        val nextTurnUid = if (isWin || isDraw) "" else effectivePartnerUid
         val nextStatus = if (isWin || isDraw) "FINISHED" else "PLAYING"
 
         val updatedState = gameState.copy(
             board = newBoard,
-            playerXUid = if (gameState.playerXUid.isBlank()) currentUserId else gameState.playerXUid,
-            playerXName = if (gameState.playerXName.isBlank()) currentUserName else gameState.playerXName,
-            playerOUid = if (gameState.playerOUid.isBlank()) partnerId else gameState.playerOUid,
-            playerOName = if (gameState.playerOName.isBlank()) partnerName else gameState.playerOName,
+            playerXUid = if (isPlayerX && gameState.playerXUid.isBlank()) currentUserId else gameState.playerXUid,
+            playerXName = if (isPlayerX && gameState.playerXName.isBlank()) currentUserName else gameState.playerXName,
+            playerOUid = if (!isPlayerX && gameState.playerOUid.isBlank()) currentUserId else gameState.playerOUid.ifBlank { partnerId },
+            playerOName = if (!isPlayerX && gameState.playerOName.isBlank()) currentUserName else gameState.playerOName.ifBlank { partnerName },
             turnUid = nextTurnUid,
+            lastMovePlayerUid = currentUserId,
             winnerUid = newWinnerUid,
             winningLine = winCombo ?: emptyList(),
             status = nextStatus,
@@ -320,8 +393,16 @@ class LoveTicTacToeFragment : Fragment() {
             lastMoveTimestamp = System.currentTimeMillis()
         )
 
+        // Optimistically update local view immediately so user sees move and is immediately blocked from 2nd click
+        gameState = updatedState
+        renderOnlineState(updatedState)
+
         lifecycleScope.launch {
-            repository.updateTicTacToeState(coupleId, updatedState)
+            val success = repository.updateTicTacToeState(coupleId, updatedState)
+            if (!success) {
+                isSubmittingMove = false
+                Toast.makeText(requireContext(), "Failed to sync move with partner. Check connection.", Toast.LENGTH_SHORT).show()
+            }
             if (isWin) {
                 triggerVictoryHaptic()
                 showVictoryDialog("You", gameState.wager)
@@ -330,15 +411,33 @@ class LoveTicTacToeFragment : Fragment() {
     }
 
     private fun startNewOnlineGame() {
+        if (coupleId.isBlank()) return
+        isSubmittingMove = false
         lifecycleScope.launch {
-            repository.resetTicTacToeGame(
-                coupleId = coupleId,
-                playerXUid = currentUserId,
-                playerXName = currentUserName,
-                playerOUid = partnerId,
-                playerOName = partnerName,
-                wager = gameState.wager.ifBlank { "50 Sweet Kisses 💋" }
+            // Alternate starting player for the next round
+            val nextXUid = if (gameState.playerXUid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
+            val nextXName = if (nextXUid == currentUserId) currentUserName else partnerName
+            val nextOUid = if (nextXUid == currentUserId) partnerId else currentUserId
+            val nextOName = if (nextOUid == currentUserId) currentUserName else partnerName
+
+            val newState = TicTacToeState(
+                id = "tictactoe",
+                board = List(9) { "" },
+                playerXUid = nextXUid,
+                playerXName = nextXName,
+                playerOUid = nextOUid,
+                playerOName = nextOName,
+                turnUid = nextXUid,
+                lastMovePlayerUid = "",
+                wager = gameState.wager.ifBlank { "50 Sweet Kisses 💋" },
+                winnerUid = null,
+                winningLine = emptyList(),
+                status = "PLAYING",
+                lastMoveTimestamp = System.currentTimeMillis(),
+                moveCount = 0
             )
+
+            repository.updateTicTacToeState(coupleId, newState)
             Toast.makeText(requireContext(), "New round started! 🌸", Toast.LENGTH_SHORT).show()
         }
     }
