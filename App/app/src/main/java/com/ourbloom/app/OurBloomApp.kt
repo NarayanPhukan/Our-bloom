@@ -133,8 +133,23 @@ class OurBloomApp : Application() {
                     lightColor = pinkColor
                 }
 
+                // 6. Savings Vault
+                val savingsChannel = android.app.NotificationChannel(
+                    "ourbloom_savings_channel",
+                    "Bloom Savings Vault",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Deposit, withdrawal request & consent alerts for your shared vault"
+                    enableLights(true)
+                    lightColor = pinkColor
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 150, 100, 200)
+                    setShowBadge(true)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
+
                 notificationManager?.createNotificationChannels(
-                    listOf(updateChannel, chatChannel, callChannel, hbChannel, fcmChannel)
+                    listOf(updateChannel, chatChannel, callChannel, hbChannel, fcmChannel, savingsChannel)
                 )
             } catch (e: Exception) {
                 Log.e("OurBloomApp", "Error initializing notification channels", e)

@@ -13,6 +13,11 @@ import com.ourbloom.app.data.models.ChatMessage
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.Milestone
 import com.ourbloom.app.data.models.User
+import com.ourbloom.app.data.models.SavingsWallet
+import com.ourbloom.app.data.models.SavingsGoal
+import com.ourbloom.app.data.models.SavingsTransaction
+import com.ourbloom.app.data.models.WithdrawalRequest
+import com.ourbloom.app.data.models.BankAccountDetails
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -1652,6 +1657,510 @@ class FirestoreRepository {
             Log.e("FirestoreRepo", "Firestore direct join couple failed", fsEx)
             ErrorReporter.notifyError("Join Garden Failed", fsEx.message ?: "Failed to join garden", fsEx, "SetupCoupleFragment")
             ServerCoupleResult(success = false, error = fsEx.message ?: "Failed to join garden")
+        }
+    }
+
+    // ==========================================
+    // SAVINGS VAULT / WALLET METHODS
+    // ==========================================
+
+    fun observeSavingsWallet(coupleId: String, onUpdate: (SavingsWallet?) -> Unit): ListenerRegistration {
+        return db.collection("savings_wallets").document(coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to savings wallet", error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null && snapshot.exists()) {
+                    val wallet = snapshot.toObject(SavingsWallet::class.java)
+                    onUpdate(wallet)
+                } else {
+                    onUpdate(null)
+                }
+            }
+    }
+
+    suspend fun getOrCreateSavingsWallet(coupleId: String): SavingsWallet? {
+        return try {
+            val docRef = db.collection("savings_wallets").document(coupleId)
+            val snap = docRef.get().await()
+            if (snap.exists()) {
+                snap.toObject(SavingsWallet::class.java)
+            } else {
+                val coupleDoc = db.collection("couples").document(coupleId).get().await()
+                val u1Id = coupleDoc.getString("user1") ?: ""
+                val u2Id = coupleDoc.getString("user2") ?: ""
+                var u1Name = "Partner 1"
+                var u2Name = "Partner 2"
+                if (u1Id.isNotBlank()) {
+                    val u1Doc = db.collection("users").document(u1Id).get().await()
+                    u1Name = u1Doc.getString("name") ?: "Partner 1"
+                }
+                if (u2Id.isNotBlank()) {
+                    val u2Doc = db.collection("users").document(u2Id).get().await()
+                    u2Name = u2Doc.getString("name") ?: "Partner 2"
+                }
+
+                val newWallet = SavingsWallet(
+                    id = coupleId,
+                    coupleId = coupleId,
+                    totalBalance = 0.0,
+                    currency = "₹",
+                    user1Id = u1Id,
+                    user1Name = u1Name,
+                    user1Total = 0.0,
+                    user2Id = u2Id,
+                    user2Name = u2Name,
+                    user2Total = 0.0,
+                    lockUntilDate = 0L,
+                    lastUpdated = System.currentTimeMillis()
+                )
+                docRef.set(newWallet).await()
+                newWallet
+            }
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error getting or creating savings wallet", e)
+            null
+        }
+    }
+
+    suspend fun setLockUntilDate(coupleId: String, dateMillis: Long): Boolean {
+        return try {
+            val walletRef = db.collection("savings_wallets").document(coupleId)
+            val snap = walletRef.get().await()
+            if (!snap.exists()) {
+                getOrCreateSavingsWallet(coupleId)
+            }
+            walletRef.update(
+                mapOf(
+                    "lockUntilDate" to dateMillis,
+                    "lastUpdated" to System.currentTimeMillis()
+                )
+            ).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error setting lock date", e)
+            false
+        }
+    }
+
+    fun observeSavingsGoals(coupleId: String, onUpdate: (List<SavingsGoal>) -> Unit): ListenerRegistration {
+        return db.collection("savings_goals")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to savings goals", error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsGoal::class.java) } ?: emptyList()
+                onUpdate(list.sortedByDescending { it.createdAt })
+            }
+    }
+
+    fun observeSavingsTransactions(coupleId: String, onUpdate: (List<SavingsTransaction>) -> Unit): ListenerRegistration {
+        return db.collection("savings_transactions")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to savings transactions", error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsTransaction::class.java) } ?: emptyList()
+                onUpdate(list.sortedByDescending { it.timestamp })
+            }
+    }
+
+    fun observeWithdrawalRequests(coupleId: String, onUpdate: (List<WithdrawalRequest>) -> Unit): ListenerRegistration {
+        return db.collection("withdrawal_requests")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to withdrawal requests", error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { it.toObject(WithdrawalRequest::class.java) } ?: emptyList()
+                onUpdate(list.sortedByDescending { it.requestedAt })
+            }
+    }
+
+    suspend fun recordDeposit(
+        context: Context,
+        coupleId: String,
+        amount: Double,
+        utrNumber: String,
+        note: String,
+        category: String = "Savings",
+        paymentMethod: String = "UPI",
+        goalId: String? = null,
+        goalTitle: String? = null
+    ): Boolean {
+        return try {
+            val user = getCurrentUser() ?: return false
+            val uid = user.uid
+            val userName = user.name.ifBlank { "Your Partner" }
+
+            val walletRef = db.collection("savings_wallets").document(coupleId)
+            val walletDoc = walletRef.get().await()
+            val wallet = if (walletDoc.exists()) {
+                walletDoc.toObject(SavingsWallet::class.java)
+            } else {
+                getOrCreateSavingsWallet(coupleId)
+            } ?: return false
+
+            val isUser1 = uid == wallet.user1Id || wallet.user1Id.isBlank()
+            val newTotal = wallet.totalBalance + amount
+            val newUser1Total = if (isUser1) wallet.user1Total + amount else wallet.user1Total
+            val newUser2Total = if (!isUser1) wallet.user2Total + amount else wallet.user2Total
+
+            val updateMap = mutableMapOf<String, Any>(
+                "totalBalance" to newTotal,
+                "user1Total" to newUser1Total,
+                "user2Total" to newUser2Total,
+                "lastUpdated" to System.currentTimeMillis()
+            )
+            if (wallet.user1Id.isBlank()) {
+                updateMap["user1Id"] = uid
+                updateMap["user1Name"] = userName
+            } else if (!isUser1 && wallet.user2Id.isBlank()) {
+                updateMap["user2Id"] = uid
+                updateMap["user2Name"] = userName
+            }
+
+            walletRef.update(updateMap).await()
+
+            if (!goalId.isNullOrBlank()) {
+                try {
+                    val goalRef = db.collection("savings_goals").document(goalId)
+                    val goalDoc = goalRef.get().await()
+                    if (goalDoc.exists()) {
+                        val currentGAmount = goalDoc.getDouble("currentAmount") ?: 0.0
+                        val targetGAmount = goalDoc.getDouble("targetAmount") ?: 0.0
+                        val newGAmount = currentGAmount + amount
+                        goalRef.update(
+                            mapOf(
+                                "currentAmount" to newGAmount,
+                                "isCompleted" to (newGAmount >= targetGAmount && targetGAmount > 0)
+                            )
+                        ).await()
+                    }
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Failed to update goal amount: ${e.message}")
+                }
+            }
+
+            val txn = SavingsTransaction(
+                id = "",
+                coupleId = coupleId,
+                userId = uid,
+                userName = userName,
+                type = "deposit",
+                amount = amount,
+                utrNumber = utrNumber.trim(),
+                goalId = goalId ?: "",
+                goalTitle = goalTitle ?: "",
+                note = note.trim(),
+                category = category,
+                paymentMethod = paymentMethod,
+                timestamp = System.currentTimeMillis()
+            )
+            db.collection("savings_transactions").add(txn).await()
+
+            val adminAlert = mapOf(
+                "type" to "deposit",
+                "coupleId" to coupleId,
+                "userId" to uid,
+                "userName" to userName,
+                "amount" to amount,
+                "utrNumber" to utrNumber.trim(),
+                "note" to note.trim(),
+                "timestamp" to System.currentTimeMillis(),
+                "status" to "VERIFIED"
+            )
+            try {
+                db.collection("admin_alerts").add(adminAlert)
+            } catch (_: Exception) {}
+
+            val partnerToken = getPartnerFcmToken(coupleId, uid)
+            if (!partnerToken.isNullOrBlank()) {
+                val cleanAmount = if (amount % 1.0 == 0.0) amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", amount)
+                val cleanGoal = if (!goalTitle.isNullOrBlank()) " for $goalTitle" else ""
+                val pushTitle = "$userName added ₹$cleanAmount to Vault 🌸"
+                val pushBody = if (note.isNotBlank()) "\"$note\"" else "New contribution recorded$cleanGoal!"
+                DirectFcmSender.sendPush(
+                    context,
+                    partnerToken,
+                    pushTitle,
+                    pushBody,
+                    mapOf("type" to "savings", "action" to "open_vault")
+                )
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error recording deposit", e)
+            false
+        }
+    }
+
+    suspend fun createSavingsGoal(
+        coupleId: String,
+        title: String,
+        targetAmount: Double,
+        icon: String = "savings",
+        category: String = "General",
+        targetDate: String = ""
+    ): Boolean {
+        return try {
+            val goal = SavingsGoal(
+                id = "",
+                coupleId = coupleId,
+                title = title.trim(),
+                targetAmount = targetAmount,
+                currentAmount = 0.0,
+                icon = icon,
+                category = category,
+                targetDate = targetDate,
+                createdAt = System.currentTimeMillis(),
+                isCompleted = false
+            )
+            db.collection("savings_goals").add(goal).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error creating savings goal", e)
+            false
+        }
+    }
+
+    suspend fun deleteSavingsGoal(goalId: String): Boolean {
+        return try {
+            db.collection("savings_goals").document(goalId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting savings goal", e)
+            false
+        }
+    }
+
+    suspend fun submitWithdrawalRequest(
+        context: Context,
+        coupleId: String,
+        amount: Double,
+        reason: String,
+        payoutMode: String,
+        jointAccount: BankAccountDetails? = null,
+        p1Account: BankAccountDetails? = null,
+        p1Share: Double = 0.0,
+        p2Account: BankAccountDetails? = null,
+        p2Share: Double = 0.0
+    ): Boolean {
+        return try {
+            val user = getCurrentUser() ?: return false
+            val uid = user.uid
+            val userName = user.name.ifBlank { "Your Partner" }
+
+            val walletDoc = db.collection("savings_wallets").document(coupleId).get().await()
+            val lockDate = walletDoc.getLong("lockUntilDate") ?: 0L
+            val now = System.currentTimeMillis()
+            val isEmergency = lockDate > 0L && now < lockDate
+
+            val req = WithdrawalRequest(
+                id = "",
+                coupleId = coupleId,
+                requestedByUid = uid,
+                requestedByName = userName,
+                amount = amount,
+                reason = reason.trim(),
+                payoutMode = payoutMode,
+                jointAccount = jointAccount,
+                partner1Account = p1Account,
+                partner1ShareAmount = p1Share,
+                partner2Account = p2Account,
+                partner2ShareAmount = p2Share,
+                isEmergency = isEmergency,
+                status = "PENDING_APPROVAL",
+                requestedAt = now
+            )
+
+            db.collection("withdrawal_requests").add(req).await()
+
+            val partnerToken = getPartnerFcmToken(coupleId, uid)
+            if (!partnerToken.isNullOrBlank()) {
+                val cleanAmount = if (amount % 1.0 == 0.0) amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", amount)
+                val emTag = if (isEmergency) " [Emergency]" else ""
+                DirectFcmSender.sendPush(
+                    context,
+                    partnerToken,
+                    "Withdrawal Request: ₹$cleanAmount$emTag ⚠️",
+                    "$userName requested a withdrawal for \"$reason\". Tap to review & approve.",
+                    mapOf("type" to "savings", "action" to "open_vault")
+                )
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error submitting withdrawal request", e)
+            false
+        }
+    }
+
+    suspend fun approveWithdrawalRequest(
+        context: Context,
+        requestId: String,
+        request: WithdrawalRequest
+    ): Boolean {
+        return try {
+            val now = System.currentTimeMillis()
+            val isEmergency = request.isEmergency
+            val newStatus = if (isEmergency) "WAITING_PERIOD" else "PROCESSING_PAYOUT"
+            val waitingEnds = if (isEmergency) now + (4 * 24 * 60 * 60 * 1000L) else null
+            val payoutExpected = if (!isEmergency) now + (48 * 60 * 60 * 1000L) else null
+
+            val updateData = mutableMapOf<String, Any>(
+                "status" to newStatus,
+                "partnerApprovedAt" to now
+            )
+            if (waitingEnds != null) updateData["waitingPeriodEndsAt"] = waitingEnds
+            if (payoutExpected != null) updateData["payoutExpectedBy"] = payoutExpected
+
+            db.collection("withdrawal_requests").document(requestId).update(updateData).await()
+
+            if (!isEmergency) {
+                deductBalanceForWithdrawal(request)
+            }
+
+            val partnerToken = getPartnerFcmToken(request.coupleId, auth.currentUser?.uid ?: "")
+            if (!partnerToken.isNullOrBlank()) {
+                val cleanAmount = if (request.amount % 1.0 == 0.0) request.amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", request.amount)
+                val bodyText = if (isEmergency) {
+                    "Withdrawal approved. 4-day emergency cooldown started. Amount will be credited within 48h after."
+                } else {
+                    "Withdrawal approved! Processing payout — amount will be credited within 48 hours."
+                }
+                DirectFcmSender.sendPush(
+                    context,
+                    partnerToken,
+                    "Withdrawal Request Approved ✓",
+                    bodyText,
+                    mapOf("type" to "savings", "action" to "open_vault")
+                )
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error approving withdrawal request", e)
+            false
+        }
+    }
+
+    suspend fun cancelOrRejectWithdrawalRequest(
+        context: Context,
+        requestId: String,
+        isReject: Boolean,
+        request: WithdrawalRequest
+    ): Boolean {
+        return try {
+            val newStatus = if (isReject) "REJECTED" else "CANCELLED"
+            db.collection("withdrawal_requests").document(requestId).update("status", newStatus).await()
+
+            val otherUid = if (isReject) request.requestedByUid else ""
+            if (otherUid.isNotBlank()) {
+                val token = getPartnerFcmToken(request.coupleId, auth.currentUser?.uid ?: "")
+                if (!token.isNullOrBlank()) {
+                    val cleanAmount = if (request.amount % 1.0 == 0.0) request.amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", request.amount)
+                    DirectFcmSender.sendPush(
+                        context,
+                        token,
+                        "Withdrawal Request $newStatus",
+                        "Your withdrawal request of ₹$cleanAmount was $newStatus.",
+                        mapOf("type" to "savings", "action" to "open_vault")
+                    )
+                }
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error rejecting or cancelling withdrawal request", e)
+            false
+        }
+    }
+
+    suspend fun advanceCooldownToProcessing(
+        requestId: String,
+        request: WithdrawalRequest
+    ): Boolean {
+        return try {
+            val now = System.currentTimeMillis()
+            db.collection("withdrawal_requests").document(requestId).update(
+                mapOf(
+                    "status" to "PROCESSING_PAYOUT",
+                    "payoutExpectedBy" to now + (48 * 60 * 60 * 1000L)
+                )
+            ).await()
+
+            deductBalanceForWithdrawal(request)
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error advancing cooldown to payout", e)
+            false
+        }
+    }
+
+    private suspend fun deductBalanceForWithdrawal(request: WithdrawalRequest) {
+        try {
+            val walletRef = db.collection("savings_wallets").document(request.coupleId)
+            val walletDoc = walletRef.get().await()
+            if (walletDoc.exists()) {
+                val curBalance = walletDoc.getDouble("totalBalance") ?: 0.0
+                val newBalance = (curBalance - request.amount).coerceAtLeast(0.0)
+
+                val u1Total = walletDoc.getDouble("user1Total") ?: 0.0
+                val u2Total = walletDoc.getDouble("user2Total") ?: 0.0
+                val ratio = if (curBalance > 0) request.amount / curBalance else 0.0
+                val newU1 = (u1Total - (u1Total * ratio)).coerceAtLeast(0.0)
+                val newU2 = (u2Total - (u2Total * ratio)).coerceAtLeast(0.0)
+
+                walletRef.update(
+                    mapOf(
+                        "totalBalance" to newBalance,
+                        "user1Total" to newU1,
+                        "user2Total" to newU2,
+                        "lastUpdated" to System.currentTimeMillis()
+                    )
+                ).await()
+            }
+
+            val txn = SavingsTransaction(
+                id = "",
+                coupleId = request.coupleId,
+                userId = request.requestedByUid,
+                userName = request.requestedByName,
+                type = "withdrawal",
+                amount = request.amount,
+                note = "Withdrawal: ${request.reason}",
+                category = if (request.isEmergency) "Emergency Payout" else "Maturity Payout",
+                paymentMethod = if (request.payoutMode == "JOINT") "Joint Bank Transfer" else "Separated Bank Transfer",
+                timestamp = System.currentTimeMillis()
+            )
+            db.collection("savings_transactions").add(txn).await()
+
+            val adminPayoutAlert = mapOf(
+                "type" to "payout_needed",
+                "coupleId" to request.coupleId,
+                "amount" to request.amount,
+                "payoutMode" to request.payoutMode,
+                "reason" to request.reason,
+                "jointAccount" to request.jointAccount,
+                "partner1Account" to request.partner1Account,
+                "partner1ShareAmount" to request.partner1ShareAmount,
+                "partner2Account" to request.partner2Account,
+                "partner2ShareAmount" to request.partner2ShareAmount,
+                "dueWithinHours" to 48,
+                "timestamp" to System.currentTimeMillis(),
+                "status" to "PENDING_DISBURSEMENT"
+            )
+            db.collection("admin_alerts").add(adminPayoutAlert).await()
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deducting balance for withdrawal", e)
         }
     }
 }

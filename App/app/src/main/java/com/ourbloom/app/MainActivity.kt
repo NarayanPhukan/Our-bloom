@@ -201,6 +201,9 @@ class MainActivity : AppCompatActivity() {
                          intent?.getStringExtra("type") == "daily_note" ||
                          intent?.getStringExtra("type") == "note"
         val isVideoCall = intent?.getStringExtra("type") == "video_call"
+        val isSavingsVault = intent?.getStringExtra("action") == "open_vault" ||
+                             intent?.getStringExtra("type") == "savings" ||
+                             intent?.getStringExtra("type") == "vault"
 
         if (isVideoCall) {
             val coupleId = intent?.getStringExtra("coupleId") ?: ""
@@ -221,6 +224,10 @@ class MainActivity : AppCompatActivity() {
             navController.navigate(R.id.chatFragment)
         } else if (isLoveNote) {
             navController.navigate(R.id.loveNotesFragment)
+        } else if (isSavingsVault) {
+            try {
+                navController.navigate(R.id.savingsVaultFragment)
+            } catch (_: Exception) {}
         } else if (isUpdate) {
             try {
                 AppUpdateHelper.dismissUpdateNotification(this)
@@ -248,6 +255,9 @@ class MainActivity : AppCompatActivity() {
                          intent.getStringExtra("type") == "daily_note" ||
                          intent.getStringExtra("type") == "note"
         val isVideoCall = intent.getStringExtra("type") == "video_call"
+        val isSavingsVault = intent.getStringExtra("action") == "open_vault" ||
+                             intent.getStringExtra("type") == "savings" ||
+                             intent.getStringExtra("type") == "vault"
 
         if (isVideoCall) {
             val coupleId = intent.getStringExtra("coupleId") ?: ""
@@ -268,6 +278,10 @@ class MainActivity : AppCompatActivity() {
             navController?.navigate(R.id.chatFragment)
         } else if (isLoveNote) {
             navController?.navigate(R.id.loveNotesFragment)
+        } else if (isSavingsVault) {
+            try {
+                navController?.navigate(R.id.savingsVaultFragment)
+            } catch (_: Exception) {}
         } else if (isUpdate) {
             try {
                 AppUpdateHelper.dismissUpdateNotification(this)

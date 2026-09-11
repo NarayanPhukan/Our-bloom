@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.ourbloom.app.chat
 
 import android.content.Context

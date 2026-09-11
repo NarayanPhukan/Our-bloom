@@ -360,6 +360,8 @@ class IncomingCallActivity : AppCompatActivity() {
         callDocListener = null
     }
 
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
         // Prevent accidental back press dismissal — user must tap Decline
     }

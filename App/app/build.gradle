@@ -4,6 +4,17 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+Properties localProperties = new Properties()
+File localPropertiesFile = project.rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
+String vaultAccount = localProperties.getProperty("VAULT_ACCOUNT_NUMBER", "")
+String vaultIfsc = localProperties.getProperty("VAULT_IFSC_CODE", "")
+String vaultBank = localProperties.getProperty("VAULT_BANK_NAME", "")
+String vaultVpa = localProperties.getProperty("VAULT_UPI_VPA", "")
+
 android {
     namespace 'com.ourbloom.app'
     compileSdk 34
@@ -12,12 +23,17 @@ android {
         applicationId "com.ourbloom.app"
         minSdk 21
         targetSdk 34
-        versionCode 39
-        versionName "1.38"
+        versionCode 41
+        versionName "1.40"
         
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
+
+        buildConfigField "String", "VAULT_ACCOUNT_NUMBER", "\"${vaultAccount}\""
+        buildConfigField "String", "VAULT_IFSC_CODE", "\"${vaultIfsc}\""
+        buildConfigField "String", "VAULT_BANK_NAME", "\"${vaultBank}\""
+        buildConfigField "String", "VAULT_UPI_VPA", "\"${vaultVpa}\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -53,11 +69,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 }
 

@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.ourbloom.app.chat
 
 import android.app.Activity
@@ -239,6 +240,7 @@ class ChatFragment : Fragment() {
     }
 
     // Google Sign-In launcher for connecting account
+    @Suppress("DEPRECATION")
     private val googleSignInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->

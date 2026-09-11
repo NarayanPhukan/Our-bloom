@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.ourbloom.app.touch
 
 import android.content.Context

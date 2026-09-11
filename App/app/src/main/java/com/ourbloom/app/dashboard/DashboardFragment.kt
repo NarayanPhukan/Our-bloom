@@ -41,6 +41,9 @@ class DashboardFragment : Fragment() {
     private lateinit var galleryAdapter: GalleryAdapter
     private var heartbeatListener: ListenerRegistration? = null
     private var partnerBatteryListener: ListenerRegistration? = null
+    private var savingsWalletListener: ListenerRegistration? = null
+    private var savingsReqListener: ListenerRegistration? = null
+    private val firestoreRepository = com.ourbloom.app.data.FirestoreRepository()
     private var tvDashboardPartnerBattery: TextView? = null
     private var cooldownTimer: CountDownTimer? = null
     private val sessionStartTime = System.currentTimeMillis()
@@ -225,6 +228,10 @@ class DashboardFragment : Fragment() {
                         .into(ivFirstMilestone)
                 }
             }
+
+            if (couple != null && couple.id.isNotBlank()) {
+                setupSavingsDashboardObserver(view, couple.id)
+            }
         }
 
         viewModel.dailyLoveNote.observe(viewLifecycleOwner) { note ->
@@ -281,6 +288,14 @@ class DashboardFragment : Fragment() {
         cardDreamMap?.setOnClickListener {
             try {
                 findNavController().navigate(R.id.dreamMapFragment)
+            } catch (_: Exception) {}
+        }
+
+        // Wire Our Future Vault card
+        val cardDashboardVault = view.findViewById<View>(R.id.card_dashboard_vault)
+        cardDashboardVault?.setOnClickListener {
+            try {
+                findNavController().navigate(R.id.savingsVaultFragment)
             } catch (_: Exception) {}
         }
 
@@ -540,12 +555,79 @@ class DashboardFragment : Fragment() {
             }
     }
 
+    private fun setupSavingsDashboardObserver(view: View, coupleId: String) {
+        val tvBalance = view.findViewById<TextView>(R.id.tv_dash_vault_balance)
+        val tvU1 = view.findViewById<TextView>(R.id.tv_dash_user1_share)
+        val tvU2 = view.findViewById<TextView>(R.id.tv_dash_user2_share)
+        val progressSplit = view.findViewById<ProgressBar>(R.id.progress_dash_partner_split)
+        val tvLockBadge = view.findViewById<TextView>(R.id.tv_dash_vault_lock_badge)
+        val tvAlert = view.findViewById<TextView>(R.id.tv_dash_vault_alert)
+
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+        savingsWalletListener?.remove()
+        savingsWalletListener = firestoreRepository.observeSavingsWallet(coupleId) { wallet ->
+            if (!isAdded || wallet == null) return@observeSavingsWallet
+
+            val total = wallet.totalBalance
+            val cleanTotal = if (total % 1.0 == 0.0) total.toInt().toString() else String.format(java.util.Locale.US, "%.2f", total)
+            tvBalance?.text = "₹$cleanTotal"
+
+            val isMeUser1 = currentUid == wallet.user1Id || wallet.user1Id.isBlank()
+            val myTotal = if (isMeUser1) wallet.user1Total else wallet.user2Total
+            val partnerTotal = if (isMeUser1) wallet.user2Total else wallet.user1Total
+
+            val myPercent = if (total > 0) ((myTotal / total) * 100).toInt().coerceIn(0, 100) else 50
+            val partnerPercent = if (total > 0) (100 - myPercent) else 50
+
+            tvU1?.text = "You: ₹${myTotal.toInt()} ($myPercent%)"
+            tvU2?.text = "Partner: ₹${partnerTotal.toInt()} ($partnerPercent%)"
+            progressSplit?.progress = myPercent
+
+            val lockDate = wallet.lockUntilDate
+            val now = System.currentTimeMillis()
+            if (lockDate > 0L) {
+                if (now < lockDate) {
+                    val daysLeft = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(lockDate - now)
+                    tvLockBadge?.text = "🔒 ${daysLeft}d left"
+                } else {
+                    tvLockBadge?.text = "✓ Matured"
+                }
+            } else {
+                tvLockBadge?.text = "Unlocked"
+            }
+        }
+
+        savingsReqListener?.remove()
+        savingsReqListener = firestoreRepository.observeWithdrawalRequests(coupleId) { requests ->
+            if (!isAdded) return@observeWithdrawalRequests
+            val ongoing = requests.firstOrNull {
+                it.status == "PENDING_APPROVAL" || it.status == "WAITING_PERIOD" || it.status == "PROCESSING_PAYOUT"
+            }
+            if (ongoing != null) {
+                tvAlert?.visibility = View.VISIBLE
+                when (ongoing.status) {
+                    "PENDING_APPROVAL" -> tvAlert?.text = "⚠️ Withdrawal Pending Partner Approval"
+                    "WAITING_PERIOD" -> tvAlert?.text = "⏳ Emergency 4-Day Cooldown Active"
+                    "PROCESSING_PAYOUT" -> tvAlert?.text = "⏳ Payout Processing (credited within 48h)"
+                    else -> tvAlert?.visibility = View.GONE
+                }
+            } else {
+                tvAlert?.visibility = View.GONE
+            }
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         heartbeatListener?.remove()
         heartbeatListener = null
         partnerBatteryListener?.remove()
         partnerBatteryListener = null
+        savingsWalletListener?.remove()
+        savingsWalletListener = null
+        savingsReqListener?.remove()
+        savingsReqListener = null
         cooldownTimer?.cancel()
         cooldownTimer = null
     }

@@ -183,6 +183,7 @@ class VideoCallActivity : AppCompatActivity() {
         return Base64.encodeToString(str.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     }
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

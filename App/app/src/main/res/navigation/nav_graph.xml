@@ -108,4 +108,10 @@
         android:label="Dream Locations"
         tools:layout="@layout/fragment_dream_map" />
 
+    <fragment
+        android:id="@+id/savingsVaultFragment"
+        android:name="com.ourbloom.app.dashboard.SavingsVaultFragment"
+        android:label="Savings Vault"
+        tools:layout="@layout/fragment_savings_vault" />
+
 </navigation>

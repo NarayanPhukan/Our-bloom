@@ -53,6 +53,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val isAudioOnly = remoteMessage.data["isAudioOnly"] == "true" || remoteMessage.data["callType"] == "audio" || type == "audio_call"
         val isVideoCall = type == "video_call" || type == "call" || type == "audio_call" || isAudioOnly
         val isDailyNote = type == "daily_note" || type == "note" || action == "open_love_notes"
+        val isSavings = type == "savings" || type == "vault" || action == "open_vault" || type == "savings_deposit" || type == "savings_withdrawal"
         val isUpdate = type == "app_update" || type == "update" ||
             remoteMessage.data.containsKey("versionCode")
         val isChat = type == "chat" || 
@@ -125,6 +126,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             remoteMessage.data["senderName"] ?: remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Your Love"
         } else if (isDailyNote) {
             remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Daily Love Note Has Bloomed 🌸"
+        } else if (isSavings) {
+            remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Bloom Savings Vault 💰"
         } else {
             remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "OurBloom"
         }
@@ -133,6 +136,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             "Thinking of you right now... tap to send one back!"
         } else if (isVideoCall) {
             "Incoming Video Call 📹"
+        } else if (isSavings) {
+            remoteMessage.data["body"] ?: remoteMessage.notification?.body ?: "Update on your shared savings vault"
         } else if (isChat) {
             // WhatsApp style: exact message preview
             val messageText = remoteMessage.data["messageText"]
@@ -221,6 +226,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             isHeartbeat = isHeartbeat,
             isChat = isChat,
             isDailyNote = isDailyNote,
+            isSavings = isSavings,
             coupleId = coupleId,
             senderId = senderId,
             messageId = messageId,
@@ -351,6 +357,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         isHeartbeat: Boolean,
         isChat: Boolean,
         isDailyNote: Boolean = false,
+        isSavings: Boolean = false,
         coupleId: String = "",
         senderId: String = "",
         messageId: String = "",
@@ -370,11 +377,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 putExtra("action", "open_love_notes")
                 putExtra("type", "daily_note")
                 putExtra("coupleId", coupleId)
+            } else if (isSavings) {
+                putExtra("action", "open_vault")
+                putExtra("type", "savings")
+                putExtra("coupleId", coupleId)
             }
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 
-            if (isHeartbeat) 4041 else (if (isChat) 4042 else (if (isDailyNote) 4043 else 0)), 
+            if (isHeartbeat) 4041 else (if (isChat) 4042 else (if (isDailyNote) 4043 else (if (isSavings) 4044 else 0))), 
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -384,12 +395,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val channelId = when {
             isHeartbeat -> "ourbloom_heartbeat_channel"
             isChat -> chatChannelId
+            isSavings -> "ourbloom_savings_channel"
             else -> "ourbloom_fcm_channel"
         }
         val channelName = when {
             isHeartbeat -> "Heartbeat & Thinking of You"
             isChat -> "Couple Chat Messages"
             isDailyNote -> "Daily Love Notes"
+            isSavings -> "Bloom Savings Vault"
             else -> "Our Bloom Notifications"
         }
 
@@ -410,7 +423,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 setSound(soundUri, audioAttributes)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 setShowBadge(true)
-                description = if (isHeartbeat) "Instant tactile heartbeat notifications from your partner" else "WhatsApp-style floating pop-up messages"
+                description = if (isHeartbeat) "Instant tactile heartbeat notifications from your partner" else (if (isSavings) "Savings deposit and withdrawal request alerts" else "WhatsApp-style floating pop-up messages")
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -418,12 +431,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notifId = when {
             isHeartbeat -> 8888
             isDailyNote -> 7777
+            isSavings -> 6666
             isChat -> if (coupleId.isNotBlank()) kotlin.math.abs(coupleId.hashCode()) % 50000 + 10000 else 4042
             else -> (System.currentTimeMillis() % 100000).toInt() + 1000
         }
 
+        val notifIcon = if (isSavings) R.drawable.ic_savings_vault else R.drawable.ic_favorite
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_favorite)
+            .setSmallIcon(notifIcon)
             .setContentTitle(title)
             .setContentText(messageBody)
             .setAutoCancel(true)

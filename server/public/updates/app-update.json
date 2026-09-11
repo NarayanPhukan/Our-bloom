@@ -1,8 +1,8 @@
 {
-  "versionCode": 39,
-  "versionName": "1.38",
+  "versionCode": 41,
+  "versionName": "1.40",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fixed Video Call: Restored live video streaming between partners with reliable TURN relays\n• Instant video render & calling overlay dismissal\n• Fixed incoming call WebRTC signaling & network candidate preservation\n• Love note deletion dual-sync support",
+  "changelog": "• Enhanced vault privacy: removed all account details\n• Seamless 1-tap UPI deposit\n• Mutual partner consent on withdrawals",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

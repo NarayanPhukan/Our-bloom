@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.ourbloom.app.auth
 
 import android.content.Intent
@@ -157,6 +158,7 @@ class LoginFragment : Fragment() {
         return view
     }
     
+    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == RC_SIGN_IN) {
