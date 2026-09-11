@@ -1,7 +1,9 @@
 package com.ourbloom.app.games.models
-
+ 
+import androidx.annotation.Keep
 import com.google.firebase.firestore.IgnoreExtraProperties
-
+ 
+@Keep
 @IgnoreExtraProperties
 data class TicTacToeState(
     val id: String = "tictactoe",
@@ -33,6 +35,7 @@ data class WouldYouRatherQuestion(
     val category: String = "Romantic"
 )
 
+@Keep
 @IgnoreExtraProperties
 data class WouldYouRatherSyncState(
     val id: String = "wouldyourather",

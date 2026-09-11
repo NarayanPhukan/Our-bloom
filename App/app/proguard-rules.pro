@@ -6,6 +6,9 @@
 -keep class com.ourbloom.app.data.** { *; }
 -keep class com.ourbloom.app.chat.** { *; }
 -keep class com.ourbloom.app.updates.** { *; }
+-keep class com.ourbloom.app.games.** { *; }
+-keep class com.ourbloom.app.touch.** { *; }
+-keep class com.ourbloom.app.arcade.** { *; }
 
 # Firebase Keep Rules
 -keepattributes *Annotation*

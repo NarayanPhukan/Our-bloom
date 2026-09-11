@@ -2178,8 +2178,13 @@ class FirestoreRepository {
                     Log.e("FirestoreRepo", "Error listening to TicTacToe state", error)
                     return@addSnapshotListener
                 }
-                val state = snapshot?.toObject(com.ourbloom.app.games.models.TicTacToeState::class.java)
-                    ?: com.ourbloom.app.games.models.TicTacToeState()
+                val state = try {
+                    snapshot?.toObject(com.ourbloom.app.games.models.TicTacToeState::class.java)
+                        ?: com.ourbloom.app.games.models.TicTacToeState()
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Failed to deserialize TicTacToeState", e)
+                    com.ourbloom.app.games.models.TicTacToeState()
+                }
                 onUpdate(state)
             }
     }
@@ -2238,8 +2243,13 @@ class FirestoreRepository {
                     Log.e("FirestoreRepo", "Error listening to WouldYouRather state", error)
                     return@addSnapshotListener
                 }
-                val state = snapshot?.toObject(com.ourbloom.app.games.models.WouldYouRatherSyncState::class.java)
-                    ?: com.ourbloom.app.games.models.WouldYouRatherSyncState()
+                val state = try {
+                    snapshot?.toObject(com.ourbloom.app.games.models.WouldYouRatherSyncState::class.java)
+                        ?: com.ourbloom.app.games.models.WouldYouRatherSyncState()
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Failed to deserialize WouldYouRatherSyncState", e)
+                    com.ourbloom.app.games.models.WouldYouRatherSyncState()
+                }
                 onUpdate(state)
             }
     }
