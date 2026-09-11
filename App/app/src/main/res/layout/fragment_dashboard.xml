@@ -11,473 +11,200 @@
         android:clipToPadding="false"
         android:paddingBottom="100dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
-
-        <!-- Top App Bar with Branding and User Profile Avatar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingTop="8dp"
-            android:paddingBottom="4dp">
+            android:orientation="vertical"
+            android:paddingHorizontal="18dp"
+            android:paddingTop="12dp">
+
+            <!-- 1. Top App Bar: Branding + Profile Avatar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingBottom="4dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="OurBloom 🌸"
+                    android:fontFamily="@font/playfair_display"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <!-- Profile Avatar with Rose Border & Edit Badge -->
+                <FrameLayout
+                    android:id="@+id/btn_profile_avatar"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:layout_gravity="center"
+                        app:cardCornerRadius="22dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#E85D75"
+                        app:strokeWidth="2dp"
+                        app:cardBackgroundColor="@color/chat_avatar_bg">
+
+                        <ImageView
+                            android:id="@+id/iv_dashboard_avatar"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_person_rounded"
+                            app:tint="@color/chat_header_icon" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Camera/Edit Badge -->
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_gravity="bottom|end"
+                        android:background="@drawable/bg_camera_badge"
+                        android:padding="3dp"
+                        android:src="@drawable/ic_add_a_photo"
+                        app:tint="#FFFFFF" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <!-- 2. Header Romantic Greeting & Nicknames -->
+            <TextView
+                android:id="@+id/tv_header_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="OUR JOURNEY: THE STORY CONTINUES"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="10dp"/>
 
             <TextView
-                android:layout_width="0dp"
+                android:id="@+id/tv_header_title"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="OurBloom 🌸"
-                android:fontFamily="@font/playfair_display"
-                android:textSize="22sp"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="Happy Months,\nmy beautiful Partner."
+                android:textAppearance="?attr/textAppearanceHeadlineMedium"
+                android:textColor="?attr/colorOnSurface"
                 android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface" />
+                android:textSize="22sp" />
 
-            <!-- Profile Avatar with Rose Border & Camera Badge -->
-            <FrameLayout
-                android:id="@+id/btn_profile_avatar"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+            <!-- Days As Names (Clickable to Edit Nickname) -->
+            <TextView
+                android:id="@+id/tv_days_as_names"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"
+                android:text="TAP TO EDIT NICKNAMES ✎"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorPrimary"
+                android:letterSpacing="0.05"
                 android:clickable="true"
-                android:focusable="true">
+                android:focusable="true" />
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:layout_gravity="center"
-                    app:cardCornerRadius="22dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#E85D75"
-                    app:strokeWidth="2dp"
-                    app:cardBackgroundColor="@color/chat_avatar_bg">
+            <!-- Partner Live Battery & Status Pill -->
+            <TextView
+                android:id="@+id/tv_dashboard_partner_battery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_reaction_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:textColor="#E85D75"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
+
+            <!-- 3. Cinematic Hero Milestone Card (Streamlined ~220dp height) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
                     <ImageView
-                        android:id="@+id/iv_dashboard_avatar"
+                        android:id="@+id/iv_first_milestone"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:scaleType="centerCrop"
-                        android:src="@drawable/ic_person_rounded"
-                        app:tint="@color/chat_header_icon" />
-                </com.google.android.material.card.MaterialCardView>
+                        android:background="?attr/colorPrimaryContainer" />
 
-                <!-- Camera/Edit Badge -->
-                <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_gravity="bottom|end"
-                    android:background="@drawable/bg_camera_badge"
-                    android:padding="3dp"
-                    android:src="@drawable/ic_add_a_photo"
-                    app:tint="#FFFFFF" />
-            </FrameLayout>
-        </LinearLayout>
+                    <!-- Gradient Overlay -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="140dp"
+                        android:layout_gravity="bottom"
+                        android:background="@drawable/gradient_bottom_up" />
 
-        <!-- Header -->
-        <TextView
-            android:id="@+id/tv_header_subtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="OUR JOURNEY: THE STORY CONTINUES"
-            android:textAppearance="?attr/textAppearanceLabelSmall"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:letterSpacing="0.1"
-            android:layout_marginTop="16dp"/>
-
-        <TextView
-            android:id="@+id/tv_header_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="Happy 3 Months,\nmy beautiful Kuchupuchu."
-            android:textAppearance="?attr/textAppearanceHeadlineMedium"
-            android:textColor="?attr/colorOnSurface"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:text="Forever blooming together"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant" />
-
-        <!-- Partner Live Battery & Status Pill -->
-        <TextView
-            android:id="@+id/tv_dashboard_partner_battery"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_reaction_pill"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:textColor="#E85D75"
-            android:textSize="12sp"
-            android:fontFamily="sans-serif-medium"
-            android:visibility="gone" />
-
-        <!-- Where it all started card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="400dp"
-            android:layout_marginTop="32dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant">
-
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
-
-                <!-- Placeholder for image, we'd normally use Glide to load the imageUrl -->
-                <ImageView
-                    android:id="@+id/iv_first_milestone"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:background="?attr/colorPrimaryContainer" />
-
-                <!-- Gradient Overlay -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="200dp"
-                    android:layout_gravity="bottom"
-                    android:background="@drawable/gradient_bottom_up" />
-
-                <!-- Text Overlay -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom"
-                    android:orientation="vertical"
-                    android:padding="24dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="WHERE IT ALL STARTED"
-                        android:textAppearance="?attr/textAppearanceLabelSmall"
-                        android:textColor="@android:color/white"
-                        android:letterSpacing="0.1"/>
-
-                    <TextView
-                        android:id="@+id/tv_first_milestone_title"
+                    <!-- Text Overlay -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Loading..."
-                        android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                        android:textColor="@android:color/white"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_first_milestone_desc"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Loading description..."
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="@android:color/white"
-                        android:maxLines="3"
-                        android:ellipsize="end" />
-                </LinearLayout>
-            </FrameLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Timer Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="?attr/colorSurfaceContainer">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="24dp">
-
-                <ImageView
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_favorite"
-                    app:tint="?attr/colorPrimary" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Time Together"
-                    android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:orientation="horizontal"
-                    android:gravity="bottom">
-
-                    <!-- Days -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom"
                         android:orientation="vertical"
-                        android:gravity="center">
-                        <TextView
-                            android:id="@+id/tv_timer_days"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="0"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="32sp"
-                            android:textStyle="bold" />
+                        android:padding="16dp">
+
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="DAYS"
+                            android:text="WHERE IT ALL STARTED"
                             android:textAppearance="?attr/textAppearanceLabelSmall"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="10sp" />
-                    </LinearLayout>
+                            android:textColor="@android:color/white"
+                            android:letterSpacing="0.1"/>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="8dp"
-                        android:text=":"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="24sp"
-                        android:layout_marginBottom="12dp"
-                        android:alpha="0.5" />
-
-                    <!-- Hours -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
                         <TextView
-                            android:id="@+id/tv_timer_hours"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="00"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="32sp"
-                            android:textStyle="bold" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="HRS"
-                            android:textAppearance="?attr/textAppearanceLabelSmall"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="10sp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="8dp"
-                        android:text=":"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="24sp"
-                        android:layout_marginBottom="12dp"
-                        android:alpha="0.5" />
-
-                    <!-- Minutes -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
-                        <TextView
-                            android:id="@+id/tv_timer_mins"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="00"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="32sp"
-                            android:textStyle="bold" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="MIN"
-                            android:textAppearance="?attr/textAppearanceLabelSmall"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="10sp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="8dp"
-                        android:text=":"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="24sp"
-                        android:layout_marginBottom="12dp"
-                        android:alpha="0.5" />
-
-                    <!-- Seconds -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
-                        <TextView
-                            android:id="@+id/tv_timer_secs"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="00"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="32sp"
-                            android:textStyle="bold" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="SEC"
-                            android:textAppearance="?attr/textAppearanceLabelSmall"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="10sp" />
-                    </LinearLayout>
-
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="24dp"
-                    android:layout_marginBottom="12dp"
-                    android:background="?attr/colorOutlineVariant"
-                    android:alpha="0.5" />
-
-                <TextView
-                    android:id="@+id/tv_timer_since"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Since ..."
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurface" />
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Real-time Haptic Heartbeat Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_heartbeat"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="#FF4D6D"
-            app:cardBackgroundColor="#2A1520">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <FrameLayout
-                        android:layout_width="48dp"
-                        android:layout_height="48dp">
-
-                        <ImageView
-                            android:id="@+id/iv_heartbeat_icon_bg"
+                            android:id="@+id/tv_first_milestone_title"
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:alpha="0.25"
-                            android:src="@drawable/bg_widget_glass" />
-
-                        <ImageView
-                            android:id="@+id/iv_heartbeat_icon"
-                            android:layout_width="28dp"
-                            android:layout_height="28dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_favorite"
-                            app:tint="#FF4D6D" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Thinking of You"
+                            android:layout_marginTop="2dp"
+                            android:text="Where it all started"
                             android:textAppearance="?attr/textAppearanceTitleMedium"
                             android:textColor="@android:color/white"
                             android:textStyle="bold" />
 
                         <TextView
-                            android:id="@+id/tv_heartbeat_subtitle"
-                            android:layout_width="wrap_content"
+                            android:id="@+id/tv_first_milestone_desc"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Send a live tactile heartbeat pulse to your partner ❤️"
+                            android:layout_marginTop="4dp"
+                            android:text="The first time our eyes met..."
                             android:textAppearance="?attr/textAppearanceBodySmall"
-                            android:textColor="#E2E8F0" />
+                            android:textColor="@android:color/white"
+                            android:maxLines="2"
+                            android:ellipsize="end" />
                     </LinearLayout>
-                </LinearLayout>
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_send_heartbeat"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="16dp"
-                    android:text="Send Heartbeat 💓"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="#E11D48"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_favorite"
-                    app:iconGravity="textStart"
-                    app:iconTint="@android:color/white" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Intimacy & Adventures Row: ThumbKiss & Dream Places Map -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:orientation="horizontal"
-            android:weightSum="2">
-
-            <!-- ThumbKiss Card -->
+            <!-- 4. Unified Anniversary Station & Live Heartbeat Card -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_thumb_kiss"
-                android:layout_width="0dp"
+                android:id="@+id/card_heartbeat"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                app:cardCornerRadius="20dp"
+                android:layout_marginTop="14dp"
+                app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="1dp"
                 app:strokeColor="?attr/colorOutlineVariant"
@@ -488,745 +215,864 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="16dp">
+                    android:padding="18dp">
 
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@drawable/ic_favorite"
-                        app:tint="#FF4D6D" />
-
-                    <TextView
+                    <!-- Countdown Clock Section -->
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="ThumbKiss 💋"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
                         android:gravity="center"
-                        android:text="Live touch together"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="?attr/colorOutline"
-                        android:textSize="11sp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                        android:orientation="horizontal">
 
-            <!-- Dream Places Map Card -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_dream_map"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="?attr/colorOutlineVariant"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@drawable/ic_home_rounded"
-                        app:tint="@color/bloom_secondary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Dream Places 🗺️"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:gravity="center"
-                        android:text="Our travel map"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="?attr/colorOutline"
-                        android:textSize="11sp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-
-        <!-- Our Future Vault Card (Savings Account) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_dashboard_vault"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="#F8D7DA"
-            app:cardBackgroundColor="#FFF0F3">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Our Future Vault 💰"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="#1C1917"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_dash_vault_lock_badge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_whatsapp_pill"
-                        android:paddingStart="8dp"
-                        android:paddingTop="3dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="3dp"
-                        android:text="🔒 Locked"
-                        android:textColor="#880E4F"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tv_dash_vault_balance"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="₹0"
-                    android:textAppearance="?attr/textAppearanceHeadlineLarge"
-                    android:textColor="#1C1917"
-                    android:textSize="32sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Total joint savings for future"
-                    android:textColor="#78716C"
-                    android:textSize="11sp" />
-
-                <!-- Each Partner's Contributed Amount -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/tv_dash_user1_share"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="You: ₹0"
-                        android:textColor="#E85D75"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_dash_user2_share"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Partner: ₹0"
-                        android:textColor="#2563EB"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Dual Split Progress Bar -->
-                <ProgressBar
-                    android:id="@+id/progress_dash_partner_split"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:layout_marginTop="6dp"
-                    android:max="100"
-                    android:progress="50"
-                    android:progressBackgroundTint="#2563EB"
-                    android:progressTint="#E85D75" />
-
-                <!-- Active Alert (e.g. pending approval or cooldown) -->
-                <TextView
-                    android:id="@+id/tv_dash_vault_alert"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/bg_whatsapp_pill"
-                    android:paddingStart="10dp"
-                    android:paddingTop="4dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="4dp"
-                    android:text="⚠️ Withdrawal Pending Approval"
-                    android:textColor="#C62828"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:gravity="end"
-                    android:text="Open Vault →"
-                    android:textColor="#E85D75"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Couple Arcade & Games Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_dashboard_arcade"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="#E1BEE7"
-            app:cardBackgroundColor="#FDF7FF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="18dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <FrameLayout
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@drawable/bg_vault_card">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_favorite"
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:text="🎮💖"
-                            android:textSize="22sp" />
+                            android:layout_marginStart="8dp"
+                            android:text="Time Together"
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:textColor="?attr/colorOnSurface"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal"
+                        android:gravity="bottom">
+
+                        <!-- Days -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tv_timer_days"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="DAYS"
+                                android:textAppearance="?attr/textAppearanceLabelSmall"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginHorizontal="8dp"
+                            android:text=":"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="22sp"
+                            android:layout_marginBottom="10dp"
+                            android:alpha="0.5" />
+
+                        <!-- Hours -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tv_timer_hours"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="00"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="HRS"
+                                android:textAppearance="?attr/textAppearanceLabelSmall"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginHorizontal="8dp"
+                            android:text=":"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="22sp"
+                            android:layout_marginBottom="10dp"
+                            android:alpha="0.5" />
+
+                        <!-- Minutes -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tv_timer_mins"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="00"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="MIN"
+                                android:textAppearance="?attr/textAppearanceLabelSmall"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginHorizontal="8dp"
+                            android:text=":"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="22sp"
+                            android:layout_marginBottom="10dp"
+                            android:alpha="0.5" />
+
+                        <!-- Seconds -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tv_timer_secs"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="00"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="SEC"
+                                android:textAppearance="?attr/textAppearanceLabelSmall"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tv_timer_since"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Since ..."
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="14dp"
+                        android:background="?attr/colorOutlineVariant"
+                        android:alpha="0.4" />
+
+                    <!-- Integrated Heartbeat Pulse Action -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp">
+
+                            <ImageView
+                                android:id="@+id/iv_heartbeat_icon_bg"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:alpha="0.25"
+                                android:src="@drawable/bg_widget_glass" />
+
+                            <ImageView
+                                android:id="@+id/iv_heartbeat_icon"
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_favorite"
+                                app:tint="#FF4D6D" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tv_heartbeat_subtitle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:text="Send a tactile pulse to your partner ❤️"
+                            android:textAppearance="?attr/textAppearanceBodySmall"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="12sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_send_heartbeat"
+                            android:layout_width="wrap_content"
+                            android:layout_height="44dp"
+                            android:text="Heartbeat 💓"
+                            android:textAllCaps="false"
+                            android:textColor="@android:color/white"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:backgroundTint="#E11D48"
+                            app:cornerRadius="14dp"
+                            app:icon="@drawable/ic_favorite"
+                            app:iconGravity="textStart"
+                            app:iconSize="16dp"
+                            app:iconTint="@android:color/white" />
+                    </LinearLayout>
+
+                    <!-- Safe hidden metric stubs for backward-compatible view lookups -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:visibility="gone">
+                        <TextView android:id="@+id/tv_days_together" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/tv_hours_together" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 5. Section Header: OUR SPACES 💖 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="OUR SPACES 💖"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:letterSpacing="0.1"
+                android:textStyle="bold" />
+
+            <!-- 6. 2x2 Couple Hub Grid -->
+            <!-- Row 1: Arcade & ThumbKiss -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <!-- Arcade & Games Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_dashboard_arcade"
+                    android:layout_width="0dp"
+                    android:layout_height="115dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1.5dp"
+                    app:strokeColor="#E1BEE7"
+                    app:cardBackgroundColor="#FDF7FF">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:padding="14dp"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🎮"
+                                android:textSize="22sp" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_reaction_pill"
+                                android:paddingStart="7dp"
+                                android:paddingTop="2dp"
+                                android:paddingEnd="7dp"
+                                android:paddingBottom="2dp"
+                                android:text="PLAY 🎯"
+                                android:textColor="#8E24AA"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Couple Arcade"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
+                            android:textColor="#4A148C"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Games &amp; dares together"
+                            android:textColor="#7B1FA2"
+                            android:textSize="11sp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- ThumbKiss Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_thumb_kiss"
+                    android:layout_width="0dp"
+                    android:layout_height="115dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1.5dp"
+                    app:strokeColor="#FFCDD2"
+                    app:cardBackgroundColor="#FFF0F5">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:padding="14dp"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="💋"
+                                android:textSize="22sp" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_reaction_pill"
+                                android:paddingStart="7dp"
+                                android:paddingTop="2dp"
+                                android:paddingEnd="7dp"
+                                android:paddingBottom="2dp"
+                                android:text="LIVE ✨"
+                                android:textColor="#C2185B"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="ThumbKiss"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
+                            android:textColor="#880E4F"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Touch screen together"
+                            android:textColor="#AD1457"
+                            android:textSize="11sp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+
+            <!-- Row 2: Future Vault & Dream Places -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <!-- Future Savings Vault Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_dashboard_vault"
+                    android:layout_width="0dp"
+                    android:layout_height="115dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1.5dp"
+                    app:strokeColor="#FFE082"
+                    app:cardBackgroundColor="#FFFDE7">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:padding="14dp"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🌸💰"
+                                android:textSize="18sp" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:id="@+id/tv_dash_vault_lock_badge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_reaction_pill"
+                                android:paddingStart="7dp"
+                                android:paddingTop="2dp"
+                                android:paddingEnd="7dp"
+                                android:paddingBottom="2dp"
+                                android:text="🔒 Vault"
+                                android:textColor="#E65100"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tv_dash_vault_balance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="₹0"
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:textColor="#BF360C"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Future Savings Vault"
+                            android:textColor="#D84315"
+                            android:textSize="11sp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <!-- Hidden/safe stubs for vault breakdown & alerts -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:visibility="gone">
+                            <TextView android:id="@+id/tv_dash_user1_share" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                            <TextView android:id="@+id/tv_dash_user2_share" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                            <ProgressBar android:id="@+id/progress_dash_partner_split" style="?android:attr/progressBarStyleHorizontal" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                            <TextView android:id="@+id/tv_dash_vault_alert" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Dream Places Map Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_dream_map"
+                    android:layout_width="0dp"
+                    android:layout_height="115dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1.5dp"
+                    app:strokeColor="#BBDEFB"
+                    app:cardBackgroundColor="#F3F8FE">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:padding="14dp"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🗺️"
+                                android:textSize="22sp" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_reaction_pill"
+                                android:paddingStart="7dp"
+                                android:paddingTop="2dp"
+                                android:paddingEnd="7dp"
+                                android:paddingBottom="2dp"
+                                android:text="PINS ✈️"
+                                android:textColor="#1565C0"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Dream Places"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
+                            android:textColor="#0D47A1"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Our travel wishlist"
+                            android:textColor="#1976D2"
+                            android:textSize="11sp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+
+            <!-- 7. Daily Love Note (Unified & Heartfelt) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerLowest">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💌"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="DAILY LOVE NOTE"
+                            android:textAppearance="?attr/textAppearanceLabelSmall"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:letterSpacing="0.1" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tv_daily_note_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Loading daily love note..."
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textStyle="italic"
+                        android:lineSpacingMultiplier="1.3" />
+
+                    <TextView
+                        android:id="@+id/tv_daily_note_author"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="end"
+                        android:text="— Unknown"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorPrimary"
+                        android:textStyle="bold" />
+
+                    <!-- Safe hidden stubs for special note author lookups -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:visibility="gone">
+                        <TextView android:id="@+id/tv_special_note" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/tv_special_note_author" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 8. "On This Day" / Flashback Memory Card (Visible when flashback exists) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_on_this_day"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="1dp"
+                app:strokeWidth="1.5dp"
+                app:strokeColor="@color/bloom_primary"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerLowest"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="160dp">
+
+                        <ImageView
+                            android:id="@+id/iv_flashback_image"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_memory" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/bg_lightbox_gradient" />
+
+                        <!-- Badge -->
+                        <TextView
+                            android:id="@+id/tv_flashback_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|start"
+                            android:layout_margin="12dp"
+                            android:background="@drawable/bg_whatsapp_pill"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="5dp"
+                            android:paddingBottom="5dp"
+                            android:text="✨ On This Day"
+                            android:textColor="@color/bloom_primary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
                     </FrameLayout>
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:orientation="vertical"
+                        android:padding="14dp">
 
                         <TextView
-                            android:layout_width="wrap_content"
+                            android:id="@+id/tv_flashback_title"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Couple Arcade &amp; Games"
+                            android:text="Cherished moment"
                             android:textAppearance="?attr/textAppearanceTitleMedium"
                             android:textColor="?attr/colorOnSurface"
                             android:textStyle="bold" />
 
                         <TextView
-                            android:layout_width="wrap_content"
+                            android:id="@+id/tv_flashback_date"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Love Tic-Tac-Toe, Truth or Dare &amp; Sync"
-                            android:textColor="?attr/colorOutline"
-                            android:textSize="12sp" />
+                            android:text="Date"
+                            android:textAppearance="?attr/textAppearanceBodySmall"
+                            android:textColor="?attr/colorOutline" />
                     </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_vault_card"
-                        android:paddingStart="8dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="4dp"
-                        android:text="PLAY 🎯"
-                        android:textColor="#8E24AA"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
                 </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+            <!-- 9. Cherished Memories Carousel -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:text="Cherished Memories"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:textStyle="bold" />
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="❌⭕ Tic-Tac-Toe • 🍾 Truth/Dare • 🤔 Would You Rather"
-                        android:textColor="#8E24AA"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Fragments of our favorite moments."
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Enter Arcade →"
-                        android:textColor="#8E24AA"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_memories_gallery"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="12dp"
+                android:clipToPadding="false"
+                android:paddingEnd="16dp" />
 
-        <!-- Home Screen Widget Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_home_screen_widget"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardBackgroundColor="?attr/colorSurfaceContainer">
-
-            <LinearLayout
+            <!-- 10. Home Screen Widget Compact Pill Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_home_screen_widget"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
+                android:layout_marginTop="18dp"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="12dp">
 
                     <ImageView
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
                         android:src="@drawable/ic_home_rounded"
                         app:tint="?attr/colorPrimary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
+                        android:layout_marginStart="10dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Love Counter on Home Screen"
-                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:text="Love Counter Widget"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textColor="?attr/colorOnSurface"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Keep our live days &amp; hours right on your phone wallpaper ✨"
+                            android:text="Live days on your wallpaper"
                             android:textAppearance="?attr/textAppearanceBodySmall"
-                            android:textColor="?attr/colorOnSurfaceVariant" />
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="11sp" />
                     </LinearLayout>
-                </LinearLayout>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_add_home_widget"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/btn_add_widget"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_favorite"
-                    app:iconGravity="textStart" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Stats Grid -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:baselineAligned="false"
-            android:layout_marginTop="16dp"
-            android:weightSum="2">
-
-            <!-- Days Together -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer">
-                
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="24dp">
-                    
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@drawable/ic_calendar"
-                        app:tint="?attr/colorPrimary" />
-                        
-                    <TextView
-                        android:id="@+id/tv_days_together"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_add_home_widget"
+                        style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="0"
-                        android:textAppearance="?attr/textAppearanceHeadlineMedium"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textStyle="bold" />
-                        
-                    <TextView
-                        android:id="@+id/tv_days_as_names"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="DAYS AS PARTNERS"
-                        android:gravity="center"
-                        android:textAppearance="?attr/textAppearanceLabelSmall"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:letterSpacing="0.05" />
+                        android:layout_height="38dp"
+                        android:text="Add +"
+                        android:textAllCaps="false"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_favorite"
+                        app:iconSize="14dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Hours of love -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="?attr/colorPrimaryContainer">
-                
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="24dp">
-                    
-                    <ImageView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:src="@drawable/ic_favorite"
-                        app:tint="?attr/colorPrimary" />
-                        
-                    <TextView
-                        android:id="@+id/tv_hours_together"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="0+"
-                        android:textAppearance="?attr/textAppearanceHeadlineMedium"
-                        android:textColor="?attr/colorOnPrimaryContainer"
-                        android:textStyle="bold" />
-                        
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="HOURS OF LOVING YOU"
-                        android:gravity="center"
-                        android:textAppearance="?attr/textAppearanceLabelSmall"
-                        android:textColor="?attr/colorOnPrimaryContainer"
-                        android:letterSpacing="0.05" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-
-        <!-- Daily Love Note -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardBackgroundColor="?attr/colorSurfaceContainerLowest">
-            
+            <!-- 11. Delicate Footer Quote -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center"
                 android:orientation="vertical"
-                android:padding="24dp">
-                
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp"
+                android:padding="12dp">
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="DAILY LOVE NOTE"
+                    android:text="🌸"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Forever blooming, forever growing."
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textStyle="italic"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Made with ♡ by Our Bloom"
                     android:textAppearance="?attr/textAppearanceLabelSmall"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:letterSpacing="0.1" />
-                    
-                <TextView
-                    android:id="@+id/tv_daily_note_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Loading daily love note..."
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textStyle="italic" />
-                    
-                <TextView
-                    android:id="@+id/tv_daily_note_author"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:gravity="end"
-                    android:text="— Unknown"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:alpha="0.5" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- "On This Day" / Flashback Memory Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_on_this_day"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="@color/bloom_primary"
-            app:cardBackgroundColor="?attr/colorSurfaceContainerLowest"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="180dp">
-
-                    <ImageView
-                        android:id="@+id/iv_flashback_image"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/placeholder_memory" />
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="@drawable/bg_lightbox_gradient" />
-
-                    <!-- Badge -->
-                    <TextView
-                        android:id="@+id/tv_flashback_badge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="top|start"
-                        android:layout_margin="14dp"
-                        android:background="@drawable/bg_whatsapp_pill"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:paddingTop="6dp"
-                        android:paddingBottom="6dp"
-                        android:text="✨ On This Day"
-                        android:textColor="@color/bloom_primary"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </FrameLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:id="@+id/tv_flashback_title"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Cherished moment title"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_flashback_date"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Date"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:textColor="?attr/colorOutline" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Memories Gallery -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:text="Cherished Memories"
-            android:textAppearance="?attr/textAppearanceHeadlineSmall"
-            android:textColor="?attr/colorOnSurface"
-            android:textStyle="bold" />
-            
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Fragments of our favorite moments."
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_memories_gallery"
-            android:layout_width="match_parent"
-            android:layout_height="240dp"
-            android:layout_marginTop="16dp"
-            android:clipToPadding="false"
-            android:paddingEnd="20dp" />
-
-        <!-- A Note Just For You -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="@color/bloom_primary"
-            app:cardBackgroundColor="?attr/colorSurfaceContainerLowest">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="32dp">
-
-                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:src="@drawable/ic_favorite"
-                    app:tint="@color/bloom_primary"
-                    android:alpha="0.4" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="A Note Just For You"
-                    android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                    android:textColor="?attr/colorPrimary"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_special_note"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:gravity="center"
-                    android:text="&quot;Every moment with you is a moment I treasure. Here&apos;s to forever growing together.&quot;"
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textStyle="italic"
-                    android:lineSpacingMultiplier="1.4" />
-
-                <View
-                    android:layout_width="96dp"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="20dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <TextView
-                    android:id="@+id/tv_special_note_author"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="— Forever Yours"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorPrimary"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Footer Quote -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:layout_marginTop="32dp"
-            android:layout_marginBottom="16dp"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🌸"
-                android:textSize="24sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Forever blooming, forever growing."
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:textStyle="italic"
-                android:gravity="center" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Made with ♡ by Our Bloom"
-                android:textAppearance="?attr/textAppearanceLabelSmall"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:alpha="0.5" />
 
         </LinearLayout>
-
-    </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
     <!-- Ambient Falling Sakura Petals Overlay -->

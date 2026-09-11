@@ -182,8 +182,8 @@ class DashboardFragment : Fragment() {
                 tvTimerSecs.text = String.format("%02d", time.seconds)
 
                 // Metric cards
-                tvDaysTogether.text = time.days.toString()
-                tvHoursTogether.text = "${time.totalHours}+"
+                tvDaysTogether?.text = time.days.toString()
+                tvHoursTogether?.text = "${time.totalHours}+"
             }
         }
 
