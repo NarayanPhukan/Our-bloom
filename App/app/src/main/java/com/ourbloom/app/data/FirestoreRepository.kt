@@ -2272,6 +2272,109 @@ class FirestoreRepository {
             false
         }
     }
+
+    fun observeTruthOrDareState(
+        coupleId: String,
+        onUpdate: (com.ourbloom.app.games.models.TruthOrDareSyncState) -> Unit
+    ): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("games")
+            .document("truthordare")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to TruthOrDare state", error)
+                    return@addSnapshotListener
+                }
+                val state = try {
+                    snapshot?.toObject(com.ourbloom.app.games.models.TruthOrDareSyncState::class.java)
+                        ?: com.ourbloom.app.games.models.TruthOrDareSyncState()
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Failed to deserialize TruthOrDareSyncState", e)
+                    com.ourbloom.app.games.models.TruthOrDareSyncState()
+                }
+                onUpdate(state)
+            }
+    }
+
+    suspend fun updateTruthOrDareState(
+        coupleId: String,
+        state: com.ourbloom.app.games.models.TruthOrDareSyncState
+    ): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("games")
+                .document("truthordare")
+                .set(state)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating TruthOrDare state", e)
+            false
+        }
+    }
+
+    fun observeCustomTruthOrDareCards(
+        coupleId: String,
+        onUpdate: (List<com.ourbloom.app.games.models.CustomTruthOrDareCard>) -> Unit
+    ): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("custom_cards")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to custom cards", error)
+                    return@addSnapshotListener
+                }
+                val cards = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        doc.toObject(com.ourbloom.app.games.models.CustomTruthOrDareCard::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+                onUpdate(cards)
+            }
+    }
+
+    suspend fun addCustomTruthOrDareCard(
+        coupleId: String,
+        card: com.ourbloom.app.games.models.CustomTruthOrDareCard
+    ): Boolean {
+        return try {
+            val docRef = if (card.id.isNotEmpty()) {
+                db.collection("couples").document(coupleId).collection("custom_cards").document(card.id)
+            } else {
+                db.collection("couples").document(coupleId).collection("custom_cards").document()
+            }
+            val toSave = card.copy(id = docRef.id)
+            docRef.set(toSave).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error adding custom card", e)
+            false
+        }
+    }
+
+    suspend fun deleteCustomTruthOrDareCard(
+        coupleId: String,
+        cardId: String
+    ): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("custom_cards")
+                .document(cardId)
+                .delete()
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting custom card", e)
+            false
+        }
+    }
 }
 
 data class ServerAuthResult(

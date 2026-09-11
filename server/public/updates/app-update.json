@@ -1,8 +1,8 @@
 {
-  "versionCode": 45,
-  "versionName": "1.44",
+  "versionCode": 46,
+  "versionName": "1.45",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Strict alternating turns in Love Tic-Tac-Toe (no consecutive moves) ❌⭕\n• Immediate optimistic turn-handover and double-click lock\n• Clean 2x2 Minimalist Dashboard Hub 💖",
+  "changelog": "• Online Multiplayer Truth or Dare 🌐\n• Endless Combinatorial Card Generator ♾️\n• Private Couple's Secret Card Vault ✍️\n• 40+ New Teasing & Romantic Cards",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

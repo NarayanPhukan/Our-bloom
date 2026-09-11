@@ -22,17 +22,50 @@ data class TicTacToeState(
     val moveCount: Int = 0
 )
 
+@Keep
+@IgnoreExtraProperties
 data class TruthOrDareCard(
-    val id: String,
-    val type: String, // "TRUTH" or "DARE"
-    val category: String, // "SWEET", "DEEP", "PLAYFUL", "SPICY"
-    val prompt: String
+    val id: String = "",
+    val type: String = "TRUTH", // "TRUTH" or "DARE"
+    val category: String = "SWEET", // "SWEET", "DEEP", "PLAYFUL", "SPICY", "ENDLESS", "CUSTOM"
+    val prompt: String = ""
 )
 
+@Keep
+@IgnoreExtraProperties
+data class CustomTruthOrDareCard(
+    val id: String = "",
+    val type: String = "TRUTH", // "TRUTH" or "DARE"
+    val category: String = "SPICY",
+    val prompt: String = "",
+    val createdByUid: String = "",
+    val createdByName: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Keep
+@IgnoreExtraProperties
+data class TruthOrDareSyncState(
+    val id: String = "truthordare",
+    val currentCardId: String = "",
+    val currentType: String = "TRUTH", // "TRUTH" or "DARE"
+    val currentCategory: String = "SWEET",
+    val currentPrompt: String = "",
+    val drawnByUid: String = "",
+    val drawnByName: String = "",
+    val targetUid: String = "",
+    val targetName: String = "",
+    val status: String = "IDLE", // IDLE, ACTIVE, COMPLETED
+    val lastUpdatedTimestamp: Long = System.currentTimeMillis(),
+    val turnCount: Int = 0
+)
+
+@Keep
+@IgnoreExtraProperties
 data class WouldYouRatherQuestion(
-    val id: String,
-    val optionA: String,
-    val optionB: String,
+    val id: String = "",
+    val optionA: String = "",
+    val optionB: String = "",
     val category: String = "Romantic"
 )
 
