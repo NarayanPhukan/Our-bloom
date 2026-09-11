@@ -1,8 +1,8 @@
 {
-  "versionCode": 43,
-  "versionName": "1.42",
+  "versionCode": 44,
+  "versionName": "1.43",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Clean Minimalist 2x2 Dashboard Hub 💖\n• Real-Time Online 'Would You Rather' with Blind Voting 🤔\n• Expanded Spicy Romantic Truth or Dare 🍾",
+  "changelog": "• Fix Tic-Tac-Toe crash when playing 🎮\n• Keep game models safe from Proguard minification\n• Clean 2x2 Minimalist Dashboard Hub 💖",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
