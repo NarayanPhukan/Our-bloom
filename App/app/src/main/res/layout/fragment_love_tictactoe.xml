@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Top Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="8dp"
+            android:paddingBottom="12dp">
+
+            <ImageButton
+                android:id="@+id/btn_back_tictactoe"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="?attr/colorOnSurface" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/playfair_display"
+                    android:text="Love Tic-Tac-Toe ❌⭕"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_game_mode_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Real-time with Partner 💖"
+                    android:textColor="#E85D75"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btn_switch_mode"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Switch Mode"
+                android:src="@drawable/ic_gamepad"
+                app:tint="?attr/colorOnSurface" />
+
+            <ImageButton
+                android:id="@+id/btn_edit_wager"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Edit Wager"
+                android:src="@drawable/ic_trophy"
+                app:tint="#FFB300" />
+        </LinearLayout>
+
+        <!-- Wager Banner Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_wager_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#FFE082"
+            app:strokeWidth="1.5dp"
+            app:cardBackgroundColor="#FFFDE7">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🏆"
+                    android:textSize="20sp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Winner's Romantic Reward:"
+                        android:textColor="#F57F17"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_active_wager"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="50 Sweet Kisses 💋"
+                        android:textColor="#3E2723"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_change_wager_btn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Change ✎"
+                    android:textColor="#F57F17"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Turn Indicator Banner -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_turn_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#FFCDD2"
+            app:strokeWidth="1.5dp"
+            app:cardBackgroundColor="#FFF0F5">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <TextView
+                    android:id="@+id/tv_turn_symbol"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="♡"
+                    android:textColor="#E85D75"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_turn_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="Your Turn (Hearts ♡)"
+                    android:textAppearance="?attr/textAppearanceTitleSmall"
+                    android:textColor="#880E4F"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 3x3 Game Board Grid Container -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical">
+
+                <!-- Row 1 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/cell_0"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/cell_1"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/cell_2"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Row 2 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/cell_3"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/cell_4"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/cell_5"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Row 3 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/cell_6"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/cell_7"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/cell_8"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/bg_tictactoe_cell"
+                        android:gravity="center"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Bottom Action Controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_reset_game"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="New Round 🔄"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                app:backgroundTint="#E85D75"
+                app:cornerRadius="26dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_change_wager_bottom"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Romantic Wager 🏆"
+                android:textColor="#880E4F"
+                android:textStyle="bold"
+                app:cornerRadius="26dp"
+                app:strokeColor="#FFCDD2"
+                app:strokeWidth="1.5dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>

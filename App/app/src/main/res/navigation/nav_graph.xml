@@ -114,4 +114,28 @@
         android:label="Savings Vault"
         tools:layout="@layout/fragment_savings_vault" />
 
+    <fragment
+        android:id="@+id/coupleArcadeFragment"
+        android:name="com.ourbloom.app.games.CoupleArcadeFragment"
+        android:label="Couple Arcade"
+        tools:layout="@layout/fragment_couple_arcade" />
+
+    <fragment
+        android:id="@+id/loveTicTacToeFragment"
+        android:name="com.ourbloom.app.games.LoveTicTacToeFragment"
+        android:label="Love Tic-Tac-Toe"
+        tools:layout="@layout/fragment_love_tictactoe" />
+
+    <fragment
+        android:id="@+id/truthOrDareFragment"
+        android:name="com.ourbloom.app.games.TruthOrDareFragment"
+        android:label="Truth or Dare"
+        tools:layout="@layout/fragment_truth_or_dare" />
+
+    <fragment
+        android:id="@+id/wouldYouRatherFragment"
+        android:name="com.ourbloom.app.games.WouldYouRatherFragment"
+        android:label="Would You Rather"
+        tools:layout="@layout/fragment_would_you_rather" />
+
 </navigation>

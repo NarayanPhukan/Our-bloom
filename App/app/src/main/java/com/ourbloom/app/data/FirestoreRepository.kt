@@ -2163,6 +2163,67 @@ class FirestoreRepository {
             Log.e("FirestoreRepo", "Error deducting balance for withdrawal", e)
         }
     }
+
+    // =========================================================================
+    // COUPLE GAMES & ARCADE (TIC-TAC-TOE, QUIZ, TRUTH OR DARE)
+    // =========================================================================
+
+    fun observeTicTacToeState(coupleId: String, onUpdate: (com.ourbloom.app.games.models.TicTacToeState) -> Unit): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("games")
+            .document("tictactoe")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to TicTacToe state", error)
+                    return@addSnapshotListener
+                }
+                val state = snapshot?.toObject(com.ourbloom.app.games.models.TicTacToeState::class.java)
+                    ?: com.ourbloom.app.games.models.TicTacToeState()
+                onUpdate(state)
+            }
+    }
+
+    suspend fun updateTicTacToeState(coupleId: String, state: com.ourbloom.app.games.models.TicTacToeState): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("games")
+                .document("tictactoe")
+                .set(state)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating TicTacToe state", e)
+            false
+        }
+    }
+
+    suspend fun resetTicTacToeGame(
+        coupleId: String,
+        playerXUid: String,
+        playerXName: String,
+        playerOUid: String,
+        playerOName: String,
+        wager: String
+    ): Boolean {
+        val newState = com.ourbloom.app.games.models.TicTacToeState(
+            id = "tictactoe",
+            board = List(9) { "" },
+            playerXUid = playerXUid,
+            playerXName = playerXName,
+            playerOUid = playerOUid,
+            playerOName = playerOName,
+            turnUid = playerXUid,
+            wager = wager,
+            winnerUid = null,
+            winningLine = emptyList(),
+            status = "PLAYING",
+            lastMoveTimestamp = System.currentTimeMillis(),
+            moveCount = 0
+        )
+        return updateTicTacToeState(coupleId, newState)
+    }
 }
 
 data class ServerAuthResult(

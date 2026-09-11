@@ -1,8 +1,8 @@
 {
-  "versionCode": 41,
-  "versionName": "1.40",
-  "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Enhanced vault privacy: removed all account details\n• Seamless 1-tap UPI deposit\n• Mutual partner consent on withdrawals",
+  "versionCode": 42,
+  "versionName": "1.41",
+  "title": "New Bloom Update Available! 🌸🎮",
+  "changelog": "• Couple Arcade & Play Zone 🎮💖\n• Love Tic-Tac-Toe with Romantic Wagers & Dares ❌⭕\n• Romantic Truth or Dare (Sweet, Deep, Playful, Spicy) 🍾\n• 'Would You Rather?' Couple Sync Test 🤔💭",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

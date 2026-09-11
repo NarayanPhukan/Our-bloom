@@ -299,6 +299,14 @@ class DashboardFragment : Fragment() {
             } catch (_: Exception) {}
         }
 
+        // Wire Couple Arcade card
+        val cardDashboardArcade = view.findViewById<View>(R.id.card_dashboard_arcade)
+        cardDashboardArcade?.setOnClickListener {
+            try {
+                findNavController().navigate(R.id.coupleArcadeFragment)
+            } catch (_: Exception) {}
+        }
+
         viewModel.error.observe(viewLifecycleOwner) { errorMsg ->
             if (errorMsg != null) {
                 if (errorMsg == "SESSION_EXPIRED") {
