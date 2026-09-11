@@ -1,8 +1,8 @@
 {
-  "versionCode": 42,
-  "versionName": "1.41",
-  "title": "New Bloom Update Available! 🌸🎮",
-  "changelog": "• Couple Arcade & Play Zone 🎮💖\n• Love Tic-Tac-Toe with Romantic Wagers & Dares ❌⭕\n• Romantic Truth or Dare (Sweet, Deep, Playful, Spicy) 🍾\n• 'Would You Rather?' Couple Sync Test 🤔💭",
+  "versionCode": 43,
+  "versionName": "1.42",
+  "title": "New Bloom Update Available! 🌸",
+  "changelog": "• Clean Minimalist 2x2 Dashboard Hub 💖\n• Real-Time Online 'Would You Rather' with Blind Voting 🤔\n• Expanded Spicy Romantic Truth or Dare 🍾",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }
