@@ -32,3 +32,18 @@ data class WouldYouRatherQuestion(
     val optionB: String,
     val category: String = "Romantic"
 )
+
+@IgnoreExtraProperties
+data class WouldYouRatherSyncState(
+    val id: String = "wouldyourather",
+    val questionIndex: Int = 0,
+    val player1Uid: String = "",
+    val player1Choice: String = "",
+    val player2Uid: String = "",
+    val player2Choice: String = "",
+    val isRevealed: Boolean = false,
+    val matchCount: Int = 0,
+    val totalAnswered: Int = 0,
+    val lastUpdatedTimestamp: Long = System.currentTimeMillis()
+)
+

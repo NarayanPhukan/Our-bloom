@@ -2224,6 +2224,43 @@ class FirestoreRepository {
         )
         return updateTicTacToeState(coupleId, newState)
     }
+
+    fun observeWouldYouRatherState(
+        coupleId: String,
+        onUpdate: (com.ourbloom.app.games.models.WouldYouRatherSyncState) -> Unit
+    ): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("games")
+            .document("wouldyourather")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to WouldYouRather state", error)
+                    return@addSnapshotListener
+                }
+                val state = snapshot?.toObject(com.ourbloom.app.games.models.WouldYouRatherSyncState::class.java)
+                    ?: com.ourbloom.app.games.models.WouldYouRatherSyncState()
+                onUpdate(state)
+            }
+    }
+
+    suspend fun updateWouldYouRatherState(
+        coupleId: String,
+        state: com.ourbloom.app.games.models.WouldYouRatherSyncState
+    ): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("games")
+                .document("wouldyourather")
+                .set(state)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating WouldYouRather state", e)
+            false
+        }
+    }
 }
 
 data class ServerAuthResult(

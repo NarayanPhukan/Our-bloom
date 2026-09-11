@@ -18,7 +18,7 @@
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingTop="8dp"
-            android:paddingBottom="12dp">
+            android:paddingBottom="8dp">
 
             <ImageButton
                 android:id="@+id/btn_back_wyr"
@@ -46,15 +46,77 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tv_wyr_progress"
+                    android:id="@+id/tv_wyr_mode_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Question 1 of 20 • Romantic Sync"
-                    android:textColor="#1976D2"
+                    android:text="Online Sync with Partner 💖"
+                    android:textColor="#E85D75"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_wyr_sync_score"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_vault_card"
+                android:paddingStart="8dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="4dp"
+                android:text="0/0 (0%)"
+                android:textColor="#1976D2"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btn_switch_wyr_mode"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Switch Mode"
+                android:src="@drawable/ic_gamepad"
+                app:tint="?attr/colorOnSurface" />
         </LinearLayout>
+
+        <!-- Status / Partner State Banner -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_wyr_status_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#BBDEFB"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#E3F2FD">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:padding="10dp">
+
+                <TextView
+                    android:id="@+id/tv_wyr_status_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔒"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tv_wyr_status_msg"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Choose your answer to reveal if you match!"
+                    android:textColor="#0D47A1"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Dilemma Cards Container -->
         <LinearLayout
@@ -83,20 +145,38 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="18dp">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:background="@drawable/bg_vault_card"
-                        android:paddingStart="12dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="12dp"
-                        android:paddingBottom="4dp"
-                        android:text="OPTION A"
-                        android:textColor="#1976D2"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_vault_card"
+                            android:paddingStart="12dp"
+                            android:paddingTop="4dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="4dp"
+                            android:text="OPTION A"
+                            android:textColor="#1976D2"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_option_a_voters"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text=""
+                            android:textColor="#1565C0"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tv_option_a_text"
@@ -150,20 +230,38 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="18dp">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:background="@drawable/bg_vault_card"
-                        android:paddingStart="12dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="12dp"
-                        android:paddingBottom="4dp"
-                        android:text="OPTION B"
-                        android:textColor="#E85D75"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_vault_card"
+                            android:paddingStart="12dp"
+                            android:paddingTop="4dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="4dp"
+                            android:text="OPTION B"
+                            android:textColor="#E85D75"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_option_b_voters"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text=""
+                            android:textColor="#C2185B"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tv_option_b_text"
@@ -185,7 +283,7 @@
             android:id="@+id/card_wyr_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:visibility="gone"
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp"
@@ -199,23 +297,39 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:padding="12dp"
-                android:text="You picked Option A! 💖 Pass phone to partner to compare!"
+                android:text="💖 100% In Sync! You both picked Option A!"
                 android:textColor="#2E7D32"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Next Dilemma Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_next_wyr"
+        <!-- Progress / Question Label & Next Dilemma Button -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="14dp"
-            android:text="Next Dilemma →"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            app:backgroundTint="#1976D2"
-            app:cornerRadius="26dp" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_wyr_progress"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Question 1 of 20"
+                android:textColor="?attr/colorOutline"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_next_wyr"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="Next Dilemma →"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                app:backgroundTint="#1976D2"
+                app:cornerRadius="24dp" />
+        </LinearLayout>
 
     </LinearLayout>
 </FrameLayout>
