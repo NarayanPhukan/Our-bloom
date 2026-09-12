@@ -75,6 +75,20 @@ export default function Footer() {
           </span>
         </div>
       </div>
+
+      <div className="flex flex-wrap justify-center items-center gap-3 text-xs text-on-tertiary-container/60 pt-6 mt-6 border-t border-primary/10 w-full max-w-container-max mx-auto">
+        <a href="https://our-bloom.onrender.com/about" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">About</a>
+        <span>•</span>
+        <a href="https://our-bloom.onrender.com/privacy" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Privacy Policy</a>
+        <span>•</span>
+        <a href="https://our-bloom.onrender.com/terms" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Terms &amp; Conditions</a>
+        <span>•</span>
+        <a href="https://our-bloom.onrender.com/refund-policy" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Refund &amp; Cancellation</a>
+        <span>•</span>
+        <a href="https://our-bloom.onrender.com/shipping-policy" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Delivery Policy</a>
+        <span>•</span>
+        <a href="https://our-bloom.onrender.com/contact" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">Contact Support</a>
+      </div>
     </footer>
   );
 }

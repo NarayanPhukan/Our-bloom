@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy | Our Bloom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #E85D75;
+      --primary-dark: #C93B55;
+      --bg: #FFF8F9;
+      --surface: #FFFFFF;
+      --text: #2D2D2D;
+      --text-muted: #666666;
+      --border: #F3D9E0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 0 16px;
+    }
+    nav {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--primary);
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto 80px auto;
+      background: var(--surface);
+      padding: 48px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(232, 93, 117, 0.06);
+    }
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 36px;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .last-updated {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      color: var(--text);
+      margin: 32px 0 16px 0;
+    }
+    p { margin-bottom: 16px; color: #4A4A4A; }
+    ul { margin: 0 0 20px 24px; color: #4A4A4A; }
+    li { margin-bottom: 8px; }
+    .contact-box {
+      background: #FFF0F3;
+      border-left: 4px solid var(--primary);
+      padding: 20px 24px;
+      border-radius: 8px;
+      margin-top: 32px;
+    }
+    footer {
+      max-width: 900px;
+      margin: 0 auto 40px auto;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+    @media (max-width: 600px) {
+      .container { padding: 24px; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="logo">🌸 Our Bloom</a>
+    <div class="nav-links">
+      <a href="/about">About</a>
+      <a href="/privacy" class="active">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/refund-policy">Refunds</a>
+      <a href="/shipping-policy">Delivery</a>
+      <a href="/contact">Contact</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <div class="last-updated">Last Updated: September 12, 2026</div>
+
+    <p>Welcome to <strong>Our Bloom</strong> ("we", "our", or "us"). We are deeply committed to protecting the intimacy and privacy of couples using our mobile application and web services. This Privacy Policy describes how your information is collected, used, protected, and disclosed when you visit our website (<a href="https://our-bloom.onrender.com" style="color:var(--primary)">our-bloom.onrender.com</a>) and use the Our Bloom mobile app.</p>
+
+    <h2>1. Information We Collect</h2>
+    <p>We only collect information necessary to provide a private, connected, and delightful experience for you and your partner:</p>
+    <ul>
+      <li><strong>Account Information:</strong> Names, email addresses, profile pictures, relationship anniversary dates, and paired couple identifiers.</li>
+      <li><strong>Shared Content:</strong> Love notes, memories, journal milestones, pinned romantic map locations, and customized game cards created by you for your partner.</li>
+      <li><strong>Device & FCM Tokens:</strong> Firebase Cloud Messaging (FCM) device registration tokens used strictly to deliver real-time partner notifications, calls, and app update alerts.</li>
+      <li><strong>Financial & Payment Transaction Data:</strong> When utilizing the Couple's Savings Vault or making digital deposits, we process payment confirmations, amount, timestamp, and 12-digit UPI Unique Transaction Reference (UTR) numbers. We <em>never</em> store your bank account passwords, UPI PINs, or raw credit/debit card credentials.</li>
+    </ul>
+
+    <h2>2. How We Use Your Information</h2>
+    <p>We process your data solely for the following legitimate purposes:</p>
+    <ul>
+      <li>To synchronize milestones, love notes, interactive games, and mutual savings between you and your partner.</li>
+      <li>To facilitate peer-to-peer real-time communication and audio/video calling.</li>
+      <li>To verify, credit, and record voluntary savings vault deposits via authorized payment channels.</li>
+      <li>To notify you of messages, notes, and milestones from your partner.</li>
+      <li>To comply with statutory financial regulations and Indian information technology guidelines.</li>
+    </ul>
+
+    <h2>3. Data Protection & Security</h2>
+    <p>Your privacy is paramount. All data transmitted between your mobile devices and our servers is secured using industry-standard TLS/SSL encryption (HTTPS / WSS). Data stored in Google Cloud Firestore and MongoDB is protected by role-based access control, cryptographic tokens, and strict multi-tenant isolation rules ensuring only you and your paired partner can read your shared memories.</p>
+
+    <h2>4. Third-Party Services & Processors</h2>
+    <p>We work with trusted industry providers for infrastructure and payment routing:</p>
+    <ul>
+      <li><strong>Google Cloud & Firebase:</strong> For real-time database synchronization, push notifications, and media storage.</li>
+      <li><strong>Payment Gateways (PayU / UPI):</strong> For processing voluntary deposits and payments. Payment processing complies with PCI-DSS standards.</li>
+    </ul>
+    <p>We do <strong>NOT</strong> sell, rent, or monetize your personal memories, photos, notes, or relationship data to any third-party advertisers or data brokers.</p>
+
+    <h2>5. Data Retention & Deletion Rights</h2>
+    <p>You have full ownership of your data. You may request the export or permanent deletion of your account and all associated shared milestones, notes, and photos at any time by contacting our support team.</p>
+
+    <h2>6. Contact Us & Grievance Redressal</h2>
+    <p>In accordance with the Information Technology Act 2000 and rules made thereunder, questions or grievances regarding this Privacy Policy may be directed to:</p>
+    
+    <div class="contact-box">
+      <strong>Grievance & Privacy Officer:</strong> Narayan Phukan<br>
+      <strong>Entity:</strong> Our Bloom<br>
+      <strong>Email:</strong> <a href="mailto:support@ourbloom.app" style="color:var(--primary); font-weight: 600;">support@ourbloom.app</a> / <a href="mailto:narayanphukan@gmail.com" style="color:var(--primary)">narayanphukan@gmail.com</a><br>
+      <strong>Website:</strong> <a href="https://our-bloom.onrender.com" style="color:var(--primary)">https://our-bloom.onrender.com</a><br>
+      <strong>Response Turnaround:</strong> Within 24–48 business hours
+    </div>
+  </div>
+
+  <footer>
+    © 2026 Our Bloom. With love, forever & always. | <a href="/terms">Terms</a> | <a href="/refund-policy">Refund Policy</a> | <a href="/contact">Contact</a>
+  </footer>
+
+</body>
+</html>

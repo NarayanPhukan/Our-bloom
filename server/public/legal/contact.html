@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | Our Bloom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #E85D75;
+      --primary-dark: #C93B55;
+      --bg: #FFF8F9;
+      --surface: #FFFFFF;
+      --text: #2D2D2D;
+      --text-muted: #666666;
+      --border: #F3D9E0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 0 16px;
+    }
+    nav {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--primary);
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto 80px auto;
+      background: var(--surface);
+      padding: 48px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(232, 93, 117, 0.06);
+    }
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 36px;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .last-updated {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      color: var(--text);
+      margin: 32px 0 16px 0;
+    }
+    p { margin-bottom: 16px; color: #4A4A4A; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin: 24px 0;
+    }
+    .card {
+      background: #FFF8F9;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .card h3 {
+      font-size: 16px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    footer {
+      max-width: 900px;
+      margin: 0 auto 40px auto;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+    @media (max-width: 600px) {
+      .container { padding: 24px; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="logo">🌸 Our Bloom</a>
+    <div class="nav-links">
+      <a href="/about">About</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/refund-policy">Refunds</a>
+      <a href="/shipping-policy">Delivery</a>
+      <a href="/contact" class="active">Contact</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>Contact Us</h1>
+    <div class="last-updated">We're here to help with any questions, feedback, or support needs.</div>
+
+    <p>Whether you need assistance with paired couple accounts, digital savings vault transactions, feature feedback, or payment inquiries, our team is always happy to assist.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>📧 Customer & Support Email</h3>
+        <p>Direct assistance for general inquiries and account support:</p>
+        <p><strong><a href="mailto:support@ourbloom.app" style="color:var(--primary)">support@ourbloom.app</a></strong></p>
+        <p><a href="mailto:narayanphukan@gmail.com" style="color:var(--text-muted)">narayanphukan@gmail.com</a></p>
+      </div>
+
+      <div class="card">
+        <h3>⏰ Operating Hours</h3>
+        <p>Monday to Saturday<br>9:00 AM – 7:00 PM IST</p>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:8px;">Estimated response time: within 24–48 hours.</p>
+      </div>
+
+      <div class="card">
+        <h3>🏢 Registered Merchant Entity</h3>
+        <p><strong>Entity Name:</strong> Our Bloom<br>
+        <strong>Founder / Developer:</strong> Narayan Phukan<br>
+        <strong>Country:</strong> India</p>
+      </div>
+
+      <div class="card">
+        <h3>💬 WhatsApp Support</h3>
+        <p>For urgent payment receipt confirmation or transaction verification queries:</p>
+        <p><a href="https://wa.me/917086884639" style="color:var(--primary); font-weight:600;">Message on WhatsApp 💬</a></p>
+      </div>
+    </div>
+
+    <h2>Grievance Redressal</h2>
+    <p>In accordance with Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, the contact details of the Grievance Officer are provided below:</p>
+    <p><strong>Officer Name:</strong> Narayan Phukan<br>
+    <strong>Email:</strong> <a href="mailto:support@ourbloom.app" style="color:var(--primary)">support@ourbloom.app</a><br>
+    <strong>Address for Notice:</strong> Our Bloom Technologies, India</p>
+  </div>
+
+  <footer>
+    © 2026 Our Bloom. With love, forever & always. | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/refund-policy">Refund Policy</a>
+  </footer>
+
+</body>
+</html>

@@ -526,9 +526,35 @@ app.get('/api/couples/:idOrSlug/daily-love-note', async (req, res) => {
   }
 });
 
-// Root route
+// Legal & Compliance policy routes (PayU, Payment Gateways & Store Compliance)
+const legalPath = path.join(__dirname, 'public/legal');
+
 app.get('/', (req, res) => {
-  res.send('✿ Our Bloom API is running beautifully!');
+  res.sendFile(path.join(legalPath, 'index.html'));
+});
+
+app.get(['/privacy', '/privacy-policy'], (req, res) => {
+  res.sendFile(path.join(legalPath, 'privacy.html'));
+});
+
+app.get(['/terms', '/terms-and-conditions'], (req, res) => {
+  res.sendFile(path.join(legalPath, 'terms.html'));
+});
+
+app.get(['/refund-policy', '/refunds', '/cancellation-refund', '/cancellation-refund-policy'], (req, res) => {
+  res.sendFile(path.join(legalPath, 'refund.html'));
+});
+
+app.get(['/shipping-policy', '/shipping', '/shipping-delivery', '/shipping-delivery-policy'], (req, res) => {
+  res.sendFile(path.join(legalPath, 'shipping.html'));
+});
+
+app.get(['/contact', '/contact-us'], (req, res) => {
+  res.sendFile(path.join(legalPath, 'contact.html'));
+});
+
+app.get(['/about', '/about-us'], (req, res) => {
+  res.sendFile(path.join(legalPath, 'about.html'));
 });
 
 // Connect to MongoDB and start server
