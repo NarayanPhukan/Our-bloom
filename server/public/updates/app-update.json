@@ -1,8 +1,8 @@
 {
-  "versionCode": 53,
-  "versionName": "1.52",
+  "versionCode": 54,
+  "versionName": "1.53",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "PayU Live Merchant Mode & Custom Romantic Payment Interface (1-Tap UPI, Cards, NetBanking)",
+  "changelog": "Fix PayU Live Checkout display & instant 1-tap app launch",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

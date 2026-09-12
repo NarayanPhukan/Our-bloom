@@ -648,17 +648,19 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/tv_web_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Bank 3D-Secure Verification"
+                    android:text="Secure Payment Portal 🔒"
                     android:textColor="#2D2D2D"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tv_web_subtitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Authorize via Bank OTP / Password"
+                    android:text="100% Encrypted • Merchant Verified"
                     android:textColor="#757575"
                     android:textSize="11sp" />
             </LinearLayout>

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.Message
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -73,6 +74,8 @@ class PayUCheckoutActivity : AppCompatActivity() {
     private lateinit var tvDispatchStatus: TextView
     private lateinit var webView: WebView
     private lateinit var progressWebBar: ProgressBar
+    private lateinit var tvWebTitle: TextView
+    private lateinit var tvWebSubtitle: TextView
 
     // Inputs
     private lateinit var etUpiVpa: EditText
@@ -128,10 +131,12 @@ class PayUCheckoutActivity : AppCompatActivity() {
         tvDispatchStatus = findViewById(R.id.tv_dispatch_status)
         webView = findViewById(R.id.web_view_checkout)
         progressWebBar = findViewById(R.id.progress_web_bar)
+        tvWebTitle = findViewById(R.id.tv_web_title)
+        tvWebSubtitle = findViewById(R.id.tv_web_subtitle)
 
         findViewById<ImageButton>(R.id.btn_close_checkout).setOnClickListener { finish() }
         findViewById<ImageButton>(R.id.btn_close_web).setOnClickListener {
-            // Cancel web 3D-Secure and return to payment method selection
+            // Cancel web 3D-Secure / checkout and return to payment method selection
             layoutWebContainer.visibility = View.GONE
             layoutMerchant.visibility = View.VISIBLE
             hideLoading()
@@ -150,16 +155,24 @@ class PayUCheckoutActivity : AppCompatActivity() {
 
         // 1-Tap UPI Apps
         findViewById<View>(R.id.btn_pay_gpay).setOnClickListener {
-            initiateSeamlessPayment("UPI", "TEZ", "Opening Google Pay...")
+            tvWebTitle.text = "Google Pay / UPI 🌸"
+            tvWebSubtitle.text = "Authorize via Google Pay or UPI App"
+            initiateSeamlessPayment("UPI", "TEZ")
         }
         findViewById<View>(R.id.btn_pay_phonepe).setOnClickListener {
-            initiateSeamlessPayment("UPI", "PHONEPE", "Opening PhonePe...")
+            tvWebTitle.text = "PhonePe / UPI 🌸"
+            tvWebSubtitle.text = "Authorize via PhonePe or UPI App"
+            initiateSeamlessPayment("UPI", "PHONEPE")
         }
         findViewById<View>(R.id.btn_pay_paytm).setOnClickListener {
-            initiateSeamlessPayment("UPI", "PAYTM", "Opening Paytm...")
+            tvWebTitle.text = "Paytm UPI 🌸"
+            tvWebSubtitle.text = "Authorize via Paytm or UPI App"
+            initiateSeamlessPayment("UPI", "PAYTM")
         }
         findViewById<View>(R.id.btn_pay_any_upi).setOnClickListener {
-            initiateSeamlessPayment("UPI", "INT", "Connecting to UPI App...")
+            tvWebTitle.text = "UPI Instant Pay 🌸"
+            tvWebSubtitle.text = "Authorize via any UPI App on your phone"
+            initiateSeamlessPayment("UPI", "INT")
         }
 
         // UPI VPA
@@ -173,7 +186,9 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 etUpiVpa.requestFocus()
                 return@setOnClickListener
             }
-            initiateSeamlessPayment("UPI", "UPI", "Requesting from $vpa...", extraParams = mapOf("vpa" to vpa))
+            tvWebTitle.text = "UPI Collect Request 🌸"
+            tvWebSubtitle.text = "Approve payment notification in $vpa"
+            initiateSeamlessPayment("UPI", "UPI", extraParams = mapOf("vpa" to vpa))
         }
 
         // Card Inputs
@@ -245,9 +260,41 @@ class PayUCheckoutActivity : AppCompatActivity() {
         settings.useWideViewPort = true
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        settings.javaScriptCanOpenWindowsAutomatically = true
+        settings.setSupportMultipleWindows(true)
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                progressWebBar.progress = newProgress
+                if (newProgress >= 90) {
+                    progressWebBar.visibility = View.GONE
+                }
+            }
+
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?
+            ): Boolean {
+                val newWebView = WebView(this@PayUCheckoutActivity)
+                newWebView.settings.javaScriptEnabled = true
+                newWebView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                        val url = request?.url?.toString() ?: return false
+                        return handleUrl(url)
+                    }
+                }
+                val transport = resultMsg?.obj as? WebView.WebViewTransport
+                transport?.webView = newWebView
+                resultMsg?.sendToTarget()
+                return true
+            }
+        }
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -301,8 +348,22 @@ class PayUCheckoutActivity : AppCompatActivity() {
             hideLoading()
             try {
                 val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                startActivity(intent)
-                return true
+                if (intent.resolveActivity(packageManager) != null) {
+                    startActivity(intent)
+                    return true
+                }
+                // If specific target app isn't found, try generic UPI chooser
+                val uri = intent.data
+                if (uri != null && (uri.scheme == "upi" || url.startsWith("upi://"))) {
+                    val chooser = Intent(Intent.ACTION_VIEW, uri)
+                    startActivity(Intent.createChooser(chooser, "Complete Payment with UPI"))
+                    return true
+                }
+                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                if (!fallbackUrl.isNullOrBlank()) {
+                    webView.loadUrl(fallbackUrl)
+                    return true
+                }
             } catch (e: Exception) {
                 Log.w("PayUCheckout", "Failed to launch payment app: ${e.message}")
                 Toast.makeText(this, "Could not launch payment app directly", Toast.LENGTH_SHORT).show()
@@ -348,9 +409,8 @@ class PayUCheckoutActivity : AppCompatActivity() {
             return
         }
 
-        // Open 3D Secure Web Container
-        layoutMerchant.visibility = View.GONE
-        layoutWebContainer.visibility = View.VISIBLE
+        tvWebTitle.text = "Bank 3D-Secure Verification 🔒"
+        tvWebSubtitle.text = "Authorize via Bank OTP / Password"
 
         val cardParams = mapOf(
             "ccnum" to rawNumber,
@@ -360,24 +420,28 @@ class PayUCheckoutActivity : AppCompatActivity() {
             "ccname" to cardName
         )
 
-        initiateSeamlessPayment("CC", "CC", "Connecting to Bank 3D-Secure...", cardParams)
+        initiateSeamlessPayment("CC", "CC", cardParams)
     }
 
     private fun initiateNetBankingPayment(bankCode: String, bankName: String) {
-        layoutMerchant.visibility = View.GONE
-        layoutWebContainer.visibility = View.VISIBLE
-        initiateSeamlessPayment("NB", bankCode, "Connecting to $bankName...")
+        tvWebTitle.text = "$bankName Portal 🏦"
+        tvWebSubtitle.text = "Log in to your net banking account"
+        initiateSeamlessPayment("NB", bankCode)
     }
 
     private fun initiateSeamlessPayment(
-        pg: String,
-        bankcode: String,
-        loadingText: String,
+        pg: String = "",
+        bankcode: String = "",
         extraParams: Map<String, String> = emptyMap()
     ) {
         if (isSubmitting) return
         isSubmitting = true
-        showLoading(loadingText)
+
+        // IMMEDIATELY switch to the secure web container so the user sees the live checkout
+        layoutMerchant.visibility = View.GONE
+        layoutWebContainer.visibility = View.VISIBLE
+        progressWebBar.visibility = View.VISIBLE
+        hideLoading()
 
         // Read Live Credentials
         val payuKey = BuildConfig.PAYU_KEY.ifBlank { "qSYSCh" }
@@ -418,8 +482,13 @@ class PayUCheckoutActivity : AppCompatActivity() {
             append("&udf3=").append(URLEncoder.encode(cleanFirstName, "UTF-8"))
             append("&udf4=").append(URLEncoder.encode(goalId, "UTF-8"))
             append("&udf5=").append(URLEncoder.encode(cleanNote, "UTF-8"))
-            append("&pg=").append(URLEncoder.encode(pg, "UTF-8"))
-            append("&bankcode=").append(URLEncoder.encode(bankcode, "UTF-8"))
+
+            if (pg.isNotBlank()) {
+                append("&pg=").append(URLEncoder.encode(pg, "UTF-8"))
+            }
+            if (bankcode.isNotBlank()) {
+                append("&bankcode=").append(URLEncoder.encode(bankcode, "UTF-8"))
+            }
 
             for ((key, value) in extraParams) {
                 append("&").append(URLEncoder.encode(key, "UTF-8")).append("=").append(URLEncoder.encode(value, "UTF-8"))
@@ -487,9 +556,13 @@ class PayUCheckoutActivity : AppCompatActivity() {
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         if (layoutWebContainer.visibility == View.VISIBLE) {
-            layoutWebContainer.visibility = View.GONE
-            layoutMerchant.visibility = View.VISIBLE
-            hideLoading()
+            if (webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                layoutWebContainer.visibility = View.GONE
+                layoutMerchant.visibility = View.VISIBLE
+                hideLoading()
+            }
         } else {
             super.onBackPressed()
         }
