@@ -1,8 +1,8 @@
 {
-  "versionCode": 46,
-  "versionName": "1.45",
+  "versionCode": 47,
+  "versionName": "1.46",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Online Multiplayer Truth or Dare 🌐\n• Endless Combinatorial Card Generator ♾️\n• Private Couple's Secret Card Vault ✍️\n• 40+ New Teasing & Romantic Cards",
+  "changelog": "• Enforce mandatory 12-digit UPI Transaction ID / UTR for deposits\n• Prevent duplicate or unverified payment entries",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

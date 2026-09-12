@@ -49,6 +49,23 @@ object SavingsPaymentHelper {
         return Intent.createChooser(intent, "Pay with UPI")
     }
 
+    fun isValidUtr(utr: String?): Boolean {
+        if (utr.isNullOrBlank()) return false
+        val clean = utr.trim().replace(" ", "").replace("-", "")
+        if (clean.equals("null", ignoreCase = true) ||
+            clean.equals("undefined", ignoreCase = true) ||
+            clean.equals("none", ignoreCase = true) ||
+            clean.equals("nil", ignoreCase = true) ||
+            clean.matches(Regex("^0+$"))
+        ) {
+            return false
+        }
+        // Valid UPI UTR is 12 digits numeric, or valid bank transaction reference between 12 and 35 alphanumeric chars
+        val is12Digits = clean.length == 12 && clean.all { it.isDigit() }
+        val isAlphanumeric = clean.length in 12..35 && clean.matches(Regex("^[A-Za-z0-9]+$")) && clean.any { it.isDigit() }
+        return is12Digits || isAlphanumeric
+    }
+
     fun parseUpiResponse(rawResponse: String?): UpiResult {
         if (rawResponse.isNullOrBlank()) {
             return UpiResult(isSuccess = false, utr = "", txnId = "", rawResponse = "")
@@ -64,19 +81,25 @@ object SavingsPaymentHelper {
         }
 
         val status = map["status"]?.lowercase(Locale.US) ?: ""
-        val isSuccess = status == "success" || status == "submitted"
 
-        val utr = map["approvalrefno"]
+        val rawUtr = map["approvalrefno"]
             ?: map["txnref"]
             ?: map["refid"]
             ?: map["banktxnid"]
             ?: ""
 
-        val txnId = map["txnid"] ?: ""
+        val rawTxnId = map["txnid"] ?: ""
+
+        val utr = if (isValidUtr(rawUtr)) rawUtr.trim() else ""
+        val txnId = if (isValidUtr(rawTxnId)) rawTxnId.trim() else ""
+
+        // Strictest validation: Must be SUCCESS and must contain a verified 12-digit UTR/TxnID
+        val hasVerifiedId = utr.isNotBlank() || txnId.isNotBlank()
+        val isSuccess = status == "success" && hasVerifiedId
 
         return UpiResult(
             isSuccess = isSuccess,
-            utr = utr,
+            utr = if (utr.isNotBlank()) utr else txnId,
             txnId = txnId,
             rawResponse = rawResponse
         )

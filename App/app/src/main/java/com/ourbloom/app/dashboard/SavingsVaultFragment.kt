@@ -437,6 +437,8 @@ class SavingsVaultFragment : Fragment() {
             }
         }
 
+        val tilUtr = sheetView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_deposit_utr)
+
         // Manual UTR Confirmation Button
         btnConfirmManual.setOnClickListener {
             val amountStr = etAmount.text.toString().trim()
@@ -447,10 +449,12 @@ class SavingsVaultFragment : Fragment() {
             }
 
             val utr = etUtr.text.toString().trim()
-            if (utr.length < 8) {
-                Toast.makeText(requireContext(), "Please enter your 12-digit UPI UTR number from receipt", Toast.LENGTH_SHORT).show()
+            if (!SavingsPaymentHelper.isValidUtr(utr)) {
+                tilUtr?.error = "Enter valid 12-digit UPI UTR from your receipt"
+                Toast.makeText(requireContext(), "A valid 12-digit UPI Transaction ID / UTR is required to add this deposit.", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
+            tilUtr?.error = null
 
             val note = etNote.text.toString().trim()
             val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
@@ -466,14 +470,17 @@ class SavingsVaultFragment : Fragment() {
         val rawResponse = data?.getStringExtra("response") ?: data?.dataString ?: ""
         val result = SavingsPaymentHelper.parseUpiResponse(rawResponse)
 
-        if (result.isSuccess) {
-            val utr = if (result.utr.isNotBlank()) result.utr else "UPI-${System.currentTimeMillis().toString().takeLast(8)}"
-            completeDeposit(pendingDepositAmount, utr, pendingDepositNote, pendingGoalId, pendingGoalTitle)
+        if (result.isSuccess && SavingsPaymentHelper.isValidUtr(result.utr)) {
+            completeDeposit(pendingDepositAmount, result.utr, pendingDepositNote, pendingGoalId, pendingGoalTitle)
             activeDepositSheet?.dismiss()
             Toast.makeText(requireContext(), "Payment Successful! Deposit recorded 🌸", Toast.LENGTH_SHORT).show()
         } else {
-            // User returned from UPI app, offer to confirm with UTR if they actually completed it
-            Toast.makeText(requireContext(), "Returned from UPI app. Confirm your deposit with the 12-digit UTR if paid.", Toast.LENGTH_LONG).show()
+            // NEVER automatically add deposit if valid 12-digit UTR is missing!
+            Toast.makeText(
+                requireContext(),
+                "Payment not verified yet. Please enter the 12-digit UPI UTR from your receipt to add this deposit.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -484,6 +491,11 @@ class SavingsVaultFragment : Fragment() {
         goalId: String?,
         goalTitle: String?
     ) {
+        if (!SavingsPaymentHelper.isValidUtr(utr)) {
+            Toast.makeText(requireContext(), "Deposit rejected: Missing or invalid UPI transaction ID.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         lifecycleScope.launch {
             val success = repository.recordDeposit(
                 context = requireContext(),

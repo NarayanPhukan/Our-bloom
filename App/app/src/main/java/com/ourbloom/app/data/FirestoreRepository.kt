@@ -1794,10 +1794,27 @@ class FirestoreRepository {
         goalId: String? = null,
         goalTitle: String? = null
     ): Boolean {
+        val cleanUtr = utrNumber.trim()
+        if (!com.ourbloom.app.util.SavingsPaymentHelper.isValidUtr(cleanUtr)) {
+            Log.e("FirestoreRepo", "Deposit rejected: Missing or invalid UPI transaction ID ($cleanUtr)")
+            return false
+        }
+
         return try {
             val user = getCurrentUser() ?: return false
             val uid = user.uid
             val userName = user.name.ifBlank { "Your Partner" }
+
+            // Prevent duplicate deposits with the exact same UTR
+            val existing = db.collection("savings_transactions")
+                .whereEqualTo("coupleId", coupleId)
+                .whereEqualTo("utrNumber", cleanUtr)
+                .get()
+                .await()
+            if (!existing.isEmpty) {
+                Log.w("FirestoreRepo", "Deposit rejected: Duplicate UTR already recorded ($cleanUtr)")
+                return false
+            }
 
             val walletRef = db.collection("savings_wallets").document(coupleId)
             val walletDoc = walletRef.get().await()
