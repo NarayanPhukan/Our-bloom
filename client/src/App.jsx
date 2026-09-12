@@ -22,6 +22,12 @@ const JourneyPage = lazy(() => import('./pages/JourneyPage'));
 const MemoriesPage = lazy(() => import('./pages/MemoriesPage'));
 const LoveNotesPage = lazy(() => import('./pages/LoveNotesPage'));
 const MapPage = lazy(() => import('./pages/MapPage'));
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'));
+const TermsAndConditions = lazy(() => import('./pages/legal/TermsAndConditions'));
+const RefundPolicy = lazy(() => import('./pages/legal/RefundPolicy'));
+const ShippingPolicy = lazy(() => import('./pages/legal/ShippingPolicy'));
+const ContactUs = lazy(() => import('./pages/legal/ContactUs'));
+const AboutUs = lazy(() => import('./pages/legal/AboutUs'));
 
 // Themed loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -262,6 +268,21 @@ function App() {
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+
+            {/* Legal & Compliance routes */}
+            <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
+            <Route path="/privacy-policy" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
+            <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsAndConditions /></Suspense>} />
+            <Route path="/terms-and-conditions" element={<Suspense fallback={<PageLoader />}><TermsAndConditions /></Suspense>} />
+            <Route path="/refund-policy" element={<Suspense fallback={<PageLoader />}><RefundPolicy /></Suspense>} />
+            <Route path="/refunds" element={<Suspense fallback={<PageLoader />}><RefundPolicy /></Suspense>} />
+            <Route path="/cancellation-refund" element={<Suspense fallback={<PageLoader />}><RefundPolicy /></Suspense>} />
+            <Route path="/shipping-policy" element={<Suspense fallback={<PageLoader />}><ShippingPolicy /></Suspense>} />
+            <Route path="/shipping-delivery" element={<Suspense fallback={<PageLoader />}><ShippingPolicy /></Suspense>} />
+            <Route path="/contact" element={<Suspense fallback={<PageLoader />}><ContactUs /></Suspense>} />
+            <Route path="/contact-us" element={<Suspense fallback={<PageLoader />}><ContactUs /></Suspense>} />
+            <Route path="/about" element={<Suspense fallback={<PageLoader />}><AboutUs /></Suspense>} />
+            <Route path="/about-us" element={<Suspense fallback={<PageLoader />}><AboutUs /></Suspense>} />
 
             {/* Setup (authenticated but no couple) */}
             <Route path="/setup" element={<SetupPage />} />

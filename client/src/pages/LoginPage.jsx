@@ -131,6 +131,21 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
+
+        {/* Legal & Compliance Footer */}
+        <div className="mt-8 text-center text-xs text-on-surface-variant/70 flex flex-wrap justify-center gap-3">
+          <Link to="/about" className="hover:text-primary transition-colors">About</Link>
+          <span>•</span>
+          <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+          <span>•</span>
+          <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
+          <span>•</span>
+          <Link to="/refund-policy" className="hover:text-primary transition-colors">Refunds</Link>
+          <span>•</span>
+          <Link to="/shipping-policy" className="hover:text-primary transition-colors">Delivery</Link>
+          <span>•</span>
+          <Link to="/contact" className="hover:text-primary transition-colors">Contact Support</Link>
+        </div>
       </div>
     </div>
   );
