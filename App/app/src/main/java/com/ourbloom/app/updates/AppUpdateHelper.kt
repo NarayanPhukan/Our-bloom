@@ -73,6 +73,8 @@ class AppUpdateHelper(private val activity: Activity) {
         const val ACTION_SHOW_UPDATE = "com.ourbloom.app.ACTION_SHOW_UPDATE"
         const val EXTRA_ACTION_SHOW_UPDATE = "show_update"
 
+        private const val UPDATE_MANIFEST_VERCEL =
+            "https://our-bloom-gamma.vercel.app/app-update.json"
         private const val UPDATE_MANIFEST_GITHUB_API =
             "https://api.github.com/repos/NarayanPhukan/Our-bloom/contents/app-update.json"
         private const val UPDATE_MANIFEST_GITHUB =
@@ -151,8 +153,9 @@ class AppUpdateHelper(private val activity: Activity) {
                 Log.d(TAG, "GitHub API manifest fetch failed: ${e.message}")
             }
 
-            // 2. Fallbacks: raw GitHub with timestamp query, Render server endpoints
+            // 2. Fallbacks: Vercel CDN, raw GitHub with timestamp query, Render server endpoints
             val urls = listOf(
+                "$UPDATE_MANIFEST_VERCEL?t=$timestamp",
                 "$UPDATE_MANIFEST_GITHUB?t=$timestamp",
                 UPDATE_MANIFEST_SERVER,
                 UPDATE_MANIFEST_SERVER_STATIC
@@ -387,8 +390,9 @@ class AppUpdateHelper(private val activity: Activity) {
             Log.d(TAG, "GitHub API manifest fetch failed: ${e.message}")
         }
 
-        // 2. Fallbacks: raw GitHub with timestamp query, Render server endpoints
+        // 2. Fallbacks: Vercel CDN, raw GitHub with timestamp query, Render server endpoints
         val urls = listOf(
+            "$UPDATE_MANIFEST_VERCEL?t=$timestamp",
             "$UPDATE_MANIFEST_GITHUB?t=$timestamp",
             UPDATE_MANIFEST_SERVER,
             UPDATE_MANIFEST_SERVER_STATIC

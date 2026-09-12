@@ -1,8 +1,8 @@
 {
-  "versionCode": 51,
-  "versionName": "1.50",
+  "versionCode": 52,
+  "versionName": "1.51",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Native in-app payment with Firebase (Zero Render dependency) - Pay Now (Card/UPI)",
-  "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
+  "changelog": "Native Firebase Payment Flow (Pay Now Card/UPI) & Direct Vercel CDN Updates",
+  "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

@@ -56,7 +56,7 @@ cat <<EOF > "$UPDATE_JSON"
   "versionName": "$NEW_NAME",
   "title": "New Bloom Update Available! 🌸",
   "changelog": "$CHANGELOG_TEXT",
-  "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
+  "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
 EOF
