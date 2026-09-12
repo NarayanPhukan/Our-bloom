@@ -1,8 +1,8 @@
 {
-  "versionCode": 54,
-  "versionName": "1.53",
+  "versionCode": 55,
+  "versionName": "1.54",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Fix PayU Live Checkout display & instant 1-tap app launch",
+  "changelog": "Direct PayU Live Checkout (Clean 1-Tap UI without custom intermediate menus)",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
