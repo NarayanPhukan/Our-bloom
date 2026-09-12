@@ -1795,7 +1795,11 @@ class FirestoreRepository {
         goalTitle: String? = null
     ): Boolean {
         val cleanUtr = utrNumber.trim()
-        if (!com.ourbloom.app.util.SavingsPaymentHelper.isValidUtr(cleanUtr)) {
+        if (cleanUtr.isBlank()) {
+            Log.e("FirestoreRepo", "Deposit rejected: Empty transaction reference")
+            return false
+        }
+        if (paymentMethod == "UPI" && !com.ourbloom.app.util.SavingsPaymentHelper.isValidUtr(cleanUtr)) {
             Log.e("FirestoreRepo", "Deposit rejected: Missing or invalid UPI transaction ID ($cleanUtr)")
             return false
         }

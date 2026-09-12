@@ -88,6 +88,13 @@
             android:theme="@style/Theme.OurBloom"
             android:exported="false" />
 
+        <activity
+            android:name=".payment.PayUCheckoutActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.OurBloom"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
         <service
             android:name=".fcm.MyFirebaseMessagingService"
             android:exported="false">

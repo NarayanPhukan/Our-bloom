@@ -1,8 +1,8 @@
 {
-  "versionCode": 50,
-  "versionName": "1.49",
+  "versionCode": 51,
+  "versionName": "1.50",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Update payment button to 'Pay Now (Card / UPI)' with enhanced connection handling",
+  "changelog": "• Native in-app payment with Firebase (Zero Render dependency) - Pay Now (Card/UPI)",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

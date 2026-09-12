@@ -442,40 +442,19 @@ class SavingsVaultFragment : Fragment() {
             return
         }
 
-        try {
-            val baseUrl = "https://our-bloom.onrender.com"
-            val encodedName = URLEncoder.encode(currentUserName.ifBlank { "Partner" }, "UTF-8")
-            val encodedEmail = URLEncoder.encode(currentUserEmail.ifBlank { "support@ourbloom.app" }, "UTF-8")
-            val encodedPhone = URLEncoder.encode(currentUserPhone.ifBlank { "9999999999" }, "UTF-8")
-            val encodedNote = URLEncoder.encode(note.ifBlank { "Couple Vault Deposit" }, "UTF-8")
-            val encodedGoalTitle = URLEncoder.encode(goalTitle ?: "", "UTF-8")
-            val goalIdParam = goalId ?: ""
-
-            val checkoutUrl = "$baseUrl/api/payu/checkout?" +
-                    "amount=$amount" +
-                    "&coupleId=$coupleId" +
-                    "&userId=$currentUserId" +
-                    "&userName=$encodedName" +
-                    "&userEmail=$encodedEmail" +
-                    "&userPhone=$encodedPhone" +
-                    "&note=$encodedNote" +
-                    "&goalId=$goalIdParam" +
-                    "&goalTitle=$encodedGoalTitle"
-
-            Toast.makeText(requireContext(), "Opening Secure Payment Gateway... 🌸", Toast.LENGTH_SHORT).show()
-
-            val customTabsIntent = CustomTabsIntent.Builder()
-                .setShowTitle(true)
-                .build()
-            customTabsIntent.launchUrl(requireContext(), Uri.parse(checkoutUrl))
-        } catch (e: Exception) {
-            try {
-                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://our-bloom.onrender.com/api/payu/checkout?amount=$amount&coupleId=$coupleId"))
-                startActivity(browserIntent)
-            } catch (err: Exception) {
-                Toast.makeText(requireContext(), "Unable to open browser: ${err.message}", Toast.LENGTH_LONG).show()
-            }
-        }
+        val intent = com.ourbloom.app.payment.PayUCheckoutActivity.createIntent(
+            context = requireContext(),
+            amount = amount,
+            coupleId = coupleId,
+            userId = currentUserId,
+            userName = currentUserName,
+            userEmail = currentUserEmail,
+            userPhone = currentUserPhone,
+            note = note,
+            goalId = goalId,
+            goalTitle = goalTitle
+        )
+        startActivity(intent)
     }
 
     // ==========================================
