@@ -154,13 +154,14 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp" />
 
-        <!-- Primary Action: PayU Hosted Gateway (Cards / NetBanking / UPI) -->
+        <!-- Action: Pay via PayU Hosted Gateway -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pay_payu"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="16dp"
-            android:text="Pay Online via PayU (Cards / NetBanking / UPI)"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="6dp"
+            android:text="Proceed to Pay via PayU 🌸"
             android:textAppearance="?attr/textAppearanceTitleSmall"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
@@ -173,119 +174,12 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
             android:gravity="center"
-            android:text="⚡ Instant Auto-Credit • PayU Secure Gateway"
+            android:text="⚡ Auto-verified • Supports UPI, Cards &amp; NetBanking"
             android:textColor="#E85D75"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
-
-        <!-- Secondary Action: 1-Tap Direct UPI Launch -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_pay_upi"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="12dp"
-            android:text="Or Pay with Direct UPI App (GPay / PhonePe)"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="#E85D75"
-            app:strokeColor="#E85D75"
-            app:cornerRadius="25dp" />
-
-        <!-- Waiting for UPI indicator (hidden by default) -->
-        <LinearLayout
-            android:id="@+id/layout_upi_waiting"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_vault_card"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:padding="12dp"
-            android:visibility="gone">
-
-            <ProgressBar
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:indeterminateTint="#E85D75" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:text="Waiting for UPI payment to complete... 🌸"
-                android:textColor="#880E4F"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-
-
-        <!-- Manual 12-digit UTR Confirmation -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="#C8E6C9"
-            app:cardBackgroundColor="#F1F8E9">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="✓ Confirm Completed Payment"
-                    android:textAppearance="?attr/textAppearanceTitleSmall"
-                    android:textColor="#2E7D32"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Enter the 12-digit UPI UTR / Reference number from your payment receipt:"
-                    android:textColor="#33691E"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/til_deposit_utr"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    app:boxCornerRadiusBottomEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusTopStart="12dp">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_deposit_utr"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="12-digit UTR (e.g. 425512345678)"
-                        android:inputType="number"
-                        android:maxLength="16" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_confirm_deposit_manual"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="10dp"
-                    android:text="Confirm Deposit ✓"
-                    android:textColor="#FFFFFF"
-                    android:textStyle="bold"
-                    app:backgroundTint="#2E7D32"
-                    app:cornerRadius="24dp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

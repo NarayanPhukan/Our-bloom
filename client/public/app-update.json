@@ -1,8 +1,8 @@
 {
-  "versionCode": 48,
-  "versionName": "1.47",
+  "versionCode": 49,
+  "versionName": "1.48",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Add PayU Hosted Payment Gateway for Couple Savings Vault",
+  "changelog": "• Seamless PayU Gateway deposits - removed manual UTR confirmation",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

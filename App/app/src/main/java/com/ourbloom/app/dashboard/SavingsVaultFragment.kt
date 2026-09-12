@@ -30,7 +30,6 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.*
-import com.ourbloom.app.util.SavingsPaymentHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,19 +80,6 @@ class SavingsVaultFragment : Fragment() {
     // Cooldown ticker
     private val timerHandler = Handler(Looper.getMainLooper())
     private var countdownRunnable: Runnable? = null
-
-    // Pending deposit flow state
-    private var pendingDepositAmount: Double = 0.0
-    private var pendingDepositNote: String = ""
-    private var pendingGoalId: String? = null
-    private var pendingGoalTitle: String? = null
-    private var activeDepositSheet: BottomSheetDialog? = null
-
-    private val upiPaymentLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        handleUpiActivityResult(result.resultCode, result.data)
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -376,15 +362,11 @@ class SavingsVaultFragment : Fragment() {
         val dialog = BottomSheetDialog(requireContext())
         val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_deposit_savings, null)
         dialog.setContentView(sheetView)
-        activeDepositSheet = dialog
 
         val etAmount = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_amount)
         val etNote = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_note)
-        val etUtr = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_utr)
         val spinnerGoal = sheetView.findViewById<Spinner>(R.id.spinner_deposit_goal)
-        val layoutUpiWaiting = sheetView.findViewById<View>(R.id.layout_upi_waiting)
-        val btnPayUpi = sheetView.findViewById<MaterialButton>(R.id.btn_pay_upi)
-        val btnConfirmManual = sheetView.findViewById<MaterialButton>(R.id.btn_confirm_deposit_manual)
+        val btnPayPayu = sheetView.findViewById<MaterialButton>(R.id.btn_pay_payu)
 
         sheetView.findViewById<View>(R.id.btn_close_deposit).setOnClickListener {
             dialog.dismiss()
@@ -418,9 +400,8 @@ class SavingsVaultFragment : Fragment() {
         sheetView.findViewById<Chip>(R.id.chip_2000).setOnClickListener { etAmount.setText("2000") }
         sheetView.findViewById<Chip>(R.id.chip_5000).setOnClickListener { etAmount.setText("5000") }
 
-        // Pay with PayU Button (Cards / NetBanking / UPI)
-        val btnPayPayu = sheetView.findViewById<MaterialButton>(R.id.btn_pay_payu)
-        btnPayPayu?.setOnClickListener {
+        // Pay via PayU Hosted Gateway
+        btnPayPayu.setOnClickListener {
             val amountStr = etAmount.text.toString().trim()
             val amount = amountStr.toDoubleOrNull()
             if (amount == null || amount <= 0.0) {
@@ -435,79 +416,7 @@ class SavingsVaultFragment : Fragment() {
             dialog.dismiss()
         }
 
-        // Pay with UPI Button
-        btnPayUpi.setOnClickListener {
-            val amountStr = etAmount.text.toString().trim()
-            val amount = amountStr.toDoubleOrNull()
-            if (amount == null || amount <= 0.0) {
-                Toast.makeText(requireContext(), "Please enter a valid deposit amount", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val note = etNote.text.toString().trim()
-            val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
-
-            pendingDepositAmount = amount
-            pendingDepositNote = note
-            pendingGoalId = selectedGoal?.id
-            pendingGoalTitle = selectedGoal?.title
-
-            layoutUpiWaiting.visibility = View.VISIBLE
-
-            val upiIntent = SavingsPaymentHelper.buildUpiIntent(amount, note)
-            try {
-                upiPaymentLauncher.launch(upiIntent)
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "No UPI app found on device. You can transfer via Bank Account details below.", Toast.LENGTH_LONG).show()
-                layoutUpiWaiting.visibility = View.GONE
-            }
-        }
-
-        val tilUtr = sheetView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_deposit_utr)
-
-        // Manual UTR Confirmation Button
-        btnConfirmManual.setOnClickListener {
-            val amountStr = etAmount.text.toString().trim()
-            val amount = amountStr.toDoubleOrNull()
-            if (amount == null || amount <= 0.0) {
-                Toast.makeText(requireContext(), "Please enter a valid deposit amount", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val utr = etUtr.text.toString().trim()
-            if (!SavingsPaymentHelper.isValidUtr(utr)) {
-                tilUtr?.error = "Enter valid 12-digit UPI UTR from your receipt"
-                Toast.makeText(requireContext(), "A valid 12-digit UPI Transaction ID / UTR is required to add this deposit.", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            tilUtr?.error = null
-
-            val note = etNote.text.toString().trim()
-            val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
-
-            completeDeposit(amount, utr, note, selectedGoal?.id, selectedGoal?.title)
-            dialog.dismiss()
-        }
-
         dialog.show()
-    }
-
-    private fun handleUpiActivityResult(resultCode: Int, data: Intent?) {
-        val rawResponse = data?.getStringExtra("response") ?: data?.dataString ?: ""
-        val result = SavingsPaymentHelper.parseUpiResponse(rawResponse)
-
-        if (result.isSuccess && SavingsPaymentHelper.isValidUtr(result.utr)) {
-            completeDeposit(pendingDepositAmount, result.utr, pendingDepositNote, pendingGoalId, pendingGoalTitle)
-            activeDepositSheet?.dismiss()
-            Toast.makeText(requireContext(), "Payment Successful! Deposit recorded 🌸", Toast.LENGTH_SHORT).show()
-        } else {
-            // NEVER automatically add deposit if valid 12-digit UTR is missing!
-            Toast.makeText(
-                requireContext(),
-                "Payment not verified yet. Please enter the 12-digit UPI UTR from your receipt to add this deposit.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
     }
 
     private fun launchPayUCheckout(
@@ -548,38 +457,6 @@ class SavingsVaultFragment : Fragment() {
                 startActivity(browserIntent)
             } catch (err: Exception) {
                 Toast.makeText(requireContext(), "Unable to open browser: ${err.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun completeDeposit(
-        amount: Double,
-        utr: String,
-        note: String,
-        goalId: String?,
-        goalTitle: String?
-    ) {
-        if (!SavingsPaymentHelper.isValidUtr(utr)) {
-            Toast.makeText(requireContext(), "Deposit rejected: Missing or invalid UPI transaction ID.", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        lifecycleScope.launch {
-            val success = repository.recordDeposit(
-                context = requireContext(),
-                coupleId = coupleId,
-                amount = amount,
-                utrNumber = utr,
-                note = note,
-                category = "Savings",
-                paymentMethod = "UPI",
-                goalId = goalId,
-                goalTitle = goalTitle
-            )
-            if (success) {
-                Toast.makeText(requireContext(), "₹${amount.toInt()} added to Our Vault! 🎉", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(requireContext(), "Failed to record deposit. Please check connection.", Toast.LENGTH_SHORT).show()
             }
         }
     }
