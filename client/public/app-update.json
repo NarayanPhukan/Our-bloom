@@ -1,8 +1,8 @@
 {
-  "versionCode": 47,
-  "versionName": "1.46",
+  "versionCode": 48,
+  "versionName": "1.47",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Enforce mandatory 12-digit UPI Transaction ID / UTR for deposits\n• Prevent duplicate or unverified payment entries",
+  "changelog": "• Add PayU Hosted Payment Gateway for Couple Savings Vault",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

@@ -3,6 +3,9 @@ package com.ourbloom.app.dashboard
 import android.app.Activity
 import android.app.DatePickerDialog
 import android.content.Intent
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
+import java.net.URLEncoder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -41,6 +44,8 @@ class SavingsVaultFragment : Fragment() {
     private var coupleId: String = ""
     private var currentUserId: String = ""
     private var currentUserName: String = ""
+    private var currentUserEmail: String = ""
+    private var currentUserPhone: String = ""
 
     private var currentWallet: SavingsWallet? = null
     private var currentGoals: List<SavingsGoal> = emptyList()
@@ -137,6 +142,10 @@ class SavingsVaultFragment : Fragment() {
             if (user != null) {
                 currentUserId = user.uid
                 currentUserName = user.name
+                currentUserEmail = user.email.ifBlank {
+                    com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email ?: ""
+                }
+                currentUserPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
                 coupleId = user.coupleId ?: ""
                 if (coupleId.isNotBlank()) {
                     startObserving()
@@ -409,6 +418,23 @@ class SavingsVaultFragment : Fragment() {
         sheetView.findViewById<Chip>(R.id.chip_2000).setOnClickListener { etAmount.setText("2000") }
         sheetView.findViewById<Chip>(R.id.chip_5000).setOnClickListener { etAmount.setText("5000") }
 
+        // Pay with PayU Button (Cards / NetBanking / UPI)
+        val btnPayPayu = sheetView.findViewById<MaterialButton>(R.id.btn_pay_payu)
+        btnPayPayu?.setOnClickListener {
+            val amountStr = etAmount.text.toString().trim()
+            val amount = amountStr.toDoubleOrNull()
+            if (amount == null || amount <= 0.0) {
+                Toast.makeText(requireContext(), "Please enter a valid deposit amount", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val note = etNote.text.toString().trim()
+            val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
+
+            launchPayUCheckout(amount, note, selectedGoal?.id, selectedGoal?.title)
+            dialog.dismiss()
+        }
+
         // Pay with UPI Button
         btnPayUpi.setOnClickListener {
             val amountStr = etAmount.text.toString().trim()
@@ -481,6 +507,48 @@ class SavingsVaultFragment : Fragment() {
                 "Payment not verified yet. Please enter the 12-digit UPI UTR from your receipt to add this deposit.",
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    private fun launchPayUCheckout(
+        amount: Double,
+        note: String,
+        goalId: String?,
+        goalTitle: String?
+    ) {
+        try {
+            val baseUrl = "https://our-bloom.onrender.com"
+            val encodedName = URLEncoder.encode(currentUserName.ifBlank { "Partner" }, "UTF-8")
+            val encodedEmail = URLEncoder.encode(currentUserEmail.ifBlank { "support@ourbloom.app" }, "UTF-8")
+            val encodedPhone = URLEncoder.encode(currentUserPhone.ifBlank { "9999999999" }, "UTF-8")
+            val encodedNote = URLEncoder.encode(note.ifBlank { "Couple Vault Deposit" }, "UTF-8")
+            val encodedGoalTitle = URLEncoder.encode(goalTitle ?: "", "UTF-8")
+            val goalIdParam = goalId ?: ""
+
+            val checkoutUrl = "$baseUrl/api/payu/checkout?" +
+                    "amount=$amount" +
+                    "&coupleId=$coupleId" +
+                    "&userId=$currentUserId" +
+                    "&userName=$encodedName" +
+                    "&userEmail=$encodedEmail" +
+                    "&userPhone=$encodedPhone" +
+                    "&note=$encodedNote" +
+                    "&goalId=$goalIdParam" +
+                    "&goalTitle=$encodedGoalTitle"
+
+            Toast.makeText(requireContext(), "Opening PayU Gateway... 🌸", Toast.LENGTH_SHORT).show()
+
+            val customTabsIntent = CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .build()
+            customTabsIntent.launchUrl(requireContext(), Uri.parse(checkoutUrl))
+        } catch (e: Exception) {
+            try {
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://our-bloom.onrender.com/api/payu/checkout?amount=$amount&coupleId=$coupleId"))
+                startActivity(browserIntent)
+            } catch (err: Exception) {
+                Toast.makeText(requireContext(), "Unable to open browser: ${err.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
