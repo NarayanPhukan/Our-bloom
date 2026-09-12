@@ -425,6 +425,23 @@ class SavingsVaultFragment : Fragment() {
         goalId: String?,
         goalTitle: String?
     ) {
+        if (coupleId.isBlank()) {
+            Toast.makeText(requireContext(), "Loading profile... please tap again in a moment", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch {
+                val user = repository.getCurrentUser()
+                if (user != null && !user.coupleId.isNullOrBlank()) {
+                    coupleId = user.coupleId
+                    currentUserId = user.uid
+                    currentUserName = user.name
+                    currentUserEmail = user.email.ifBlank {
+                        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email ?: ""
+                    }
+                    currentUserPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
+                }
+            }
+            return
+        }
+
         try {
             val baseUrl = "https://our-bloom.onrender.com"
             val encodedName = URLEncoder.encode(currentUserName.ifBlank { "Partner" }, "UTF-8")
@@ -445,7 +462,7 @@ class SavingsVaultFragment : Fragment() {
                     "&goalId=$goalIdParam" +
                     "&goalTitle=$encodedGoalTitle"
 
-            Toast.makeText(requireContext(), "Opening PayU Gateway... 🌸", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Opening Secure Payment Gateway... 🌸", Toast.LENGTH_SHORT).show()
 
             val customTabsIntent = CustomTabsIntent.Builder()
                 .setShowTitle(true)

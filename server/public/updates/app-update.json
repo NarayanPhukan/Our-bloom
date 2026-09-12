@@ -1,8 +1,8 @@
 {
-  "versionCode": 49,
-  "versionName": "1.48",
+  "versionCode": 50,
+  "versionName": "1.49",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Seamless PayU Gateway deposits - removed manual UTR confirmation",
+  "changelog": "• Update payment button to 'Pay Now (Card / UPI)' with enhanced connection handling",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/client/public/OurBloom.apk",
   "forceUpdate": false
 }

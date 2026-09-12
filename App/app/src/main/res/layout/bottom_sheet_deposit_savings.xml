@@ -154,14 +154,14 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp" />
 
-        <!-- Action: Pay via PayU Hosted Gateway -->
+        <!-- Action: Pay via Secure Gateway -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pay_payu"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_marginTop="20dp"
             android:layout_marginBottom="6dp"
-            android:text="Proceed to Pay via PayU 🌸"
+            android:text="Pay Now (Card / UPI)"
             android:textAppearance="?attr/textAppearanceTitleSmall"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
@@ -176,7 +176,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:gravity="center"
-            android:text="⚡ Auto-verified • Supports UPI, Cards &amp; NetBanking"
+            android:text="⚡ Instant Auto-Credit • 100% Secure Checkout"
             android:textColor="#E85D75"
             android:textSize="12sp"
             android:textStyle="bold" />

@@ -121,7 +121,7 @@ router.get('/checkout', (req, res) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Connecting to PayU...</title>
+        <title>Securing Payment...</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -187,12 +187,12 @@ router.get('/checkout', (req, res) => {
         <div class="card">
           <div class="spinner"></div>
           <h2>Securing Your Payment...</h2>
-          <p>Redirecting to PayU Secure Gateway for Couple Savings Vault 🌸</p>
+          <p>Connecting to Secure Gateway for Couple Savings Vault 🌸</p>
           <div class="amount-tag">₹${parsedAmount.toFixed(2)}</div>
           <form name="payuForm" method="POST" action="${PAYU_ACTION_URL}">
             ${Object.entries(params).map(([k, v]) => `<input type="hidden" name="${k}" value="${v.toString().replace(/"/g, '&quot;')}" />`).join('\n            ')}
             <noscript>
-              <button type="submit" class="btn-continue">Tap to Proceed to PayU</button>
+              <button type="submit" class="btn-continue">Tap to Proceed to Payment</button>
             </noscript>
           </form>
         </div>
@@ -462,7 +462,7 @@ router.post('/success', async (req, res) => {
         
         <div class="details">
           <div class="row"><span class="label">Amount Paid:</span><span class="val">₹${amount.toFixed(2)}</span></div>
-          <div class="row"><span class="label">PayU Payment ID:</span><span class="val">${utrNumber || txnid}</span></div>
+          <div class="row"><span class="label">Payment ID:</span><span class="val">${utrNumber || txnid}</span></div>
           <div class="row"><span class="label">Order Ref:</span><span class="val">${txnid}</span></div>
           <div class="row"><span class="label">Status:</span><span class="val" style="color:#2E7D32;">✓ VERIFIED</span></div>
         </div>
