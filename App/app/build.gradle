@@ -14,6 +14,9 @@ String vaultAccount = localProperties.getProperty("VAULT_ACCOUNT_NUMBER", "")
 String vaultIfsc = localProperties.getProperty("VAULT_IFSC_CODE", "")
 String vaultBank = localProperties.getProperty("VAULT_BANK_NAME", "")
 String vaultVpa = localProperties.getProperty("VAULT_UPI_VPA", "")
+String payuKey = localProperties.getProperty("PAYU_KEY", "qSYSCh")
+String payuSalt = localProperties.getProperty("PAYU_SALT", "ILJi7wHiIDwmOFT1VAWBh6hCfSpkVYfA")
+String payuMode = localProperties.getProperty("PAYU_MODE", "live")
 
 android {
     namespace 'com.ourbloom.app'
@@ -23,8 +26,8 @@ android {
         applicationId "com.ourbloom.app"
         minSdk 21
         targetSdk 34
-        versionCode 52
-        versionName "1.51"
+        versionCode 53
+        versionName "1.52"
         
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -34,6 +37,9 @@ android {
         buildConfigField "String", "VAULT_IFSC_CODE", "\"${vaultIfsc}\""
         buildConfigField "String", "VAULT_BANK_NAME", "\"${vaultBank}\""
         buildConfigField "String", "VAULT_UPI_VPA", "\"${vaultVpa}\""
+        buildConfigField "String", "PAYU_KEY", "\"${payuKey}\""
+        buildConfigField "String", "PAYU_SALT", "\"${payuSalt}\""
+        buildConfigField "String", "PAYU_MODE", "\"${payuMode}\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

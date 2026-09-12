@@ -1,8 +1,8 @@
 {
-  "versionCode": 52,
-  "versionName": "1.51",
+  "versionCode": 53,
+  "versionName": "1.52",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Native Firebase Payment Flow (Pay Now Card/UPI) & Direct Vercel CDN Updates",
+  "changelog": "PayU Live Merchant Mode & Custom Romantic Payment Interface (1-Tap UPI, Cards, NetBanking)",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
