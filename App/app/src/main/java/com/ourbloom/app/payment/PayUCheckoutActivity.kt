@@ -131,6 +131,24 @@ class PayUCheckoutActivity : AppCompatActivity() {
         tvTitle.text = if (goalTitle.isNotBlank()) "Goal Deposit: $goalTitle 🎯" else "Our Bloom Vault Deposit 🌸"
     }
 
+    private var currentTxnId: String = ""
+
+    inner class PaymentBridge {
+        @android.webkit.JavascriptInterface
+        fun onPaymentSuccess(ref: String?) {
+            runOnUiThread {
+                onPaymentApproved(ref)
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun onPaymentFailure(msg: String?) {
+            runOnUiThread {
+                onPaymentDeclined()
+            }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         val settings = webView.settings
@@ -145,6 +163,8 @@ class PayUCheckoutActivity : AppCompatActivity() {
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
+        webView.addJavascriptInterface(PaymentBridge(), "PayUBridge")
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -181,12 +201,34 @@ class PayUCheckoutActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                Log.d("PayUCheckout", "onPageStarted: $url")
+                if (url != null) {
+                    if (isSuccessUrl(url)) {
+                        onPaymentApproved()
+                        return
+                    }
+                    if (isFailureUrl(url)) {
+                        onPaymentDeclined()
+                        return
+                    }
+                }
                 progressBar.visibility = View.VISIBLE
                 layoutError.visibility = View.GONE
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                Log.d("PayUCheckout", "onPageFinished: $url")
+                if (url != null) {
+                    if (isSuccessUrl(url)) {
+                        onPaymentApproved()
+                        return
+                    }
+                    if (isFailureUrl(url)) {
+                        onPaymentDeclined()
+                        return
+                    }
+                }
                 progressBar.visibility = View.GONE
             }
 
@@ -196,7 +238,13 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame == true) {
+                val failingUrl = request?.url?.toString() ?: ""
+                Log.w("PayUCheckout", "WebView error on $failingUrl")
+                if (isSuccessUrl(failingUrl)) {
+                    onPaymentApproved()
+                    return
+                }
+                if (request?.isForMainFrame == true && !isSuccessUrl(failingUrl)) {
                     progressBar.visibility = View.GONE
                     layoutError.visibility = View.VISIBLE
                 }
@@ -215,17 +263,35 @@ class PayUCheckoutActivity : AppCompatActivity() {
         }
     }
 
+    private fun isSuccessUrl(url: String): Boolean {
+        val lower = url.lowercase(Locale.ROOT)
+        return lower.contains("/api/payu/success") ||
+               lower.contains("ourbloom.app/payment/success") ||
+               lower.contains("/payment/success") ||
+               lower.contains("payu.in/success") ||
+               lower.contains("status=success")
+    }
+
+    private fun isFailureUrl(url: String): Boolean {
+        val lower = url.lowercase(Locale.ROOT)
+        return lower.contains("/api/payu/failure") ||
+               lower.contains("ourbloom.app/payment/failure") ||
+               lower.contains("/payment/failure") ||
+               lower.contains("payu.in/failure") ||
+               lower.contains("status=failure")
+    }
+
     private fun handleUrl(url: String): Boolean {
         Log.d("PayUCheckout", "Navigation URL: $url")
 
         // Intercept Success Callback
-        if (url.contains("ourbloom.app/payment/success") || url.contains("/payment/success")) {
+        if (isSuccessUrl(url)) {
             onPaymentApproved()
             return true
         }
 
         // Intercept Failure Callback
-        if (url.contains("ourbloom.app/payment/failure") || url.contains("/payment/failure")) {
+        if (isFailureUrl(url)) {
             onPaymentDeclined()
             return true
         }
@@ -278,6 +344,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
         val actionUrl = if (isLiveMode) LIVE_ACTION_URL else TEST_ACTION_URL
 
         val txnid = "OB_${System.currentTimeMillis()}_${UUID.randomUUID().toString().replace("-", "").take(6)}"
+        currentTxnId = txnid
         val formattedAmount = String.format(Locale.US, "%.2f", amount)
         val cleanFirstName = userName.replace(Regex("[^a-zA-Z0-9]"), "").trim().ifBlank { "Partner" }
         val cleanEmail = if (userEmail.isNotBlank() && userEmail.contains("@")) userEmail.trim() else "support@ourbloom.app"
@@ -285,8 +352,8 @@ class PayUCheckoutActivity : AppCompatActivity() {
         val productinfo = (if (goalTitle.isNotBlank()) "Vault $goalTitle" else "Our Bloom Vault").replace(Regex("[^a-zA-Z0-9 ]"), "").trim().take(50).ifBlank { "Our Bloom Vault" }
         val cleanNote = note.replace(Regex("[|\n\r]"), " ").trim().take(100)
 
-        val surl = "https://ourbloom.app/payment/success"
-        val furl = "https://ourbloom.app/payment/failure"
+        val surl = "https://our-bloom.onrender.com/api/payu/success"
+        val furl = "https://our-bloom.onrender.com/api/payu/failure"
 
         // Hash Formula: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
         val hashString = "$payuKey|$txnid|$formattedAmount|$productinfo|$cleanFirstName|$cleanEmail|$coupleId|$userId|$cleanFirstName|$goalId|$cleanNote||||||$payuSalt"
@@ -316,14 +383,14 @@ class PayUCheckoutActivity : AppCompatActivity() {
         webView.postUrl(actionUrl, postData)
     }
 
-    private fun onPaymentApproved() {
+    private fun onPaymentApproved(ref: String? = null) {
         if (isCompleted) return
         isCompleted = true
 
         progressBar.visibility = View.VISIBLE
         Toast.makeText(this, "Payment approved! Crediting Vault... 🌸", Toast.LENGTH_SHORT).show()
 
-        val generatedRef = "PAYU_${System.currentTimeMillis()}"
+        val generatedRef = ref?.ifBlank { null } ?: currentTxnId.ifBlank { "PAYU_${System.currentTimeMillis()}" }
 
         lifecycleScope.launch {
             val success = repository.recordDeposit(

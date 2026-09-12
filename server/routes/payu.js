@@ -317,8 +317,20 @@ router.post('/success', async (req, res) => {
   const db = getFirestore();
   if (db && coupleId && amount > 0) {
     try {
-      const walletRef = db.collection('savings_wallets').doc(coupleId);
-      const walletDoc = await walletRef.get();
+      const verifiedUtr = utrNumber || txnid || `PAYU-${Date.now()}`;
+
+      // Check if already processed to prevent double crediting
+      const existingTx = await db.collection('savings_transactions')
+        .where('coupleId', '==', coupleId)
+        .where('utrNumber', '==', verifiedUtr)
+        .limit(1)
+        .get();
+
+      if (!existingTx.empty) {
+        console.log(`✿ Transaction ${verifiedUtr} already processed for couple ${coupleId}. Skipping duplicate credit.`);
+      } else {
+        const walletRef = db.collection('savings_wallets').doc(coupleId);
+        const walletDoc = await walletRef.get();
 
       let totalBalance = amount;
       let user1Total = 0;
@@ -425,10 +437,11 @@ router.post('/success', async (req, res) => {
       } catch (pushErr) {
         console.warn('✿ Could not send push notification for vault deposit:', pushErr.message);
       }
-    } catch (dbErr) {
-      console.error('✿ Error updating savings wallet on PayU success:', dbErr);
     }
+  } catch (dbErr) {
+    console.error('✿ Error updating savings wallet on PayU success:', dbErr);
   }
+}
 
   // Render celebratory response page
   res.send(`
@@ -470,6 +483,11 @@ router.post('/success', async (req, res) => {
         <a href="intent://vault#Intent;scheme=ourbloom;package=com.ourbloom.app;end" class="btn">Return to Our Bloom 💖</a>
         <p class="note">Your vault balance has updated live in the app. You can safely close this screen.</p>
       </div>
+      <script>
+        if (window.PayUBridge && typeof window.PayUBridge.onPaymentSuccess === 'function') {
+          window.PayUBridge.onPaymentSuccess('${utrNumber || txnid}');
+        }
+      </script>
     </body>
     </html>
   `);

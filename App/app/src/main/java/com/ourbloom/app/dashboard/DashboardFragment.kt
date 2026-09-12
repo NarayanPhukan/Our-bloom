@@ -617,7 +617,7 @@ class DashboardFragment : Fragment() {
                 when (ongoing.status) {
                     "PENDING_APPROVAL" -> tvAlert?.text = "⚠️ Withdrawal Pending Partner Approval"
                     "WAITING_PERIOD" -> tvAlert?.text = "⏳ Emergency 4-Day Cooldown Active"
-                    "PROCESSING_PAYOUT" -> tvAlert?.text = "⏳ Payout Processing (credited within 48h)"
+                    "PROCESSING_PAYOUT" -> tvAlert?.text = "🏦 Bank Withdrawal Payout Processing (credited within 48h)"
                     else -> tvAlert?.visibility = View.GONE
                 }
             } else {

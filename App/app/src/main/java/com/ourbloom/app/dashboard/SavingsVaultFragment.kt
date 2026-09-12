@@ -317,8 +317,8 @@ class SavingsVaultFragment : Fragment() {
                 btnCancelWithdrawal.visibility = View.GONE
                 tvActiveWithCountdown.visibility = View.GONE
 
-                tvActiveWithTitle.text = "Processing Payout ⏳"
-                tvActiveWithDetails.text = "₹$cleanAmount approved! Amount will be credited to your bank account within 48 hours."
+                tvActiveWithTitle.text = "🏦 Bank Withdrawal Payout in Progress"
+                tvActiveWithDetails.text = "₹$cleanAmount withdrawal approved! Transferring to your bank account within 48 hours."
             }
             else -> {
                 cardActiveWithdrawal.visibility = View.GONE

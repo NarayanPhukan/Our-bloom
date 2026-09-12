@@ -1,8 +1,8 @@
 {
-  "versionCode": 55,
-  "versionName": "1.54",
+  "versionCode": 56,
+  "versionName": "1.55",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Direct PayU Live Checkout (Clean 1-Tap UI without custom intermediate menus)",
+  "changelog": "Instant PayU live deposit crediting & enhanced WebView checkout callback handling",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
