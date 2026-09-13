@@ -1,34 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Background & Surfaces (Obsidian Fintech) -->
-    <color name="admin_bg">#0D0F15</color>
-    <color name="admin_surface">#141721</color>
-    <color name="admin_card">#1B1F2D</color>
-    <color name="admin_card_elevated">#222739</color>
-    <color name="admin_card_border">#2C3349</color>
-    <color name="admin_divider">#1C2130</color>
+    <!-- Background & Canvas (Clean White & Slate) -->
+    <color name="admin_bg">#F4F7FB</color>
+    <color name="admin_surface">#FFFFFF</color>
+    <color name="admin_card">#FFFFFF</color>
+    <color name="admin_card_elevated">#F8FAFD</color>
+    <color name="admin_card_border">#E2E8F0</color>
+    <color name="admin_divider">#E2E8F0</color>
+    <color name="admin_input_bg">#F8FAFC</color>
 
-    <!-- Brand Accents -->
-    <color name="admin_rose">#E85D75</color>
-    <color name="admin_rose_glow">#20E85D75</color>
-    <color name="admin_gold">#FFCA28</color>
-    <color name="admin_gold_glow">#20FFCA28</color>
+    <!-- Navy Blue Brand Colors -->
+    <color name="admin_navy">#0F2744</color>
+    <color name="admin_navy_dark">#0A192F</color>
+    <color name="admin_navy_accent">#1B3B6F</color>
+    <color name="admin_navy_light">#2563EB</color>
+    <color name="admin_navy_soft">#EEF4FF</color>
+    <color name="admin_navy_subtle">#140F2744</color>
 
-    <!-- Financial Status Accents -->
-    <color name="admin_emerald">#00E676</color>
-    <color name="admin_emerald_dark">#00B359</color>
-    <color name="admin_emerald_glow">#1E00E676</color>
-    <color name="admin_amber">#FFB300</color>
-    <color name="admin_amber_glow">#20FFB300</color>
-    <color name="admin_crimson">#FF5252</color>
-    <color name="admin_crimson_glow">#20FF5252</color>
-    <color name="admin_blue">#448AFF</color>
-    <color name="admin_blue_glow">#20448AFF</color>
+    <!-- Brand Aliases -->
+    <color name="admin_rose">#0F2744</color>
+    <color name="admin_rose_glow">#140F2744</color>
+    <color name="admin_gold">#D97706</color>
+    <color name="admin_gold_glow">#FFFBEB</color>
 
-    <!-- Typography -->
-    <color name="admin_text_primary">#F4F6FC</color>
-    <color name="admin_text_secondary">#9DA5BA</color>
-    <color name="admin_text_muted">#626B84</color>
+    <!-- Financial Status Accents (Calibrated for High Contrast on White) -->
+    <color name="admin_emerald">#059669</color>
+    <color name="admin_emerald_dark">#047857</color>
+    <color name="admin_emerald_glow">#ECFDF5</color>
+    <color name="admin_amber">#D97706</color>
+    <color name="admin_amber_glow">#FFFBEB</color>
+    <color name="admin_crimson">#DC2626</color>
+    <color name="admin_crimson_glow">#FEF2F2</color>
+    <color name="admin_blue">#1D4ED8</color>
+    <color name="admin_blue_glow">#EFF6FF</color>
+
+    <!-- Typography (Deep Navy & Slate for Crisp Readability) -->
+    <color name="admin_text_primary">#0A192F</color>
+    <color name="admin_text_secondary">#334E68</color>
+    <color name="admin_text_muted">#64748B</color>
 
     <!-- Standard Aliases -->
     <color name="black">#000000</color>

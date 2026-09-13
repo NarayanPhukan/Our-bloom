@@ -63,9 +63,10 @@ class AdminAuthActivity : AppCompatActivity() {
         btnBiometric = findViewById(R.id.btn_biometric)
         tvError = findViewById(R.id.tv_auth_error)
 
-        // Set default admin phone if empty
+        // Set active admin phone if empty
+        val currentProfile = com.ourbloom.admin.profile.AdminProfileRepository.getProfile()
         if (etMobile.text.isNullOrBlank()) {
-            etMobile.setText(ADMIN_MOBILE)
+            etMobile.setText(currentProfile.mobileNumber.ifBlank { ADMIN_MOBILE })
         }
 
         btnLogin.setOnClickListener {
@@ -101,24 +102,19 @@ class AdminAuthActivity : AppCompatActivity() {
             return
         }
 
-        val isMobileValid = mobile10 == ADMIN_MOBILE
-        val isPasswordValid = password == ADMIN_PASSWORD_PRIMARY ||
-                password.equals(ADMIN_PASSWORD_PRIMARY, ignoreCase = true) ||
-                password == ADMIN_PASSWORD_FALLBACK ||
-                password.equals(ADMIN_PASSWORD_FALLBACK, ignoreCase = true)
+        val isValid = com.ourbloom.admin.profile.AdminProfileRepository.validateCredentials(mobile10, password)
 
-        if (isMobileValid && isPasswordValid) {
+        if (isValid) {
+            val profile = com.ourbloom.admin.profile.AdminProfileRepository.getProfile()
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit()
                 .putBoolean(KEY_IS_LOGGED_IN, true)
                 .putString(KEY_ADMIN_MOBILE, mobile10)
                 .apply()
 
-            unlockApp("Welcome Narayan • Admin Access Granted 🌸")
-        } else if (!isMobileValid) {
-            showError("Unauthorized: Mobile number +91 $mobile10 is not recognized as admin.")
+            unlockApp("Welcome ${profile.adminName} • Admin Access Granted 🌸")
         } else {
-            showError("Incorrect administrator password. Please try again.")
+            showError("Invalid administrator credentials. Please check your mobile or password.")
         }
     }
 

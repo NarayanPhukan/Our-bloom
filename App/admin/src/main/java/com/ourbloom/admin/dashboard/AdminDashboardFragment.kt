@@ -101,39 +101,34 @@ class AdminDashboardFragment : Fragment() {
             showManualCreditDialog()
         }
 
-        // Bug Radar Card
+        // Bug Radar Strip
         val cardBugRadar = root.findViewById<View>(R.id.card_bug_radar_status)
         val tvBugSummary = root.findViewById<TextView>(R.id.tv_bug_radar_summary)
         val ivBugIcon = root.findViewById<android.widget.ImageView>(R.id.iv_bug_radar_icon)
-        val btnOpenRadar = root.findViewById<TextView>(R.id.btn_open_bug_radar)
 
-        val openRadarAction = View.OnClickListener {
+        cardBugRadar?.setOnClickListener {
             com.ourbloom.admin.bugs.BugRadarDialog(requireContext()).show()
         }
-        cardBugRadar.setOnClickListener(openRadarAction)
-        btnOpenRadar.setOnClickListener(openRadarAction)
 
         // Observe Bug Radar in real-time
         viewLifecycleOwner.lifecycleScope.launch {
             com.ourbloom.admin.bugs.AdminBugRadar.bugsState.collect { bugs ->
                 if (!isAdded) return@collect
                 if (bugs.isEmpty()) {
-                    tvBugSummary.text = "0 errors detected • All systems normal"
-                    tvBugSummary.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.admin_emerald))
-                    ivBugIcon.setColorFilter(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.admin_emerald))
-                    btnOpenRadar.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.admin_emerald))
+                    tvBugSummary?.text = "0 errors"
+                    tvBugSummary?.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.admin_emerald))
+                    ivBugIcon?.setColorFilter(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.admin_emerald))
                 } else {
                     val criticalCount = bugs.count { it.severity == com.ourbloom.admin.bugs.BugSeverity.CRITICAL }
                     val summaryText = if (criticalCount > 0) {
-                        "${bugs.size} error(s) ($criticalCount critical) • Tap to inspect"
+                        "${bugs.size} errors ($criticalCount critical)"
                     } else {
-                        "${bugs.size} error(s) intercepted • Tap to inspect"
+                        "${bugs.size} error(s) caught"
                     }
-                    tvBugSummary.text = summaryText
+                    tvBugSummary?.text = summaryText
                     val alertColor = if (criticalCount > 0) R.color.admin_crimson else R.color.admin_amber
-                    tvBugSummary.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), alertColor))
-                    ivBugIcon.setColorFilter(androidx.core.content.ContextCompat.getColor(requireContext(), alertColor))
-                    btnOpenRadar.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), alertColor))
+                    tvBugSummary?.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), alertColor))
+                    ivBugIcon?.setColorFilter(androidx.core.content.ContextCompat.getColor(requireContext(), alertColor))
                 }
             }
         }

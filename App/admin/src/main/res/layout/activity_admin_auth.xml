@@ -28,7 +28,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:src="@drawable/ic_lock"
-                app:tint="@color/admin_emerald" />
+                app:tint="@color/admin_navy" />
         </FrameLayout>
 
         <TextView
@@ -37,7 +37,7 @@
             android:layout_marginTop="20dp"
             android:fontFamily="sans-serif-black"
             android:text="@string/admin_app_name"
-            android:textColor="@color/admin_text_primary"
+            android:textColor="@color/admin_navy"
             android:textSize="28sp" />
 
         <TextView
@@ -54,6 +54,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="36dp"
             android:background="@drawable/bg_admin_card"
+            android:elevation="2dp"
             android:orientation="vertical"
             android:padding="20dp">
 
@@ -62,7 +63,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-black"
                 android:text="ADMINISTRATOR LOGIN"
-                android:textColor="@color/admin_text_muted"
+                android:textColor="@color/admin_navy"
                 android:textSize="11sp" />
 
             <!-- Mobile Number Input -->
@@ -89,7 +90,7 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="sans-serif-bold"
                     android:text="+91"
-                    android:textColor="@color/admin_emerald"
+                    android:textColor="@color/admin_navy"
                     android:textSize="15sp" />
 
                 <View
@@ -162,10 +163,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="20dp"
-                android:backgroundTint="@color/admin_emerald_dark"
+                android:backgroundTint="@color/admin_navy"
                 android:fontFamily="sans-serif-black"
                 android:text="Log In to Command Center"
-                android:textColor="@color/black"
+                android:textColor="@color/white"
                 android:textSize="14sp"
                 app:cornerRadius="12dp" />
 
@@ -179,12 +180,12 @@
             android:layout_marginTop="20dp"
             android:backgroundTint="@color/admin_card"
             android:text="Quick Unlock with Biometrics"
-            android:textColor="@color/admin_emerald"
+            android:textColor="@color/admin_navy"
             android:textSize="13sp"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_fingerprint"
-            app:iconTint="@color/admin_emerald"
-            app:strokeColor="@color/admin_card_border"
+            app:iconTint="@color/admin_navy"
+            app:strokeColor="@color/admin_navy"
             app:strokeWidth="1dp" />
 
         <TextView

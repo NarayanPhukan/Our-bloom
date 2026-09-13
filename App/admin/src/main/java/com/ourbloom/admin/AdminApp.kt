@@ -8,5 +8,6 @@ class AdminApp : Application() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
         com.ourbloom.admin.bugs.AdminBugRadar.init(this)
+        com.ourbloom.admin.profile.AdminProfileRepository.init(this)
     }
 }

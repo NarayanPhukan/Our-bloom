@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:id="@+id/group_main_nav" android:checkableBehavior="single">
+        <item
+            android:id="@+id/drawer_item_dashboard"
+            android:icon="@drawable/ic_dashboard"
+            android:title="Command Overview" />
+        <item
+            android:id="@+id/drawer_item_payouts"
+            android:icon="@drawable/ic_payouts"
+            android:title="Withdrawal Payouts" />
+        <item
+            android:id="@+id/drawer_item_ledger"
+            android:icon="@drawable/ic_ledger"
+            android:title="Financial Ledger" />
+        <item
+            android:id="@+id/drawer_item_wallets"
+            android:icon="@drawable/ic_wallets"
+            android:title="Couple Vault Reserves" />
+    </group>
+
+    <item android:title="System &amp; Administration">
+        <menu>
+            <item
+                android:id="@+id/drawer_item_profile"
+                android:icon="@drawable/ic_person"
+                android:title="Admin Profile &amp; Password" />
+            <item
+                android:id="@+id/drawer_item_radar"
+                android:icon="@drawable/ic_bug"
+                android:title="Bug &amp; Crash Radar" />
+            <item
+                android:id="@+id/drawer_item_updates"
+                android:icon="@drawable/ic_upgrade"
+                android:title="Check for Updates" />
+            <item
+                android:id="@+id/drawer_item_lock"
+                android:icon="@drawable/ic_lock"
+                android:title="Lock Session" />
+        </menu>
+    </item>
+</menu>

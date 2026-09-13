@@ -1,106 +1,130 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/admin_drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/admin_bg">
+    android:fitsSystemWindows="true">
 
-    <!-- Top Admin Bar -->
-    <LinearLayout
-        android:id="@+id/layout_top_bar"
+    <!-- Main Content Container -->
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:background="@color/admin_surface"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_height="match_parent"
+        android:background="@color/admin_bg">
 
-        <TextView
-            android:id="@+id/tv_admin_brand"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fontFamily="sans-serif-black"
-            android:text="Bloom Admin 🌸"
-            android:textColor="@color/admin_text_primary"
-            android:textSize="20sp" />
-
-        <!-- Live Sync Dot Badge -->
+        <!-- Top Admin Bar (White & Navy Blue Theme) -->
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_status_verified"
-            android:gravity="center"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp">
+            android:id="@+id/layout_top_bar"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:background="@color/admin_surface"
+            android:elevation="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            app:layout_constraintTop_toTopOf="parent">
 
-            <View
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:background="@drawable/bg_btn_emerald" />
+            <!-- Hamburger Menu Button -->
+            <ImageButton
+                android:id="@+id/btn_admin_menu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Menu"
+                android:src="@drawable/ic_menu"
+                app:tint="@color/admin_navy" />
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Brand Title -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:fontFamily="sans-serif-medium"
-                android:text="LIVE"
-                android:textColor="@color/admin_emerald"
-                android:textSize="11sp" />
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_admin_brand"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:text="Bloom Admin"
+                    android:textColor="@color/admin_navy"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Financial Command Suite"
+                    android:textColor="@color/admin_text_muted"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <!-- Quick Profile Action -->
+            <ImageButton
+                android:id="@+id/btn_admin_profile_top"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Admin Profile"
+                android:src="@drawable/ic_person"
+                app:tint="@color/admin_navy" />
+
+            <!-- Bug Radar Button -->
+            <ImageButton
+                android:id="@+id/btn_admin_bug_radar"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Bug Radar"
+                android:src="@drawable/ic_bug"
+                app:tint="@color/admin_emerald" />
+
+            <!-- Lock Button -->
+            <ImageButton
+                android:id="@+id/btn_admin_lock"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Lock Admin"
+                android:src="@drawable/ic_lock"
+                app:tint="@color/admin_text_secondary" />
         </LinearLayout>
 
-        <!-- Bug Radar Button -->
-        <ImageButton
-            android:id="@+id/btn_admin_bug_radar"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginEnd="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Bug Radar"
-            android:src="@drawable/ic_bug"
-            app:tint="@color/admin_amber" />
+        <!-- Main Fragment Container -->
+        <FrameLayout
+            android:id="@+id/admin_fragment_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toTopOf="@id/admin_bottom_nav"
+            app:layout_constraintTop_toBottomOf="@id/layout_top_bar" />
 
-        <!-- Check Update Button -->
-        <ImageButton
-            android:id="@+id/btn_admin_update"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginEnd="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Check Updates"
-            android:src="@drawable/ic_upgrade"
-            app:tint="@color/admin_blue" />
+        <!-- Bottom Navigation (White & Navy Blue) -->
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/admin_bottom_nav"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:background="@color/admin_surface"
+            android:elevation="8dp"
+            app:itemIconTint="@color/admin_bottom_nav_selector"
+            app:itemTextColor="@color/admin_bottom_nav_selector"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:menu="@menu/admin_bottom_nav_menu" />
 
-        <!-- Lock Button -->
-        <ImageButton
-            android:id="@+id/btn_admin_lock"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Lock Admin"
-            android:src="@drawable/ic_lock"
-            app:tint="@color/admin_text_secondary" />
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Main Fragment Container -->
-    <FrameLayout
-        android:id="@+id/admin_fragment_container"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/admin_bottom_nav"
-        app:layout_constraintTop_toBottomOf="@id/layout_top_bar" />
-
-    <!-- Bottom Navigation -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/admin_bottom_nav"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
+    <!-- Navigation Drawer (Hamburger Menu) -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/admin_nav_drawer"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
         android:background="@color/admin_surface"
-        app:itemIconTint="@color/admin_bottom_nav_selector"
-        app:itemTextColor="@color/admin_bottom_nav_selector"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:menu="@menu/admin_bottom_nav_menu" />
+        android:fitsSystemWindows="true"
+        app:headerLayout="@layout/nav_header_admin"
+        app:itemIconTint="@color/admin_navy"
+        app:itemTextColor="@color/admin_text_primary"
+        app:menu="@menu/admin_drawer_menu" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.drawerlayout.widget.DrawerLayout>
