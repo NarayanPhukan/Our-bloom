@@ -524,6 +524,17 @@ app.post('/api/app-update/broadcast', async (req, res) => {
   }
 });
 
+// Direct Admin App APK download endpoint
+app.get('/api/admin/app/download', (req, res) => {
+  const localApk = path.join(__dirname, '../updates/admin/OurBloomAdmin.apk');
+  if (fs.existsSync(localApk)) {
+    res.setHeader('Content-Disposition', 'attachment; filename="OurBloomAdmin.apk"');
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    return res.sendFile(localApk);
+  }
+  return res.redirect('https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk');
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

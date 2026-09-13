@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="admin_cache" path="." />
+    <external-cache-path name="admin_ext_cache" path="." />
+    <files-path name="admin_files" path="." />
+</paths>

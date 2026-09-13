@@ -255,6 +255,11 @@ class AdminMainActivity : AppCompatActivity() {
             .commit()
     }
 
+    override fun onResume() {
+        super.onResume()
+        com.ourbloom.admin.updates.AdminUpdateManager.onResume(this)
+    }
+
     fun navigateToTab(tabId: Int) {
         bottomNav.selectedItemId = tabId
     }

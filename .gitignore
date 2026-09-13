@@ -121,4 +121,5 @@ client/release/
 *.apk
 client/public/*.apk
 client/public/OurBloomAdmin.apk
+!updates/admin/OurBloomAdmin.apk
 
