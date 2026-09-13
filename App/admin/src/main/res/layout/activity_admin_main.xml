@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/admin_bg">
+
+    <!-- Top Admin Bar -->
+    <LinearLayout
+        android:id="@+id/layout_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="@color/admin_surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tv_admin_brand"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-black"
+            android:text="Bloom Admin 🌸"
+            android:textColor="@color/admin_text_primary"
+            android:textSize="20sp" />
+
+        <!-- Live Sync Dot Badge -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_status_verified"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp">
+
+            <View
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/bg_btn_emerald" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="LIVE"
+                android:textColor="@color/admin_emerald"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Bug Radar Button -->
+        <ImageButton
+            android:id="@+id/btn_admin_bug_radar"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Bug Radar"
+            android:src="@drawable/ic_bug"
+            app:tint="@color/admin_amber" />
+
+        <!-- Check Update Button -->
+        <ImageButton
+            android:id="@+id/btn_admin_update"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Check Updates"
+            android:src="@drawable/ic_upgrade"
+            app:tint="@color/admin_blue" />
+
+        <!-- Lock Button -->
+        <ImageButton
+            android:id="@+id/btn_admin_lock"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Lock Admin"
+            android:src="@drawable/ic_lock"
+            app:tint="@color/admin_text_secondary" />
+    </LinearLayout>
+
+    <!-- Main Fragment Container -->
+    <FrameLayout
+        android:id="@+id/admin_fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/admin_bottom_nav"
+        app:layout_constraintTop_toBottomOf="@id/layout_top_bar" />
+
+    <!-- Bottom Navigation -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/admin_bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="@color/admin_surface"
+        app:itemIconTint="@color/admin_bottom_nav_selector"
+        app:itemTextColor="@color/admin_bottom_nav_selector"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:menu="@menu/admin_bottom_nav_menu" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

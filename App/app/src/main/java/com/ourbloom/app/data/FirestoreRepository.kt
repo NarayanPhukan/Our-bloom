@@ -2017,6 +2017,19 @@ class FirestoreRepository {
                 )
             }
 
+            // Send instant high-priority alert to Bloom Admin app
+            val cleanAmountStr = if (amount % 1.0 == 0.0) amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", amount)
+            val emTagStr = if (isEmergency) " [Emergency]" else ""
+            DirectFcmSender.notifyAdmin(
+                title = "⚠️ New Withdrawal Request: ₹$cleanAmountStr$emTagStr! 🌸",
+                body = "$userName requested ₹$cleanAmountStr for \"${reason.trim()}\". Tap to review & approve via Gateway.",
+                data = mapOf(
+                    "type" to "withdrawal_request",
+                    "coupleId" to coupleId,
+                    "amount" to cleanAmountStr
+                )
+            )
+
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error submitting withdrawal request", e)
@@ -2038,7 +2051,8 @@ class FirestoreRepository {
 
             val updateData = mutableMapOf<String, Any>(
                 "status" to newStatus,
-                "partnerApprovedAt" to now
+                "partnerApprovedAt" to now,
+                "balanceDeducted" to (!isEmergency)
             )
             if (waitingEnds != null) updateData["waitingPeriodEndsAt"] = waitingEnds
             if (payoutExpected != null) updateData["payoutExpectedBy"] = payoutExpected
@@ -2065,6 +2079,18 @@ class FirestoreRepository {
                     mapOf("type" to "savings", "action" to "open_vault")
                 )
             }
+
+            // Notify Bloom Admin app that request is partner-approved and ready for gateway payout
+            val cleanApproveAmount = if (request.amount % 1.0 == 0.0) request.amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", request.amount)
+            DirectFcmSender.notifyAdmin(
+                title = "🏦 Payout Ready for Gateway: ₹$cleanApproveAmount! 🌸",
+                body = "Both partners approved ₹$cleanApproveAmount. Ready for automated gateway payout.",
+                data = mapOf(
+                    "type" to "payout_ready",
+                    "coupleId" to request.coupleId,
+                    "amount" to cleanApproveAmount
+                )
+            )
 
             true
         } catch (e: Exception) {
@@ -2098,6 +2124,17 @@ class FirestoreRepository {
                 }
             }
 
+            val cleanCancelAmount = if (request.amount % 1.0 == 0.0) request.amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", request.amount)
+            DirectFcmSender.notifyAdmin(
+                title = "Withdrawal Request $newStatus: ₹$cleanCancelAmount",
+                body = "Couple withdrawal of ₹$cleanCancelAmount was $newStatus.",
+                data = mapOf(
+                    "type" to "withdrawal_$newStatus",
+                    "coupleId" to request.coupleId,
+                    "amount" to cleanCancelAmount
+                )
+            )
+
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error rejecting or cancelling withdrawal request", e)
@@ -2114,7 +2151,8 @@ class FirestoreRepository {
             db.collection("withdrawal_requests").document(requestId).update(
                 mapOf(
                     "status" to "PROCESSING_PAYOUT",
-                    "payoutExpectedBy" to now + (48 * 60 * 60 * 1000L)
+                    "payoutExpectedBy" to now + (48 * 60 * 60 * 1000L),
+                    "balanceDeducted" to true
                 )
             ).await()
 

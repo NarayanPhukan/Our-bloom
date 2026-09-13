@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_admin_card"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:text="Manual Vault Deposit Credit"
+        android:textColor="@color/admin_emerald"
+        android:textSize="18sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Credit couple's vault for offline UPI transfers or reconciliations"
+        android:textColor="@color/admin_text_secondary"
+        android:textSize="12sp" />
+
+    <!-- Couple ID -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="COUPLE ID *"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_credit_couple_id"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:fontFamily="monospace"
+        android:hint="e.g. c_1714000123"
+        android:inputType="text"
+        android:paddingHorizontal="14dp"
+        android:textColor="@color/admin_text_primary"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="13sp" />
+
+    <!-- Amount -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="AMOUNT (₹) *"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_credit_amount"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:fontFamily="sans-serif-black"
+        android:hint="500"
+        android:inputType="numberDecimal"
+        android:paddingHorizontal="14dp"
+        android:textColor="@color/admin_emerald"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="18sp" />
+
+    <!-- UTR Number -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="UPI UTR / BANK REFERENCE"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_credit_utr"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:fontFamily="monospace"
+        android:hint="e.g. 423512345678"
+        android:inputType="text"
+        android:paddingHorizontal="14dp"
+        android:textColor="@color/admin_text_primary"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="13sp" />
+
+    <!-- Note -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="NOTE / PURPOSE"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_credit_note"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:hint="Direct UPI contribution"
+        android:inputType="text"
+        android:paddingHorizontal="14dp"
+        android:textColor="@color/admin_text_primary"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="13sp" />
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_cancel_credit"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Cancel"
+            android:textColor="@color/admin_text_secondary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_confirm_credit"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:backgroundTint="@color/admin_emerald_dark"
+            android:text="Credit Vault"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

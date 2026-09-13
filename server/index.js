@@ -376,6 +376,20 @@ app.post('/api/fcm/send', async (req, res) => {
   }
 });
 
+// Admin financial push dispatch endpoint (notifies all admin devices & topic)
+app.post('/api/admin/notify', async (req, res) => {
+  try {
+    const { title, body, data } = req.body;
+    if (!title || !body) return res.status(400).json({ error: 'title and body required' });
+    const { notifyAdmin } = require('./utils/firebase');
+    const success = await notifyAdmin(title, body, data || {});
+    res.json({ success });
+  } catch (err) {
+    console.error('✿ Error in /api/admin/notify:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Instant chat push notification endpoint (wakes up Render & guarantees real-time FCM dispatch)
 app.post('/api/chat/notify', async (req, res) => {
   try {

@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/bg_admin_card"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Header: Amount + Status Badge -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_payout_amount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-black"
+                android:text="₹10,000"
+                android:textColor="@color/admin_text_primary"
+                android:textSize="24sp" />
+
+            <TextView
+                android:id="@+id/tv_payout_requester"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Requested by Partner • Vacation Goal"
+                android:textColor="@color/admin_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Status Tag -->
+        <TextView
+            android:id="@+id/tv_payout_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_status_pending"
+            android:fontFamily="sans-serif-bold"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp"
+            android:text="PROCESSING"
+            android:textColor="@color/admin_amber"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="12dp"
+        android:background="@color/admin_divider" />
+
+    <!-- Couple ID & Mode -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_payout_couple_id"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:text="Couple: c_12345"
+            android:textColor="@color/admin_text_muted"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/tv_payout_mode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:text="JOINT TRANSFER"
+            android:textColor="@color/admin_blue"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Bank Details Card Container -->
+    <LinearLayout
+        android:id="@+id/layout_bank_details"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@color/admin_surface"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Account Holder -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Beneficiary:"
+                android:textColor="@color/admin_text_muted"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_bank_holder"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-bold"
+                android:text="Jane Doe"
+                android:textColor="@color/admin_text_primary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Account Number with Copy -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Account No:"
+                android:textColor="@color/admin_text_muted"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_bank_account"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="033325224313136"
+                android:textColor="@color/admin_text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btn_copy_account"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Copy Account"
+                android:padding="6dp"
+                android:src="@drawable/ic_copy"
+                app:tint="@color/admin_blue" />
+        </LinearLayout>
+
+        <!-- IFSC Code with Copy -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="IFSC / Bank:"
+                android:textColor="@color/admin_text_muted"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_bank_ifsc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="NESF0000333"
+                android:textColor="@color/admin_text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btn_copy_ifsc"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Copy IFSC"
+                android:padding="6dp"
+                android:src="@drawable/ic_copy"
+                app:tint="@color/admin_blue" />
+        </LinearLayout>
+
+        <!-- UPI ID with Copy & Pay -->
+        <LinearLayout
+            android:id="@+id/layout_upi_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="UPI VPA:"
+                android:textColor="@color/admin_text_muted"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_bank_upi"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="janedoe@upi"
+                android:textColor="@color/admin_emerald"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btn_copy_upi"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Copy UPI"
+                android:padding="6dp"
+                android:src="@drawable/ic_copy"
+                app:tint="@color/admin_emerald" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Payment Gateway Auto-Disbursement Banner -->
+    <LinearLayout
+        android:id="@+id/layout_gateway_badge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_input"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="10dp">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_lock"
+            app:tint="@color/admin_emerald" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="Automated Payout • Handled by PayU Payment Gateway"
+            android:textColor="@color/admin_emerald"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Details footer (Gateway Ref or rejection reason) -->
+    <TextView
+        android:id="@+id/tv_payout_ref_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:fontFamily="monospace"
+        android:text="Disbursed via Gateway • Ref: PAYU_PO_12345678"
+        android:textColor="@color/admin_emerald"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- Action Buttons (Decline vs Approve & Pay via Gateway) -->
+    <LinearLayout
+        android:id="@+id/layout_actions_payout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_reject_payout"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/admin_card"
+            android:text="Decline"
+            android:textColor="@color/admin_crimson"
+            android:textSize="12sp"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/admin_crimson"
+            app:strokeWidth="1dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_disburse_payout"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="6dp"
+            android:layout_weight="2"
+            android:backgroundTint="@color/admin_emerald_dark"
+            android:text="Approve &amp; Pay via Gateway ⚡"
+            android:textColor="@color/black"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_item_dashboard"
+        android:icon="@drawable/ic_dashboard"
+        android:title="@string/nav_dashboard" />
+    <item
+        android:id="@+id/nav_item_payouts"
+        android:icon="@drawable/ic_payouts"
+        android:title="@string/nav_payouts" />
+    <item
+        android:id="@+id/nav_item_ledger"
+        android:icon="@drawable/ic_ledger"
+        android:title="@string/nav_ledger" />
+    <item
+        android:id="@+id/nav_item_wallets"
+        android:icon="@drawable/ic_wallets"
+        android:title="@string/nav_wallets" />
+</menu>

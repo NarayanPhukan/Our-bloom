@@ -21,7 +21,12 @@ data class WithdrawalRequest(
     val status: String = "PENDING_APPROVAL", // PENDING_APPROVAL, WAITING_PERIOD, PROCESSING_PAYOUT, COMPLETED, REJECTED, CANCELLED
     val requestedAt: Long = 0L,
     val partnerApprovedAt: Long? = null,
+    val adminApprovedAt: Long? = null,
     val waitingPeriodEndsAt: Long? = null,
     val payoutExpectedBy: Long? = null,
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    val payoutReference: String = "",
+    val rejectionReason: String = "",
+    val adminNotes: String = "",
+    val balanceDeducted: Boolean = false
 )

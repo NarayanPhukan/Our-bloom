@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_admin_card"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛡️"
+            android:textSize="22sp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-black"
+                android:text="Bloom Bug Radar"
+                android:textColor="@color/admin_text_primary"
+                android:textSize="18sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ultra-sensitive error &amp; crash interception"
+                android:textColor="@color/admin_text_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_bug_count_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_status_pending"
+            android:fontFamily="sans-serif-bold"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:text="0 Events"
+            android:textColor="@color/admin_amber"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Controls Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_simulate_bug"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/admin_surface"
+            android:text="⚡ Simulate Error"
+            android:textColor="@color/admin_amber"
+            android:textSize="11sp"
+            app:cornerRadius="8dp"
+            app:strokeColor="@color/admin_amber"
+            app:strokeWidth="1dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_clear_bugs"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/admin_surface"
+            android:text="🗑️ Clear Log"
+            android:textColor="@color/admin_text_secondary"
+            android:textSize="11sp"
+            app:cornerRadius="8dp" />
+    </LinearLayout>
+
+    <!-- RecyclerView for Bug Items (capped height) -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_bugs"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:layout_marginTop="12dp"
+        android:clipToPadding="false" />
+
+    <!-- Empty State -->
+    <LinearLayout
+        android:id="@+id/layout_no_bugs"
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🌸"
+            android:textSize="36sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif-bold"
+            android:text="No Bugs Detected"
+            android:textColor="@color/admin_emerald"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:paddingHorizontal="20dp"
+            android:text="Silent errors and fatal exceptions will automatically appear here with full diagnostic stack traces."
+            android:textColor="@color/admin_text_muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Close Button -->
+    <Button
+        android:id="@+id/btn_close_bug_radar"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:text="Dismiss"
+        android:textColor="@color/admin_text_secondary" />
+
+</LinearLayout>

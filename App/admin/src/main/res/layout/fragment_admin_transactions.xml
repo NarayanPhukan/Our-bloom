@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/admin_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Header & Search Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/admin_surface"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-black"
+                android:text="Financial Ledger"
+                android:textColor="@color/admin_text_primary"
+                android:textSize="20sp" />
+
+            <!-- Search Field -->
+            <EditText
+                android:id="@+id/et_search_ledger"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_input"
+                android:drawableStart="@drawable/ic_search"
+                android:drawablePadding="10dp"
+                android:drawableTint="@color/admin_text_muted"
+                android:hint="Search by UTR, Partner, or Couple ID..."
+                android:inputType="text"
+                android:paddingHorizontal="12dp"
+                android:textColor="@color/admin_text_primary"
+                android:textColorHint="@color/admin_text_muted"
+                android:textSize="13sp" />
+
+            <!-- Filter Chips -->
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chip_group_tx_filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:singleSelection="true">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_tx_all"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="All Activity"
+                    android:textColor="@color/admin_text_primary" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_tx_deposits"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Deposits (+)"
+                    android:textColor="@color/admin_emerald" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_tx_withdrawals"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Payouts (-)"
+                    android:textColor="@color/admin_crimson" />
+            </com.google.android.material.chip.ChipGroup>
+        </LinearLayout>
+
+        <!-- SwipeRefresh + RecyclerView -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe_refresh_ledger"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_ledger"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:clipToPadding="false"
+                    android:padding="16dp"
+                    android:paddingBottom="80dp" />
+
+                <TextView
+                    android:id="@+id/tv_empty_ledger"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="No matching transactions found"
+                    android:textColor="@color/admin_text_muted"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+            </FrameLayout>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    </LinearLayout>
+
+    <!-- FAB: Manual Credit -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fab_manual_credit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:backgroundTint="@color/admin_emerald_dark"
+        android:text="Credit Vault"
+        android:textColor="@color/black"
+        app:icon="@drawable/ic_add"
+        app:iconTint="@color/black" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

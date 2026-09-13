@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background & Surfaces (Obsidian Fintech) -->
+    <color name="admin_bg">#0D0F15</color>
+    <color name="admin_surface">#141721</color>
+    <color name="admin_card">#1B1F2D</color>
+    <color name="admin_card_elevated">#222739</color>
+    <color name="admin_card_border">#2C3349</color>
+    <color name="admin_divider">#1C2130</color>
+
+    <!-- Brand Accents -->
+    <color name="admin_rose">#E85D75</color>
+    <color name="admin_rose_glow">#20E85D75</color>
+    <color name="admin_gold">#FFCA28</color>
+    <color name="admin_gold_glow">#20FFCA28</color>
+
+    <!-- Financial Status Accents -->
+    <color name="admin_emerald">#00E676</color>
+    <color name="admin_emerald_dark">#00B359</color>
+    <color name="admin_emerald_glow">#1E00E676</color>
+    <color name="admin_amber">#FFB300</color>
+    <color name="admin_amber_glow">#20FFB300</color>
+    <color name="admin_crimson">#FF5252</color>
+    <color name="admin_crimson_glow">#20FF5252</color>
+    <color name="admin_blue">#448AFF</color>
+    <color name="admin_blue_glow">#20448AFF</color>
+
+    <!-- Typography -->
+    <color name="admin_text_primary">#F4F6FC</color>
+    <color name="admin_text_secondary">#9DA5BA</color>
+    <color name="admin_text_muted">#626B84</color>
+
+    <!-- Standard Aliases -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="transparent">#00000000</color>
+</resources>

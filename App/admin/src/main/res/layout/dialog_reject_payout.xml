@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_admin_card"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:text="Reject Withdrawal &amp; Refund"
+        android:textColor="@color/admin_crimson"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/tv_dialog_reject_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Rejecting request. Funds will be restored to couple's vault immediately."
+        android:textColor="@color/admin_text_secondary"
+        android:textSize="12sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="REASON FOR REJECTION *"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_reject_reason"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:gravity="top|start"
+        android:hint="e.g. Bank IFSC invalid / Account name mismatch"
+        android:inputType="textMultiLine"
+        android:padding="12dp"
+        android:textColor="@color/admin_text_primary"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="13sp" />
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_cancel_reject"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Cancel"
+            android:textColor="@color/admin_text_secondary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_confirm_reject"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:backgroundTint="@color/admin_crimson"
+            android:text="Reject &amp; Refund"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

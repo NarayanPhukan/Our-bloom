@@ -79,4 +79,37 @@ object DirectFcmSender {
             false
         }
     }
+
+    /**
+     * Sends an instant high-priority financial push alert directly to the Bloom Admin app.
+     */
+    suspend fun notifyAdmin(
+        title: String,
+        body: String,
+        data: Map<String, String> = emptyMap()
+    ): Boolean = withContext(Dispatchers.IO) {
+        val endpoint = "$BASE_URL/api/admin/notify"
+        try {
+            val payload = JSONObject().apply {
+                put("title", title)
+                put("body", body)
+                val dataObj = JSONObject()
+                data.forEach { (k, v) -> dataObj.put(k, v) }
+                put("data", dataObj)
+            }
+
+            val requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+            val request = Request.Builder()
+                .url(endpoint)
+                .post(requestBody)
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Exception during admin notification: ${e.message}")
+            false
+        }
+    }
 }

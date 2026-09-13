@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_app_name">Bloom Admin</string>
+    <string name="admin_tagline">Payment &amp; Vault Command Center</string>
+    <string name="nav_dashboard">Overview</string>
+    <string name="nav_payouts">Payouts</string>
+    <string name="nav_ledger">Ledger</string>
+    <string name="nav_wallets">Vaults</string>
+
+    <!-- Auth -->
+    <string name="auth_title">Admin Security</string>
+    <string name="auth_subtitle">Enter Master PIN or use Biometric to access financial controls</string>
+    <string name="auth_unlock">Unlock Command Center</string>
+    <string name="auth_pin_prompt">Enter 4-digit Master PIN</string>
+    <string name="auth_biometric_title">Admin Biometric Verification</string>
+    <string name="auth_biometric_subtitle">Touch sensor to verify administrator identity</string>
+</resources>

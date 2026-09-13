@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_admin_card"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:text="Disburse Withdrawal Payout"
+        android:textColor="@color/admin_text_primary"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/tv_dialog_disburse_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Disbursing ₹10,000 to Jane Doe"
+        android:textColor="@color/admin_emerald"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_dialog_disburse_account"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="monospace"
+        android:text="Acc: 1234567890 | UPI: user@upi"
+        android:textColor="@color/admin_text_secondary"
+        android:textSize="12sp" />
+
+    <!-- Notice banner -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@color/admin_surface"
+        android:padding="10dp"
+        android:text="⚠️ Confirming will disburse this payout, record Bank UTR, and update the couple's vault balance."
+        android:textColor="@color/admin_amber"
+        android:textSize="11sp" />
+
+    <!-- UTR Number Input -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:text="BANK UTR / IMPS / UPI REFERENCE *"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_disburse_utr"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:fontFamily="monospace"
+        android:hint="e.g. 423512345678"
+        android:inputType="text"
+        android:paddingHorizontal="14dp"
+        android:textColor="@color/admin_text_primary"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="14sp" />
+
+    <!-- Optional Notes -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="ADMIN NOTES (OPTIONAL)"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/et_disburse_notes"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input"
+        android:hint="e.g. Transferred via SBI Corporate Banking / GPay"
+        android:inputType="text"
+        android:paddingHorizontal="14dp"
+        android:textColor="@color/admin_text_primary"
+        android:textColorHint="@color/admin_text_muted"
+        android:textSize="13sp" />
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_cancel_disburse"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Cancel"
+            android:textColor="@color/admin_text_secondary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_confirm_disburse"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:backgroundTint="@color/admin_emerald_dark"
+            android:text="Confirm &amp; Update Vault"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

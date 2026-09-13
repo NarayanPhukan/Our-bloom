@@ -118,3 +118,7 @@ firebase-service-account.json
 *.exe
 release/
 client/release/
+*.apk
+client/public/*.apk
+client/public/OurBloomAdmin.apk
+

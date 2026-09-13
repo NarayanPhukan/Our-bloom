@@ -125,6 +125,90 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
   }
 };
 
+/**
+ * Dispatches high-priority financial alerts directly to the administrator's device
+ * via both the dedicated FCM topic ('admin_financial_alerts') and all registered
+ * admin devices in Firestore collection 'admin_devices'.
+ */
+const notifyAdmin = async (title, body, data = {}) => {
+  if (!isInitialized || !messaging) {
+    console.warn('✿ Firebase Admin not initialized, cannot notify admin');
+    return false;
+  }
+
+  let sent = false;
+  const adminChannelId = 'bloom_admin_financial_alerts';
+  const payloadData = {
+    title: String(title),
+    body: String(body),
+    channelId: adminChannelId,
+    type: 'financial_alert',
+    ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
+  };
+
+  // 1. Send to FCM topic: admin_financial_alerts
+  try {
+    const topicMessage = {
+      topic: 'admin_financial_alerts',
+      notification: {
+        title: String(title),
+        body: String(body)
+      },
+      data: payloadData,
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: adminChannelId,
+          priority: 'high',
+          sound: 'default'
+        }
+      }
+    };
+    await messaging.send(topicMessage);
+    console.log('✿ Admin push dispatched to topic [admin_financial_alerts]:', title);
+    sent = true;
+  } catch (err) {
+    console.warn('✿ Admin topic push notice:', err.message);
+  }
+
+  // 2. Also send to all registered admin device tokens in Firestore collection 'admin_devices'
+  try {
+    if (db) {
+      const devicesSnap = await db.collection('admin_devices').get();
+      for (const doc of devicesSnap.docs) {
+        const token = doc.data()?.token;
+        if (token) {
+          try {
+            await messaging.send({
+              token: token,
+              notification: {
+                title: String(title),
+                body: String(body)
+              },
+              data: payloadData,
+              android: {
+                priority: 'high',
+                notification: {
+                  channelId: adminChannelId,
+                  priority: 'high',
+                  sound: 'default'
+                }
+              }
+            });
+            sent = true;
+          } catch (e) {
+            console.warn('✿ Error sending to admin device token:', e.message);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('✿ Error querying admin_devices:', err.message);
+  }
+
+  return sent;
+};
+
 module.exports = {
   admin: { firestore: () => db, messaging: () => messaging, auth: () => auth },
   getAuth: () => auth,
@@ -132,5 +216,6 @@ module.exports = {
   getMessaging: () => messaging,
   getBucket: () => bucket,
   sendPushNotification,
+  notifyAdmin,
   isInitialized
 };

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OurBloomAdmin" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/admin_rose</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/admin_emerald</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:windowBackground">@color/admin_bg</item>
+        <item name="android:statusBarColor">@color/admin_bg</item>
+        <item name="android:navigationBarColor">@color/admin_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.OurBloomAdmin.NoActionBar" parent="Theme.OurBloomAdmin" />
+</resources>

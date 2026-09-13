@@ -26,3 +26,6 @@ dist-ssr
 # Desktop builds & executables
 release/
 *.exe
+*.apk
+public/*.apk
+public/OurBloomAdmin.apk
