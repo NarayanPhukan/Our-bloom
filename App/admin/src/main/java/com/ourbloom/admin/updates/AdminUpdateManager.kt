@@ -24,13 +24,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 data class UpdateInfo(
     val latestVersionCode: Long = 1,
     val latestVersionName: String = "1.0.0",
     val downloadUrl: String = "",
     val changelog: String = "Performance and bug fixes.",
-    val forceUpdate: Boolean = false
+    val forceUpdate: Boolean = false,
+    val isFromGitCommit: Boolean = false
 )
 
 object AdminUpdateManager {
@@ -38,56 +43,83 @@ object AdminUpdateManager {
     private const val TAG = "BloomUpdateManager"
     private const val COLLECTION_CONFIG = "admin_config"
     private const val DOC_VERSION_INFO = "version_info"
+    private const val GITHUB_COMMITS_API = "https://api.github.com/repos/NarayanPhukan/Our-bloom/commits/main"
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
+        .build()
 
     /**
-     * Checks Firestore for newer admin app releases.
+     * Checks Firestore AND GitHub for newer releases or git pushes.
      * @param activity Context & lifecycle for displaying updates
-     * @param manualCheck If true, shows a toast if already on latest version
+     * @param manualCheck If true, shows feedback if already on latest version
      */
     fun checkForUpdates(activity: AppCompatActivity, manualCheck: Boolean = false) {
         activity.lifecycleScope.launch {
             try {
+                // 1. Check Firestore remote configuration
                 val db = FirebaseFirestore.getInstance()
                 val snapshot = db.collection(COLLECTION_CONFIG).document(DOC_VERSION_INFO).get().await()
 
-                if (!snapshot.exists()) {
-                    // Seed initial version configuration in Firestore if missing
-                    val initialConfig = mapOf(
-                        "latestVersionCode" to BuildConfig.VERSION_CODE.toLong(),
-                        "latestVersionName" to BuildConfig.VERSION_NAME,
-                        "downloadUrl" to "https://github.com/NarayanPhukan/Our-bloom/releases",
-                        "changelog" to "• Auto-detect updates & bug radar engine active\n• Real-time financial push alerts & instant PayU disbursal\n• Biometric admin authentication",
-                        "forceUpdate" to false,
-                        "lastUpdated" to System.currentTimeMillis()
-                    )
-                    db.collection(COLLECTION_CONFIG).document(DOC_VERSION_INFO).set(initialConfig, SetOptions.merge())
-                    if (manualCheck) {
-                        Toast.makeText(activity, "App is up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
+                var updateFromFirestore: UpdateInfo? = null
+
+                if (snapshot.exists()) {
+                    val latestCode = snapshot.getLong("latestVersionCode") ?: 1L
+                    val latestName = snapshot.getString("latestVersionName") ?: "1.0.0"
+                    val downloadUrl = snapshot.getString("downloadUrl") ?: "https://github.com/NarayanPhukan/Our-bloom"
+                    val changelog = snapshot.getString("changelog") ?: "General improvements & security updates."
+                    val forceUpdate = snapshot.getBoolean("forceUpdate") ?: false
+
+                    if (latestCode > BuildConfig.VERSION_CODE) {
+                        updateFromFirestore = UpdateInfo(
+                            latestVersionCode = latestCode,
+                            latestVersionName = latestName,
+                            downloadUrl = downloadUrl,
+                            changelog = changelog,
+                            forceUpdate = forceUpdate,
+                            isFromGitCommit = false
+                        )
                     }
-                    return@launch
                 }
 
-                val latestCode = snapshot.getLong("latestVersionCode") ?: BuildConfig.VERSION_CODE.toLong()
-                val latestName = snapshot.getString("latestVersionName") ?: BuildConfig.VERSION_NAME
-                val downloadUrl = snapshot.getString("downloadUrl") ?: ""
-                val changelog = snapshot.getString("changelog") ?: "General stability and performance improvements."
-                val forceUpdate = snapshot.getBoolean("forceUpdate") ?: false
+                // 2. Check GitHub API for the latest pushed Git commit
+                var updateFromGit: UpdateInfo? = null
+                try {
+                    val gitCommit = withContext(Dispatchers.IO) {
+                        fetchLatestGitCommit()
+                    }
 
-                val updateInfo = UpdateInfo(
-                    latestVersionCode = latestCode,
-                    latestVersionName = latestName,
-                    downloadUrl = downloadUrl,
-                    changelog = changelog,
-                    forceUpdate = forceUpdate
-                )
+                    if (gitCommit != null) {
+                        val currentSha = BuildConfig.GIT_COMMIT_SHA
+                        val remoteShaShort = gitCommit.sha.take(7)
 
-                if (updateInfo.latestVersionCode > BuildConfig.VERSION_CODE) {
-                    showUpdateDialog(activity, updateInfo)
+                        // If remote sha differs and is not blank
+                        if (remoteShaShort.isNotBlank() && currentSha != "unknown" && remoteShaShort != currentSha) {
+                            updateFromGit = UpdateInfo(
+                                latestVersionCode = BuildConfig.VERSION_CODE.toLong() + 1,
+                                latestVersionName = "Git build ($remoteShaShort)",
+                                downloadUrl = "https://github.com/NarayanPhukan/Our-bloom",
+                                changelog = "• New Git Commit Pushed: ${gitCommit.message.take(120)}\n• Committed: ${gitCommit.date}\n• Author: ${gitCommit.author}",
+                                forceUpdate = false,
+                                isFromGitCommit = true
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "GitHub check silent note: ${e.message}")
+                }
+
+                // Decide which update to show
+                val finalUpdate = updateFromFirestore ?: updateFromGit
+
+                if (finalUpdate != null) {
+                    showUpdateDialog(activity, finalUpdate)
                 } else if (manualCheck) {
                     Toast.makeText(
                         activity,
-                        "✨ You are on the latest version of OurBloom Admin (v${BuildConfig.VERSION_NAME})",
-                        Toast.LENGTH_SHORT
+                        "✨ You are on the latest version (v${BuildConfig.VERSION_NAME} • Commit ${BuildConfig.GIT_COMMIT_SHA})",
+                        Toast.LENGTH_LONG
                     ).show()
                 }
 
@@ -95,7 +127,7 @@ object AdminUpdateManager {
                 Log.w(TAG, "Update check failed", e)
                 AdminBugRadar.record(
                     tag = "UpdateManager/CheckFailed",
-                    message = "Failed to query version config: ${e.message}",
+                    message = "Update check encounter: ${e.message}",
                     throwable = e,
                     severity = BugSeverity.WARNING
                 )
@@ -103,6 +135,36 @@ object AdminUpdateManager {
                     Toast.makeText(activity, "Could not check for updates: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private data class GitCommitInfo(
+        val sha: String,
+        val message: String,
+        val date: String,
+        val author: String
+    )
+
+    private fun fetchLatestGitCommit(): GitCommitInfo? {
+        val request = Request.Builder()
+            .url(GITHUB_COMMITS_API)
+            .header("User-Agent", "OurBloomAdmin")
+            .header("Accept", "application/vnd.github.v3+json")
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
+            val json = JSONObject(body)
+
+            val sha = json.optString("sha", "")
+            val commitObj = json.optJSONObject("commit")
+            val message = commitObj?.optString("message", "New git push update") ?: "New git push update"
+            val committerObj = commitObj?.optJSONObject("committer")
+            val date = committerObj?.optString("date", "") ?: ""
+            val author = committerObj?.optString("name", "Git Admin") ?: "Git Admin"
+
+            return GitCommitInfo(sha = sha, message = message, date = date, author = author)
         }
     }
 
@@ -119,11 +181,14 @@ object AdminUpdateManager {
         )
 
         dialog.findViewById<TextView>(R.id.tv_update_version_title)?.text =
-            "Admin v${updateInfo.latestVersionName} is now ready"
+            if (updateInfo.isFromGitCommit) "New Git Push Detected on GitHub" else "Admin v${updateInfo.latestVersionName} is now ready"
+
         dialog.findViewById<TextView>(R.id.tv_current_version)?.text =
-            "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+            "v${BuildConfig.VERSION_NAME} (${BuildConfig.GIT_COMMIT_SHA})"
+
         dialog.findViewById<TextView>(R.id.tv_latest_version)?.text =
-            "v${updateInfo.latestVersionName} (${updateInfo.latestVersionCode})"
+            updateInfo.latestVersionName
+
         dialog.findViewById<TextView>(R.id.tv_update_changelog)?.text =
             updateInfo.changelog
 
@@ -155,10 +220,10 @@ object AdminUpdateManager {
                         throwable = e,
                         severity = BugSeverity.WARNING
                     )
-                    Toast.makeText(activity, "Cannot open download link: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(activity, "Cannot open link: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(activity, "No download link configured yet.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, "No download link configured.", Toast.LENGTH_SHORT).show()
             }
             if (!updateInfo.forceUpdate) {
                 dialog.dismiss()
