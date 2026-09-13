@@ -535,6 +535,17 @@ app.get('/api/admin/app/download', (req, res) => {
   return res.redirect('https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk');
 });
 
+// Admin App version metadata endpoint
+app.get('/api/admin/app/version', (req, res) => {
+  res.json({
+    latestVersionCode: 2,
+    latestVersionName: '1.1.0',
+    downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
+    changelog: '• White & Navy Blue executive theme\n• Hamburger navigation drawer\n• Clean, decluttered homescreen sections\n• Admin Profile & Password management\n• Direct in-app background download & one-tap install',
+    forceUpdate: false
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
