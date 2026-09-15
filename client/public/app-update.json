@@ -1,8 +1,8 @@
 {
-  "versionCode": 57,
-  "versionName": "1.56",
+  "versionCode": 58,
+  "versionName": "1.57",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Phase 2.5: Light & Dark Botanical Sanctuary UI, streamlined compact timer, calm falling sakura petals, and serene couple spaces 🌸",
+  "changelog": "Phase 2.5 Polish: Tightened home vertical rhythm, quiet navigation dock, sparse margin petals, floating heartbeat pill, and unified romantic personalization 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

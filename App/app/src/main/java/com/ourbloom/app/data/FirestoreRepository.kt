@@ -489,7 +489,7 @@ class FirestoreRepository {
                                 return@withContext com.ourbloom.app.data.models.LoveNote(
                                     coupleId = coupleId,
                                     content = content,
-                                    author = json.optString("author", "Kuchupuchu ✨"),
+                                    author = json.optString("author", "Our Bloom ✨"),
                                     dateStr = json.optString("dateStr", todayStr),
                                     isDailyAi = true,
                                     createdAt = json.optString("createdAt")

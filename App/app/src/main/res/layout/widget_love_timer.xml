@@ -28,7 +28,7 @@
         android:ellipsize="end"
         android:includeFontPadding="false"
         android:maxLines="2"
-        android:text="Kuchupuchu &amp;\nGuxaini ❤️"
+        android:text="You &amp;\nPartner ❤️"
         android:textColor="#FFFFFF"
         android:textSize="13sp"
         android:textStyle="bold" />

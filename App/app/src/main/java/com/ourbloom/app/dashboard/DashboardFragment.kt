@@ -126,10 +126,7 @@ class DashboardFragment : Fragment() {
 
             viewModel.sendHeartbeat { success ->
                 if (success) {
-                    val partnerNick = viewModel.currentUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
-                        ?: viewModel.partnerUser.value?.name
-                        ?: "your partner"
-                    Toast.makeText(context, "Heartbeat sent to $partnerNick! ❤️", Toast.LENGTH_SHORT).show()
+                    showHeartbeatConfirmation("Heartbeat sent ❤️")
                 }
             }
 
@@ -254,9 +251,15 @@ class DashboardFragment : Fragment() {
         viewModel.dailyLoveNote.observe(viewLifecycleOwner) { note ->
             if (note != null && note.content.isNotBlank()) {
                 tvDailyNoteText.text = "\"${note.content}\""
-                tvDailyNoteAuthor.text = "— From ${note.author}"
+                val partnerDisplayName = getPartnerDisplayName()
+                val authorName = if (note.isDailyAi || note.author.contains("Kuchupuchu", ignoreCase = true) || note.author.isBlank()) {
+                    partnerDisplayName
+                } else {
+                    note.author
+                }
+                tvDailyNoteAuthor.text = "— From $authorName"
                 context?.let { ctx ->
-                    com.ourbloom.app.widget.LoveNoteWidgetProvider.saveWidgetData(ctx, note.content, note.author)
+                    com.ourbloom.app.widget.LoveNoteWidgetProvider.saveWidgetData(ctx, note.content, authorName)
                 }
             } else {
                 tvDailyNoteText.text = "What is one small thing your partner did this week that made you smile? 🌸"
@@ -384,6 +387,9 @@ class DashboardFragment : Fragment() {
             showAnthemDialog()
         }
 
+        // Set sparse ambient petals on home
+        view.findViewById<com.ourbloom.app.ui.BlossomPetalView>(R.id.blossom_petal_view)?.setPetalCount(5)
+
         // Fetch data
         viewModel.loadDashboardData()
 
@@ -446,36 +452,65 @@ class DashboardFragment : Fragment() {
         dialog.show()
     }
 
+    fun getPartnerDisplayName(): String {
+        return viewModel.currentUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
+            ?: viewModel.partnerUser.value?.name?.takeIf { it.isNotBlank() }
+            ?: "my Love"
+    }
+
+    fun getMyDisplayNameForPartner(): String {
+        return viewModel.partnerUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
+            ?: viewModel.currentUser.value?.name?.takeIf { it.isNotBlank() }
+            ?: "You"
+    }
+
+    private fun showHeartbeatConfirmation(message: String = "Heartbeat sent ❤️") {
+        val card = view?.findViewById<View>(R.id.card_heartbeat_toast) ?: return
+        val text = card.findViewById<TextView>(R.id.tv_heartbeat_toast_text)
+        val icon = card.findViewById<TextView>(R.id.tv_heartbeat_toast_icon)
+        text?.text = message
+        card.visibility = View.VISIBLE
+        card.alpha = 0f
+        card.translationY = 20f
+        icon?.scaleX = 0.85f
+        icon?.scaleY = 0.85f
+        card.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(220)
+            .withEndAction {
+                icon?.animate()?.scaleX(1.3f)?.scaleY(1.3f)?.setDuration(160)?.withEndAction {
+                    icon.animate().scaleX(1.0f).scaleY(1.0f).setDuration(160).start()
+                }?.start()
+                card.postDelayed({
+                    card.animate()
+                        .alpha(0f)
+                        .translationY(20f)
+                        .setDuration(220)
+                        .withEndAction { card.visibility = View.GONE }
+                        .start()
+                }, 2200)
+            }
+            .start()
+    }
+
     private fun updateDynamicText() {
         val couple = viewModel.couple.value ?: return
         val currentUser = viewModel.currentUser.value
         val partnerUser = viewModel.partnerUser.value
 
         val months = viewModel.getMonthsTogether()
-        
-        var nickname = "Kuchupuchu"
-        val partnerNick = partnerUser?.nicknameForPartner
-        val myName = currentUser?.name
-        
-        if (!partnerNick.isNullOrBlank()) {
-            nickname = partnerNick
-        } else if (!myName.isNullOrBlank()) {
-            nickname = myName
-        }
-            
+        val partnerDisplayName = getPartnerDisplayName()
+        val myDisplayName = getMyDisplayNameForPartner()
+
         val tvHeaderTitle = view?.findViewById<TextView>(R.id.tv_header_title)
-        tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $nickname."
-        
+        tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $partnerDisplayName."
+
         val tvDaysAsNames = view?.findViewById<TextView>(R.id.tv_days_as_names)
-        
-        val partnerNicknameForMe = partnerUser?.nicknameForPartner?.takeIf { it.isNotBlank() }
-        val myNicknameForPartner = currentUser?.nicknameForPartner?.takeIf { it.isNotBlank() } ?: "Partner"
-        val leftName = partnerNicknameForMe ?: (myName?.takeIf { it.isNotBlank() } ?: "You")
-        
-        tvDaysAsNames?.text = "DAYS AS ${leftName.uppercase()} & ${myNicknameForPartner.uppercase()}"
+        tvDaysAsNames?.text = "DAYS AS ${myDisplayName.uppercase()} & ${partnerDisplayName.uppercase()}"
 
         val tvHeartbeatSubtitle = view?.findViewById<TextView>(R.id.tv_heartbeat_subtitle)
-        tvHeartbeatSubtitle?.text = "Send a live tactile heartbeat pulse to $myNicknameForPartner ❤️"
+        tvHeartbeatSubtitle?.text = "Send a live tactile heartbeat pulse to $partnerDisplayName ❤️"
 
         // Sync data to home screen widget
         context?.let { ctx ->
@@ -483,10 +518,10 @@ class DashboardFragment : Fragment() {
                 ctx.applicationContext,
                 couple.startDate,
                 couple.startTime,
-                myNicknameForPartner,
-                myName,
+                partnerDisplayName,
+                currentUser?.name,
                 partnerUser?.name,
-                leftName
+                myDisplayName
             )
         }
     }
@@ -538,10 +573,11 @@ class DashboardFragment : Fragment() {
 
     private fun showIncomingHeartbeatDialog(senderName: String) {
         if (!isAdded || context == null) return
+        val partnerName = getPartnerDisplayName()
         try {
             android.app.AlertDialog.Builder(requireContext())
                 .setTitle("💓 Heartbeat Received")
-                .setMessage("$senderName is thinking of you right now! ❤️")
+                .setMessage("$partnerName is thinking of you right now! ❤️")
                 .setPositiveButton("Send Back 💓") { _, _ ->
                     val btn = view?.findViewById<MaterialButton>(R.id.btn_send_heartbeat)
                     btn?.performClick()
@@ -571,9 +607,7 @@ class DashboardFragment : Fragment() {
                 val isRecent = updatedAt == 0L || (now - updatedAt) in -3600000L..(24 * 3600 * 1000L)
 
                 if (battery in 0..100 && isRecent) {
-                    val partnerName = viewModel.currentUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
-                        ?: viewModel.partnerUser.value?.name?.takeIf { it.isNotBlank() }
-                        ?: "Partner"
+                    val partnerName = getPartnerDisplayName()
                     val icon = if (isCharging) "⚡" else if (battery <= 20) "🪫" else "🔋"
                     val sereneText = "🌸 $partnerName • Online now"
                     val detailText = if (isCharging) "$partnerName • $icon $battery% ⚡ Charging" else "$partnerName • $icon $battery%"
@@ -625,7 +659,7 @@ class DashboardFragment : Fragment() {
         
         val input = android.widget.EditText(requireContext()).apply {
             setText(currentNick)
-            hint = "e.g., Kuchupuchu"
+            hint = "e.g., My Love"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
             setPadding(48, 32, 48, 32)
             setBackgroundResource(android.R.color.transparent)

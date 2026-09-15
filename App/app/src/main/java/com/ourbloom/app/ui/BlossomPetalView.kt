@@ -16,7 +16,7 @@ class BlossomPetalView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private val petals = mutableListOf<Petal>()
-    private val maxPetals = 8
+    private var maxPetals = 5
     private var isRunning = true
     private val petalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -54,6 +54,14 @@ class BlossomPetalView @JvmOverloads constructor(
         }
     }
 
+    fun setPetalCount(count: Int) {
+        maxPetals = count.coerceIn(0, 15)
+        if (width > 0 && height > 0) {
+            initPetals(width, height)
+            invalidate()
+        }
+    }
+
     private fun isReducedMotion(): Boolean {
         return try {
             val durationScale = android.provider.Settings.Global.getFloat(
@@ -82,33 +90,33 @@ class BlossomPetalView @JvmOverloads constructor(
     }
 
     private fun createPetal(w: Int, h: Int, randomizeY: Boolean = false): Petal {
-        val y = if (randomizeY) Random.nextFloat() * h else -30f - Random.nextFloat() * 60f
-        // Subtly bias towards margins so center text remains legible
-        val x = if (Random.nextFloat() < 0.7f) {
+        val y = if (randomizeY) Random.nextFloat() * h else -25f - Random.nextFloat() * 50f
+        // 85% of petals placed strictly in outer 15% margin rails so center content remains clear
+        val x = if (Random.nextFloat() < 0.85f) {
             if (Random.nextBoolean()) {
-                Random.nextFloat() * (w * 0.3f)
+                Random.nextFloat() * (w * 0.15f)
             } else {
-                w * 0.7f + Random.nextFloat() * (w * 0.3f)
+                w * 0.85f + Random.nextFloat() * (w * 0.15f)
             }
         } else {
             Random.nextFloat() * w
         }
-        val size = Random.nextFloat() * 8f + 12f // 12 to 20 dp
+        val size = Random.nextFloat() * 6f + 11f // 11 to 17 dp
         return Petal(
             x = x,
             y = y,
-            vy = Random.nextFloat() * 0.6f + 0.35f, // Very slow, meditative drift
-            vx = (Random.nextFloat() - 0.5f) * 0.3f,
+            vy = Random.nextFloat() * 0.45f + 0.25f, // Serene, meditative drift
+            vx = (Random.nextFloat() - 0.5f) * 0.2f,
             size = size,
             rotation = Random.nextFloat() * 360f,
-            rotSpeed = (Random.nextFloat() - 0.5f) * 0.8f,
+            rotSpeed = (Random.nextFloat() - 0.5f) * 0.6f,
             swayPhase = Random.nextFloat() * 6.28f,
-            swaySpeed = Random.nextFloat() * 0.02f + 0.01f,
-            swayAmplitude = Random.nextFloat() * 1.0f + 0.5f,
+            swaySpeed = Random.nextFloat() * 0.018f + 0.008f,
+            swayAmplitude = Random.nextFloat() * 0.8f + 0.4f,
             flipPhase = Random.nextFloat() * 6.28f,
-            flipSpeed = Random.nextFloat() * 0.025f + 0.015f,
+            flipSpeed = Random.nextFloat() * 0.02f + 0.01f,
             color = colors[Random.nextInt(colors.size)],
-            baseAlpha = Random.nextInt(35, 75) // Translucent, soft drift
+            baseAlpha = Random.nextInt(20, 50) // Faint, translucent whisper
         )
     }
 
@@ -132,7 +140,15 @@ class BlossomPetalView @JvmOverloads constructor(
             // Recycle if fallen below screen or drifted too far
             if (p.y > h + 50f || p.x < -60f || p.x > w + 60f) {
                 p.y = -30f - Random.nextFloat() * 40f
-                p.x = Random.nextFloat() * w
+                p.x = if (Random.nextFloat() < 0.85f) {
+                    if (Random.nextBoolean()) {
+                        Random.nextFloat() * (w * 0.15f)
+                    } else {
+                        w * 0.85f + Random.nextFloat() * (w * 0.15f)
+                    }
+                } else {
+                    Random.nextFloat() * w
+                }
                 p.rotation = Random.nextFloat() * 360f
             }
 

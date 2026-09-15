@@ -47,7 +47,7 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) :
         val notification = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(R.drawable.ic_logo) // Assuming ic_logo is a vector we can use
             .setContentTitle("Our Bloom")
-            .setContentText("kuchupuchu tum kaha ho mujhe tumhari yaad arhi hain")
+            .setContentText("Your love is waiting for you in OurBloom 🌸")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

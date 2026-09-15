@@ -559,6 +559,7 @@ class ChatFragment : Fragment() {
         ivChatBackground = view.findViewById(R.id.iv_chat_background)
         viewChatWallpaperDim = view.findViewById(R.id.view_chat_wallpaper_dim)
         chatBlossomPetalView = view.findViewById(R.id.view_chat_blossom_petals)
+        chatBlossomPetalView?.setPetalCount(3)
         flyingHeartView = view.findViewById(R.id.view_flying_hearts)
 
         // Action Bar & Reply Preview Views

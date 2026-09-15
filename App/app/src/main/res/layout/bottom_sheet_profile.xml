@@ -185,7 +185,7 @@
                     android:layout_height="48dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_chat_input"
-                    android:hint="e.g. Kuchupuchu"
+                    android:hint="e.g. My Love"
                     android:textColorHint="@color/sheet_input_hint"
                     android:textColor="@color/sheet_input_text"
                     android:textSize="14sp"

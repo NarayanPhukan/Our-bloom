@@ -134,7 +134,7 @@ async function generateDailyNoteForCouple(idOrSlug, coupleSlug, coupleData = {},
     const notePayload = {
       coupleId: resolvedId,
       content: content,
-      author: 'Kuchupuchu ✨',
+      author: 'Our Bloom ✨',
       dateStr: todayStr,
       isDailyAi: true,
       imageUrl: '',

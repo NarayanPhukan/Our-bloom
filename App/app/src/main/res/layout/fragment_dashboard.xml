@@ -9,14 +9,14 @@
         android:layout_height="match_parent"
         android:background="?attr/colorSurface"
         android:clipToPadding="false"
-        android:paddingBottom="100dp">
+        android:paddingBottom="84dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="18dp"
-            android:paddingTop="12dp">
+            android:paddingTop="8dp">
 
             <!-- 1. Top App Bar: Brand + Subtle Music Button + Profile Avatar -->
             <LinearLayout
@@ -24,7 +24,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingBottom="6dp">
+                android:paddingBottom="4dp">
 
                 <TextView
                     android:layout_width="0dp"
@@ -32,33 +32,33 @@
                     android:layout_weight="1"
                     android:text="OurBloom 🌸"
                     android:fontFamily="@font/playfair_display"
-                    android:textSize="23sp"
+                    android:textSize="22sp"
                     android:textStyle="bold"
                     android:textColor="?attr/colorOnSurface" />
 
                 <!-- Subtle Anthem Music Button -->
                 <FrameLayout
                     android:id="@+id/btn_header_music"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:layout_marginEnd="10dp"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="8dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackgroundBorderless">
 
                     <com.google.android.material.card.MaterialCardView
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
                         android:layout_gravity="center"
-                        app:cardCornerRadius="19dp"
+                        app:cardCornerRadius="18dp"
                         app:cardElevation="0dp"
                         app:strokeWidth="1dp"
                         app:strokeColor="?attr/colorOutlineVariant"
                         app:cardBackgroundColor="?attr/colorSurfaceContainer">
 
                         <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_music"
                             app:tint="?attr/colorPrimary" />
@@ -68,16 +68,16 @@
                 <!-- Profile Avatar with Rose Border & Edit Badge -->
                 <FrameLayout
                     android:id="@+id/btn_profile_avatar"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:clickable="true"
                     android:focusable="true">
 
                     <com.google.android.material.card.MaterialCardView
-                        android:layout_width="42dp"
-                        android:layout_height="42dp"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
                         android:layout_gravity="center"
-                        app:cardCornerRadius="21dp"
+                        app:cardCornerRadius="20dp"
                         app:cardElevation="0dp"
                         app:strokeColor="?attr/colorPrimary"
                         app:strokeWidth="2dp"
@@ -94,11 +94,11 @@
 
                     <!-- Camera/Edit Badge -->
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
                         android:layout_gravity="bottom|end"
                         android:background="@drawable/bg_camera_badge"
-                        android:padding="3dp"
+                        android:padding="2.5dp"
                         android:src="@drawable/ic_add_a_photo"
                         app:tint="#FFFFFF" />
                 </FrameLayout>
@@ -114,19 +114,19 @@
                 android:textAppearance="?attr/textAppearanceLabelSmall"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:letterSpacing="0.14"
-                android:layout_marginTop="8dp"/>
+                android:layout_marginTop="6dp"/>
 
             <TextView
                 android:id="@+id/tv_header_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="2dp"
                 android:gravity="center"
                 android:fontFamily="@font/playfair_display"
                 android:text="Happy Months,\nmy beautiful Partner."
                 android:textColor="?attr/colorOnSurface"
                 android:textStyle="bold"
-                android:textSize="23sp"
+                android:textSize="22sp"
                 android:lineSpacingMultiplier="1.15" />
 
             <!-- Days As Names (Clickable to Edit Nicknames) -->
@@ -135,7 +135,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="4dp"
                 android:text="TAP TO EDIT NICKNAMES ✎"
                 android:textAppearance="?attr/textAppearanceLabelSmall"
                 android:textColor="?attr/colorPrimary"
@@ -149,23 +149,23 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:background="@drawable/bg_reaction_pill"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
-                android:paddingTop="5dp"
-                android:paddingBottom="5dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
                 android:textColor="?attr/colorPrimary"
                 android:textSize="12sp"
                 android:fontFamily="sans-serif-medium"
                 android:visibility="gone" />
 
-            <!-- 3. Hero Memory Photograph ("Our Story") -->
+            <!-- 3. Hero Memory Photograph ("Our Story") - Compact 200dp with strong bottom text safe area -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:layout_marginTop="16dp"
-                app:cardCornerRadius="22dp"
+                android:layout_height="200dp"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="20dp"
                 app:cardElevation="2dp"
                 app:strokeWidth="1dp"
                 app:strokeColor="?attr/colorOutlineVariant">
@@ -181,20 +181,23 @@
                         android:scaleType="centerCrop"
                         android:background="?attr/colorPrimaryContainer" />
 
-                    <!-- Gradient Scrim Overlay -->
+                    <!-- Deep Gradient Scrim Overlay for guaranteed text legibility -->
                     <View
                         android:layout_width="match_parent"
-                        android:layout_height="140dp"
+                        android:layout_height="150dp"
                         android:layout_gravity="bottom"
                         android:background="@drawable/gradient_bottom_up" />
 
-                    <!-- Text Overlay -->
+                    <!-- Fixed Text Safe Area Container -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_gravity="bottom"
                         android:orientation="vertical"
-                        android:padding="16dp">
+                        android:paddingStart="18dp"
+                        android:paddingEnd="18dp"
+                        android:paddingBottom="16dp"
+                        android:paddingTop="12dp">
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -202,7 +205,8 @@
                             android:text="WHERE IT ALL STARTED"
                             android:textAppearance="?attr/textAppearanceLabelSmall"
                             android:textColor="@android:color/white"
-                            android:letterSpacing="0.12"/>
+                            android:letterSpacing="0.12"
+                            android:alpha="0.85" />
 
                         <TextView
                             android:id="@+id/tv_first_milestone_title"
@@ -213,16 +217,20 @@
                             android:fontFamily="@font/playfair_display"
                             android:textAppearance="?attr/textAppearanceTitleMedium"
                             android:textColor="@android:color/white"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
 
                         <TextView
                             android:id="@+id/tv_first_milestone_desc"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
+                            android:layout_marginTop="2dp"
                             android:text="The first time our eyes met..."
                             android:textAppearance="?attr/textAppearanceBodySmall"
                             android:textColor="@android:color/white"
+                            android:alpha="0.9"
+                            android:lineSpacingExtra="2dp"
                             android:maxLines="2"
                             android:ellipsize="end" />
                     </LinearLayout>
@@ -234,8 +242,8 @@
                 android:id="@+id/card_heartbeat"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardCornerRadius="20dp"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="18dp"
                 app:cardElevation="1dp"
                 app:strokeWidth="1dp"
                 app:strokeColor="?attr/colorOutlineVariant"
@@ -246,8 +254,8 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:gravity="center_horizontal"
-                    android:paddingHorizontal="18dp"
-                    android:paddingVertical="16dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="14dp">
 
                     <!-- Header -->
                     <TextView
@@ -262,7 +270,7 @@
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
+                        android:layout_marginTop="4dp"
                         android:orientation="horizontal"
                         android:gravity="bottom|center_horizontal">
 
@@ -272,7 +280,7 @@
                             android:layout_height="wrap_content"
                             android:text="0"
                             android:textColor="?attr/colorPrimary"
-                            android:textSize="36sp"
+                            android:textSize="34sp"
                             android:textStyle="bold"
                             android:fontFamily="@font/playfair_display" />
 
@@ -284,14 +292,15 @@
                             android:textAppearance="?attr/textAppearanceLabelSmall"
                             android:textColor="?attr/colorPrimary"
                             android:textStyle="bold"
-                            android:letterSpacing="0.1" />
+                            android:letterSpacing="0.1"
+                            android:layout_marginBottom="4dp" />
                     </LinearLayout>
 
                     <!-- Compact Sub-day Ticking Clock -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="2dp"
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
 
@@ -301,7 +310,7 @@
                             android:layout_height="wrap_content"
                             android:text="00"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:fontFamily="sans-serif-medium" />
 
                         <TextView
@@ -317,7 +326,7 @@
                             android:layout_height="wrap_content"
                             android:text="00"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:fontFamily="sans-serif-medium" />
 
                         <TextView
@@ -333,7 +342,7 @@
                             android:layout_height="wrap_content"
                             android:text="00"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:fontFamily="sans-serif-medium" />
 
                         <TextView
@@ -348,7 +357,7 @@
                         android:id="@+id/tv_timer_since"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="3dp"
                         android:text="Since ..."
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant"
@@ -358,10 +367,10 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginTop="12dp"
-                        android:layout_marginBottom="12dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="10dp"
                         android:background="?attr/colorOutlineVariant"
-                        android:alpha="0.5" />
+                        android:alpha="0.4" />
 
                     <!-- Tactile Heartbeat Pulse Action -->
                     <LinearLayout
@@ -371,8 +380,8 @@
                         android:orientation="horizontal">
 
                         <FrameLayout
-                            android:layout_width="36dp"
-                            android:layout_height="36dp">
+                            android:layout_width="34dp"
+                            android:layout_height="34dp">
 
                             <ImageView
                                 android:id="@+id/iv_heartbeat_icon_bg"
@@ -383,8 +392,8 @@
 
                             <ImageView
                                 android:id="@+id/iv_heartbeat_icon"
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
                                 android:layout_gravity="center"
                                 android:src="@drawable/ic_favorite"
                                 app:tint="?attr/colorPrimary" />
@@ -404,14 +413,14 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_send_heartbeat"
                             android:layout_width="wrap_content"
-                            android:layout_height="42dp"
+                            android:layout_height="40dp"
                             android:text="Heartbeat 💓"
                             android:textAllCaps="false"
                             android:textColor="?attr/colorOnPrimary"
                             android:textSize="12sp"
                             android:textStyle="bold"
                             app:backgroundTint="?attr/colorPrimary"
-                            app:cornerRadius="14dp"
+                            app:cornerRadius="12dp"
                             app:icon="@drawable/ic_favorite"
                             app:iconGravity="textStart"
                             app:iconSize="14dp"
@@ -435,8 +444,8 @@
                 android:id="@+id/card_todays_connection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardCornerRadius="20dp"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="18dp"
                 app:cardElevation="1dp"
                 app:strokeWidth="1dp"
                 app:strokeColor="?attr/colorOutlineVariant"
@@ -446,7 +455,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -480,20 +489,20 @@
                         android:id="@+id/tv_daily_note_text"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="8dp"
                         android:text="Loading daily love note..."
                         android:textAppearance="?attr/textAppearanceBodyLarge"
                         android:textColor="?attr/colorOnSurface"
                         android:fontFamily="@font/playfair_display"
                         android:textStyle="italic"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         android:lineSpacingMultiplier="1.25" />
 
                     <TextView
                         android:id="@+id/tv_daily_note_author"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="6dp"
                         android:gravity="end"
                         android:text="— Unknown"
                         android:textAppearance="?attr/textAppearanceBodySmall"
@@ -515,7 +524,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="16dp"
                 android:text="OUR SPACES 💖"
                 android:textAppearance="?attr/textAppearanceLabelSmall"
                 android:textColor="?attr/colorOnSurfaceVariant"
@@ -535,12 +544,12 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_thumb_kiss"
                     android:layout_width="0dp"
-                    android:layout_height="115dp"
+                    android:layout_height="108dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="5dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="20dp"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/bloom_outline"
@@ -550,7 +559,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:orientation="vertical"
-                        android:padding="14dp"
+                        android:padding="12dp"
                         android:gravity="center_vertical">
 
                         <LinearLayout
@@ -563,7 +572,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="💋"
-                                android:textSize="20sp" />
+                                android:textSize="18sp" />
 
                             <View
                                 android:layout_width="0dp"
@@ -587,7 +596,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="5dp"
                             android:text="ThumbKiss"
                             android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textColor="?attr/colorOnSurface"
@@ -596,7 +605,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="1dp"
                             android:text="Touch screen together"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="11sp"
@@ -609,12 +618,12 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_dashboard_vault"
                     android:layout_width="0dp"
-                    android:layout_height="115dp"
+                    android:layout_height="108dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="5dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="20dp"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/bloom_outline"
@@ -624,7 +633,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:orientation="vertical"
-                        android:padding="14dp"
+                        android:padding="12dp"
                         android:gravity="center_vertical">
 
                         <LinearLayout
@@ -637,7 +646,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="🌸💰"
-                                android:textSize="18sp" />
+                                android:textSize="16sp" />
 
                             <View
                                 android:layout_width="0dp"
@@ -663,7 +672,7 @@
                             android:id="@+id/tv_dash_vault_balance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="5dp"
                             android:text="Couple's Vault"
                             android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textColor="?attr/colorOnSurface"
@@ -672,7 +681,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="1dp"
                             android:text="Shared dreams &amp; goals"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="11sp"
@@ -697,7 +706,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="8dp"
                 android:orientation="horizontal"
                 android:weightSum="2">
 
@@ -705,12 +714,12 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_dream_map"
                     android:layout_width="0dp"
-                    android:layout_height="115dp"
+                    android:layout_height="108dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="5dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="20dp"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/bloom_outline"
@@ -720,7 +729,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:orientation="vertical"
-                        android:padding="14dp"
+                        android:padding="12dp"
                         android:gravity="center_vertical">
 
                         <LinearLayout
@@ -733,7 +742,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="🗺️"
-                                android:textSize="20sp" />
+                                android:textSize="18sp" />
 
                             <View
                                 android:layout_width="0dp"
@@ -757,7 +766,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="5dp"
                             android:text="Dream Places"
                             android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textColor="?attr/colorOnSurface"
@@ -766,7 +775,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="1dp"
                             android:text="Our travel wishlist"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="11sp"
@@ -779,12 +788,12 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_dashboard_arcade"
                     android:layout_width="0dp"
-                    android:layout_height="115dp"
+                    android:layout_height="108dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="5dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="20dp"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/bloom_outline"
@@ -794,7 +803,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:orientation="vertical"
-                        android:padding="14dp"
+                        android:padding="12dp"
                         android:gravity="center_vertical">
 
                         <LinearLayout
@@ -807,7 +816,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="🎮"
-                                android:textSize="20sp" />
+                                android:textSize="18sp" />
 
                             <View
                                 android:layout_width="0dp"
@@ -831,7 +840,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="5dp"
                             android:text="Couple Arcade"
                             android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textColor="?attr/colorOnSurface"
@@ -840,7 +849,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="1dp"
                             android:text="Games &amp; intimate dares"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="11sp"
@@ -864,8 +873,8 @@
                 android:id="@+id/card_on_this_day"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                app:cardCornerRadius="20dp"
+                android:layout_marginTop="14dp"
+                app:cardCornerRadius="18dp"
                 app:cardElevation="1dp"
                 app:strokeWidth="1.5dp"
                 app:strokeColor="?attr/colorPrimary"
@@ -879,7 +888,7 @@
 
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="160dp">
+                        android:layout_height="150dp">
 
                         <ImageView
                             android:id="@+id/iv_flashback_image"
@@ -899,12 +908,12 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="top|start"
-                            android:layout_margin="12dp"
+                            android:layout_margin="10dp"
                             android:background="@drawable/bg_whatsapp_pill"
                             android:paddingStart="10dp"
                             android:paddingEnd="10dp"
-                            android:paddingTop="5dp"
-                            android:paddingBottom="5dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="4dp"
                             android:text="✨ On This Day"
                             android:textColor="?attr/colorPrimary"
                             android:textSize="11sp"
@@ -915,7 +924,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="12dp">
 
                         <TextView
                             android:id="@+id/tv_flashback_title"
@@ -943,7 +952,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="16dp"
                 android:text="Cherished Memories"
                 android:fontFamily="@font/playfair_display"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
@@ -962,8 +971,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_memories_gallery"
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:layout_marginTop="12dp"
+                android:layout_height="210dp"
+                android:layout_marginTop="8dp"
                 android:clipToPadding="false"
                 android:paddingEnd="16dp" />
 
@@ -972,8 +981,8 @@
                 android:id="@+id/card_home_screen_widget"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                app:cardCornerRadius="18dp"
+                android:layout_marginTop="14dp"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="1dp"
                 app:strokeColor="?attr/colorOutlineVariant"
@@ -984,12 +993,12 @@
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingHorizontal="16dp"
-                    android:paddingVertical="12dp">
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="10dp">
 
                     <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
                         android:src="@drawable/ic_home_rounded"
                         app:tint="?attr/colorPrimary" />
 
@@ -1021,12 +1030,12 @@
                         android:id="@+id/btn_add_home_widget"
                         style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="38dp"
+                        android:layout_height="36dp"
                         android:text="Add +"
                         android:textAllCaps="false"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        app:cornerRadius="12dp"
+                        app:cornerRadius="10dp"
                         app:icon="@drawable/ic_favorite"
                         app:iconSize="14dp" />
                 </LinearLayout>
@@ -1038,20 +1047,20 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="16dp"
-                android:padding="12dp">
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="12dp"
+                android:padding="8dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="🌸"
-                    android:textSize="20sp" />
+                    android:textSize="18sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="4dp"
                     android:text="Forever blooming, forever growing."
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant"
@@ -1071,13 +1080,55 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <!-- Ambient Falling Sakura Petals Overlay -->
+    <!-- Ambient Falling Sakura Petals Overlay (Sparse & Margin-Biased) -->
     <com.ourbloom.app.ui.BlossomPetalView
         android:id="@+id/blossom_petal_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clickable="false"
         android:focusable="false" />
+
+    <!-- Romantic Heartbeat Floating Confirmation Pill (Anchored above navigation dock) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_heartbeat_toast"
+        android:layout_width="wrap_content"
+        android:layout_height="44dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="90dp"
+        android:visibility="gone"
+        android:alpha="0"
+        app:cardCornerRadius="22dp"
+        app:cardElevation="4dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant"
+        app:cardBackgroundColor="?attr/colorSurface">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp">
+
+            <TextView
+                android:id="@+id/tv_heartbeat_toast_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💓"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_heartbeat_toast_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Heartbeat sent ❤️"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurface"
+                android:textStyle="bold"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Safe hidden stub for Anthem FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton

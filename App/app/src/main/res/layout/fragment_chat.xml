@@ -401,7 +401,7 @@
                         android:id="@+id/tv_reply_preview_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Replying to Kuchupuchu"
+                        android:text="Replying to Partner"
                         android:textColor="@color/chat_quote_accent"
                         android:textSize="12sp"
                         android:textStyle="bold"
