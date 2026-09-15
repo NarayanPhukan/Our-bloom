@@ -14,6 +14,7 @@ const milestoneRoutes = require('./routes/milestones');
 const loveNoteRoutes = require('./routes/loveNotes');
 const memoryRoutes = require('./routes/memories');
 const dreamLocationRoutes = require('./routes/dreamLocations');
+const storyEntryRoutes = require('./routes/storyEntries');
 const settingsRoutes = require('./routes/settings');
 const uploadRoutes = require('./routes/upload');
 const payuRoutes = require('./routes/payu');
@@ -364,6 +365,7 @@ app.use('/api/couples/:slug/milestones', authMiddleware, coupleMiddleware, miles
 app.use('/api/couples/:slug/love-notes', authMiddleware, coupleMiddleware, loveNoteRoutes);
 app.use('/api/couples/:slug/memories', authMiddleware, coupleMiddleware, memoryRoutes);
 app.use('/api/couples/:slug/dream-locations', authMiddleware, coupleMiddleware, dreamLocationRoutes);
+app.use('/api/couples/:slug/story-entries', authMiddleware, coupleMiddleware, storyEntryRoutes);
 app.use('/api/couples/:slug/settings', authMiddleware, coupleMiddleware, settingsRoutes);
 
 // FCM push dispatch endpoint (securely uses backend Firebase Admin credentials)

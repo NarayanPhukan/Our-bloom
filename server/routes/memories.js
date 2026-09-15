@@ -46,6 +46,26 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
 
     const savedMemory = await newMemory.save();
 
+    // Dual-save to StoryEntry
+    try {
+      const StoryEntry = require('../models/StoryEntry');
+      const storyEntry = new StoryEntry({
+        coupleId: req.coupleId,
+        type: 'photo',
+        title: savedMemory.title,
+        caption: savedMemory.title,
+        mediaUrl: savedMemory.imageUrl,
+        mediaType: 'image',
+        senderId: req.user.userId?.toString(),
+        senderName: req.user.name || 'Partner',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await storyEntry.save();
+    } catch (sErr) {
+      console.warn('StoryEntry auto-sync warning:', sErr.message);
+    }
+
     const io = req.app.get('io');
     if (io) {
       io.to(req.coupleSlug).emit('newMemory', savedMemory);

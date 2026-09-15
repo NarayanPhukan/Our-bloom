@@ -40,6 +40,26 @@ router.post('/', async (req, res) => {
 
   try {
     const newMilestone = await milestone.save();
+
+    // Dual-save to StoryEntry
+    try {
+      const StoryEntry = require('../models/StoryEntry');
+      const storyEntry = new StoryEntry({
+        coupleId: req.coupleId,
+        type: 'milestone',
+        title: newMilestone.title || newMilestone.label || 'Relationship Milestone',
+        caption: newMilestone.body || '',
+        mediaUrl: newMilestone.imageUrl || '',
+        mediaType: newMilestone.imageUrl ? 'image' : '',
+        content: newMilestone.body || '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await storyEntry.save();
+    } catch (sErr) {
+      console.warn('StoryEntry auto-sync warning:', sErr.message);
+    }
+
     res.status(201).json(newMilestone);
   } catch (err) {
     res.status(400).json({ message: err.message });

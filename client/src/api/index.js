@@ -73,4 +73,8 @@ export const updateHeroImage = (slug, formData) => API.post(`/couples/${slug}/he
 // ===== Daily Note =====
 export const getDailyLoveNote = (slug) => API.get(`/couples/${slug}/love-notes/daily`);
 
+// ===== Story Entries (scoped by couple slug) =====
+export const getStoryEntries = (slug) => API.get(`/couples/${slug}/story-entries`);
+export const createStoryEntry = (slug, data) => API.post(`/couples/${slug}/story-entries`, data);
+
 export default API;

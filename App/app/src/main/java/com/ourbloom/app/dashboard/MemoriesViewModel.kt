@@ -39,8 +39,30 @@ class MemoriesViewModel : ViewModel() {
             try {
                 val user = repository.getCurrentUser()
                 if (user != null && user.coupleId != null) {
-                    coupleId = user.coupleId
-                    val allMemories = repository.getAllMemories(user.coupleId)
+                    val cid = user.coupleId
+                    coupleId = cid
+                    val allMemories = repository.getAllMemories(cid).toMutableList()
+                    val stories = repository.getStoryEntries(cid)
+                    val sdf = SimpleDateFormat("MMM d, yyyy", Locale.US)
+                    for (st in stories) {
+                        val alreadyExists = allMemories.any {
+                            it.id == st.id || (!st.mediaUrl.isNullOrBlank() && it.imageUrl == st.mediaUrl)
+                        }
+                        if (!alreadyExists && (!st.mediaUrl.isNullOrBlank() || !st.content.isNullOrBlank())) {
+                            allMemories.add(
+                                Memory(
+                                    id = st.id,
+                                    coupleId = st.coupleId,
+                                    title = st.title.ifBlank { st.caption.ifBlank { st.content ?: "Our Story Moment" } },
+                                    dateStr = sdf.format(Date(st.createdAt)),
+                                    imageUrl = st.mediaUrl ?: "",
+                                    audioUrl = if (st.mediaType == "audio") st.mediaUrl ?: "" else "",
+                                    authorId = st.senderId ?: "",
+                                    createdAt = Date(st.createdAt).toString()
+                                )
+                            )
+                        }
+                    }
                     _memories.value = allMemories
                 } else {
                     _error.value = "User not logged in."

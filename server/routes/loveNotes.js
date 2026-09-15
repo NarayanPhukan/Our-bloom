@@ -85,6 +85,27 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
 
     const savedNote = await newNote.save();
 
+    // Dual-save to StoryEntry
+    try {
+      const StoryEntry = require('../models/StoryEntry');
+      const storyEntry = new StoryEntry({
+        coupleId: req.coupleId,
+        type: 'love_note',
+        title: 'Love Note',
+        caption: savedNote.content,
+        mediaUrl: savedNote.imageUrl || savedNote.audioUrl || '',
+        mediaType: savedNote.imageUrl ? 'image' : (savedNote.audioUrl ? 'audio' : ''),
+        content: savedNote.content,
+        senderId: req.user?.userId?.toString(),
+        senderName: savedNote.author || req.user?.name || 'Partner',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await storyEntry.save();
+    } catch (sErr) {
+      console.warn('StoryEntry auto-sync warning:', sErr.message);
+    }
+
     // Dual-sync to Firestore loveNotes collection
     try {
       const { getFirestore } = require('../utils/firebase');

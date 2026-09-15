@@ -141,6 +141,7 @@ class ChatFragment : Fragment() {
     private lateinit var btnActionDelete: ImageButton
     private lateinit var btnActionInfo: ImageButton
     private var btnActionStar: ImageButton? = null
+    private var btnActionSaveToStory: ImageButton? = null
     private var btnActionReact: ImageButton? = null
     private var flyingHeartView: FlyingHeartView? = null
     private var chatBlossomPetalView: com.ourbloom.app.ui.BlossomPetalView? = null
@@ -577,6 +578,14 @@ class ChatFragment : Fragment() {
                     val isFav = StickerManager.toggleFavorite(requireContext(), target)
                     Toast.makeText(requireContext(), if (isFav) "Starred ⭐" else "Unstarred", Toast.LENGTH_SHORT).show()
                 }
+            }
+            clearSelection()
+        }
+
+        btnActionSaveToStory = view.findViewById(R.id.btn_action_save_to_story)
+        btnActionSaveToStory?.setOnClickListener {
+            selectedMessage?.let { msg ->
+                saveMessageToStory(msg)
             }
             clearSelection()
         }
@@ -1596,6 +1605,53 @@ class ChatFragment : Fragment() {
         btnActionInfo.visibility = View.GONE
         layoutActionBar.visibility = View.GONE
         chatHeader.visibility = View.VISIBLE
+    }
+
+    private fun saveMessageToStory(message: ChatMessage) {
+        val coupleId = currentCouple?.id ?: currentUser?.coupleId ?: ""
+        if (coupleId.isBlank()) {
+            Toast.makeText(requireContext(), "Cannot save: couple workspace not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val type = when {
+            !message.imageUrl.isNullOrBlank() -> "photo"
+            !message.audioUrl.isNullOrBlank() -> "voice_note"
+            else -> "message"
+        }
+
+        val storyEntry = com.ourbloom.app.data.models.StoryEntry(
+            coupleId = coupleId,
+            type = type,
+            title = when (type) {
+                "photo" -> "Shared Photo"
+                "voice_note" -> "Voice Moment"
+                else -> "Chat Memory"
+            },
+            caption = message.text,
+            mediaUrl = message.imageUrl ?: message.audioUrl,
+            mediaType = when (type) {
+                "photo" -> "image"
+                "voice_note" -> "audio"
+                else -> null
+            },
+            messageId = message.id,
+            senderId = message.senderId,
+            senderName = message.senderName,
+            content = message.text,
+            createdAt = message.timestamp
+        )
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val success = repository.saveToStory(storyEntry)
+            if (isAdded) {
+                if (success) {
+                    Toast.makeText(requireContext(), "Saved to Our Story! 🌸📖", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Could not save to story", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun enterReplyMode(message: ChatMessage) {

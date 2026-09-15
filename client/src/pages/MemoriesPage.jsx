@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
-import { getMemories, createMemory, deleteMemory } from '../api';
+import { getMemories, createMemory, deleteMemory, getStoryEntries } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
 import Lightbox from '../components/Lightbox';
@@ -121,8 +121,33 @@ export default function MemoriesPage() {
 
   const fetchMemories = async () => {
     try {
-      const { data } = await getMemories(slug);
-      setMemories(data);
+      const [memoriesRes, storyRes] = await Promise.allSettled([
+        getMemories(slug),
+        getStoryEntries(slug)
+      ]);
+      const memList = memoriesRes.status === 'fulfilled' && Array.isArray(memoriesRes.value.data) ? memoriesRes.value.data : [];
+      const storyList = storyRes.status === 'fulfilled' && Array.isArray(storyRes.value.data) ? storyRes.value.data : [];
+
+      const mappedStories = storyList.filter(s => s.mediaUrl || s.content).map(s => ({
+        _id: s._id,
+        title: s.title || s.caption || s.content || 'Our Story Moment',
+        dateStr: s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase() : '',
+        imageUrl: s.mediaUrl || '',
+        audioUrl: s.mediaType === 'audio' ? s.mediaUrl : '',
+        icon: s.type === 'love_note' ? 'favorite' : (s.type === 'milestone' ? 'local_florist' : 'auto_stories'),
+        rotation: 0,
+        isStoryEntry: true,
+        storyType: s.type
+      }));
+
+      const combined = [...memList];
+      mappedStories.forEach(st => {
+        if (!combined.some(m => m._id === st._id || (m.imageUrl && st.imageUrl && m.imageUrl === st.imageUrl))) {
+          combined.push(st);
+        }
+      });
+
+      setMemories(combined);
     } catch (err) {
       console.error('Failed to fetch memories', err);
     } finally {

@@ -231,6 +231,17 @@
                 android:contentDescription="Star / Favorite"
                 android:padding="10dp" />
 
+            <!-- Save to Story Action -->
+            <ImageButton
+                android:id="@+id/btn_action_save_to_story"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_auto_stories"
+                app:tint="#E85D75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Save to Our Story"
+                android:padding="10dp" />
+
             <!-- React Action -->
             <ImageButton
                 android:id="@+id/btn_action_react"

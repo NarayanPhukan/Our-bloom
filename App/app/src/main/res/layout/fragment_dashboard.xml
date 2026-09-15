@@ -443,6 +443,54 @@
                             app:iconTint="@android:color/white" />
                     </LinearLayout>
 
+                    <!-- Intimate Action Deck (Horizontal Pill Deck) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal"
+                        android:gravity="center">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_deck_heartbeat"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:text="💓 Pulse"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="20dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_deck_thumbkiss"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="40dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:text="✨ ThumbKiss"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="20dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_deck_love_note"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="40dp"
+                            android:layout_marginStart="4dp"
+                            android:text="💌 Note"
+                            android:textAllCaps="false"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="20dp" />
+                    </LinearLayout>
+
                     <!-- Safe hidden metric stubs for backward-compatible view lookups -->
                     <LinearLayout
                         android:layout_width="0dp"
@@ -632,7 +680,7 @@
                 android:orientation="horizontal"
                 android:weightSum="2">
 
-                <!-- Future Savings Vault Card -->
+                <!-- Future Savings Vault Portal Card -->
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_dashboard_vault"
                     android:layout_width="0dp"
@@ -691,8 +739,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
-                            android:text="₹0"
-                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:text="Couple's Vault"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textColor="#BF360C"
                             android:textStyle="bold" />
 
@@ -700,13 +748,13 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Future Savings Vault"
+                            android:text="Shared savings &amp; goals"
                             android:textColor="#D84315"
                             android:textSize="11sp"
                             android:maxLines="1"
                             android:ellipsize="end" />
 
-                        <!-- Hidden/safe stubs for vault breakdown & alerts -->
+                        <!-- Safe hidden stubs for backward-compatible view lookups -->
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="0dp"
@@ -820,14 +868,14 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="💌"
+                            android:text="🌸"
                             android:textSize="16sp" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text="DAILY LOVE NOTE"
+                            android:text="TODAY'S BLOOM 🌸"
                             android:textAppearance="?attr/textAppearanceLabelSmall"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:letterSpacing="0.1" />

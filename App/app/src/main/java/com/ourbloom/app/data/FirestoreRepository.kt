@@ -530,6 +530,20 @@ class FirestoreRepository {
     suspend fun createLoveNote(note: com.ourbloom.app.data.models.LoveNote): Boolean {
         return try {
             db.collection("loveNotes").add(note).await()
+            if (note.coupleId.isNotBlank()) {
+                val story = com.ourbloom.app.data.models.StoryEntry(
+                    coupleId = note.coupleId,
+                    type = "love_note",
+                    title = "Love Note",
+                    caption = note.content,
+                    mediaUrl = note.imageUrl.ifBlank { note.audioUrl }.takeIf { it.isNotBlank() },
+                    mediaType = if (note.imageUrl.isNotBlank()) "image" else if (note.audioUrl.isNotBlank()) "audio" else null,
+                    senderName = note.author,
+                    content = note.content,
+                    createdAt = System.currentTimeMillis()
+                )
+                saveToStory(story)
+            }
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error creating love note", e)
@@ -776,6 +790,19 @@ class FirestoreRepository {
     suspend fun createMemory(memory: com.ourbloom.app.data.models.Memory): Boolean {
         return try {
             db.collection("memories").add(memory).await()
+            if (memory.coupleId.isNotBlank()) {
+                val story = com.ourbloom.app.data.models.StoryEntry(
+                    coupleId = memory.coupleId,
+                    type = "photo",
+                    title = memory.title,
+                    caption = memory.title,
+                    mediaUrl = memory.imageUrl.ifBlank { memory.audioUrl }.takeIf { it.isNotBlank() },
+                    mediaType = if (memory.imageUrl.isNotBlank()) "image" else if (memory.audioUrl.isNotBlank()) "audio" else null,
+                    senderId = memory.authorId,
+                    createdAt = System.currentTimeMillis()
+                )
+                saveToStory(story)
+            }
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error creating memory", e)
@@ -792,6 +819,36 @@ class FirestoreRepository {
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error deleting memory", e)
             false
+        }
+    }
+
+    suspend fun saveToStory(storyEntry: com.ourbloom.app.data.models.StoryEntry): Boolean {
+        return try {
+            val coupleId = storyEntry.coupleId
+            if (coupleId.isNotBlank()) {
+                db.collection("couples").document(coupleId)
+                    .collection("storyEntries")
+                    .add(storyEntry)
+                    .await()
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error saving to story", e)
+            false
+        }
+    }
+
+    suspend fun getStoryEntries(coupleId: String): List<com.ourbloom.app.data.models.StoryEntry> {
+        return try {
+            val snapshot = db.collection("couples").document(coupleId)
+                .collection("storyEntries")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .await()
+            snapshot.toObjects(com.ourbloom.app.data.models.StoryEntry::class.java)
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error fetching story entries", e)
+            emptyList()
         }
     }
 

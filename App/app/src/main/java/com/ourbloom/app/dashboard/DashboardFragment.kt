@@ -145,6 +145,23 @@ class DashboardFragment : Fragment() {
             }.start()
         }
 
+        // Wire Intimate Action Deck
+        val btnDeckHeartbeat = view.findViewById<MaterialButton>(R.id.btn_deck_heartbeat)
+        val btnDeckThumbkiss = view.findViewById<MaterialButton>(R.id.btn_deck_thumbkiss)
+        val btnDeckLoveNote = view.findViewById<MaterialButton>(R.id.btn_deck_love_note)
+
+        btnDeckHeartbeat?.setOnClickListener {
+            btnSendHeartbeat?.performClick()
+        }
+
+        btnDeckThumbkiss?.setOnClickListener {
+            startActivity(Intent(requireContext(), com.ourbloom.app.touch.ThumbKissActivity::class.java))
+        }
+
+        btnDeckLoveNote?.setOnClickListener {
+            findNavController().navigate(R.id.loveNotesFragment)
+        }
+
         // Observers
         viewModel.memories.observe(viewLifecycleOwner) { memoryList ->
             galleryAdapter.submitList(memoryList)
@@ -235,15 +252,15 @@ class DashboardFragment : Fragment() {
         }
 
         viewModel.dailyLoveNote.observe(viewLifecycleOwner) { note ->
-            if (note != null) {
+            if (note != null && note.content.isNotBlank()) {
                 tvDailyNoteText.text = "\"${note.content}\""
                 tvDailyNoteAuthor.text = "— From ${note.author}"
                 context?.let { ctx ->
                     com.ourbloom.app.widget.LoveNoteWidgetProvider.saveWidgetData(ctx, note.content, note.author)
                 }
             } else {
-                tvDailyNoteText.text = "No daily love note today."
-                tvDailyNoteAuthor.text = ""
+                tvDailyNoteText.text = "What is one small thing your partner did this week that made you smile? 🌸"
+                tvDailyNoteAuthor.text = "— Today's Ritual"
             }
         }
 
@@ -554,9 +571,16 @@ class DashboardFragment : Fragment() {
                         ?: viewModel.partnerUser.value?.name?.takeIf { it.isNotBlank() }
                         ?: "Partner"
                     val icon = if (isCharging) "⚡" else if (battery <= 20) "🪫" else "🔋"
-                    val statusText = if (isCharging) "$partnerName's phone: $icon $battery% ⚡ Charging" else "$partnerName's phone: $icon $battery%"
-                    tvDashboardPartnerBattery?.text = statusText
+                    val sereneText = "🌸 $partnerName • Online now"
+                    val detailText = if (isCharging) "$partnerName • $icon $battery% ⚡ Charging" else "$partnerName • $icon $battery%"
+                    
+                    var isShowingDetails = false
+                    tvDashboardPartnerBattery?.text = sereneText
                     tvDashboardPartnerBattery?.visibility = View.VISIBLE
+                    tvDashboardPartnerBattery?.setOnClickListener {
+                        isShowingDetails = !isShowingDetails
+                        tvDashboardPartnerBattery?.text = if (isShowingDetails) detailText else sereneText
+                    }
                 } else {
                     tvDashboardPartnerBattery?.visibility = View.GONE
                 }
@@ -565,65 +589,12 @@ class DashboardFragment : Fragment() {
 
     private fun setupSavingsDashboardObserver(view: View, coupleId: String) {
         val tvBalance = view.findViewById<TextView>(R.id.tv_dash_vault_balance)
-        val tvU1 = view.findViewById<TextView>(R.id.tv_dash_user1_share)
-        val tvU2 = view.findViewById<TextView>(R.id.tv_dash_user2_share)
-        val progressSplit = view.findViewById<ProgressBar>(R.id.progress_dash_partner_split)
         val tvLockBadge = view.findViewById<TextView>(R.id.tv_dash_vault_lock_badge)
         val tvAlert = view.findViewById<TextView>(R.id.tv_dash_vault_alert)
 
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-
-        savingsWalletListener?.remove()
-        savingsWalletListener = firestoreRepository.observeSavingsWallet(coupleId) { wallet ->
-            if (!isAdded || wallet == null) return@observeSavingsWallet
-
-            val total = wallet.totalBalance
-            val cleanTotal = if (total % 1.0 == 0.0) total.toInt().toString() else String.format(java.util.Locale.US, "%.2f", total)
-            tvBalance?.text = "₹$cleanTotal"
-
-            val isMeUser1 = currentUid == wallet.user1Id || wallet.user1Id.isBlank()
-            val myTotal = if (isMeUser1) wallet.user1Total else wallet.user2Total
-            val partnerTotal = if (isMeUser1) wallet.user2Total else wallet.user1Total
-
-            val myPercent = if (total > 0) ((myTotal / total) * 100).toInt().coerceIn(0, 100) else 50
-            val partnerPercent = if (total > 0) (100 - myPercent) else 50
-
-            tvU1?.text = "You: ₹${myTotal.toInt()} ($myPercent%)"
-            tvU2?.text = "Partner: ₹${partnerTotal.toInt()} ($partnerPercent%)"
-            progressSplit?.progress = myPercent
-
-            val lockDate = wallet.lockUntilDate
-            val now = System.currentTimeMillis()
-            if (lockDate > 0L) {
-                if (now < lockDate) {
-                    val daysLeft = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(lockDate - now)
-                    tvLockBadge?.text = "🔒 ${daysLeft}d left"
-                } else {
-                    tvLockBadge?.text = "✓ Matured"
-                }
-            } else {
-                tvLockBadge?.text = "Unlocked"
-            }
-        }
-
-        savingsReqListener?.remove()
-        savingsReqListener = firestoreRepository.observeWithdrawalRequests(coupleId) { requests ->
-            if (!isAdded) return@observeWithdrawalRequests
-            val ongoing = requests.firstOrNull {
-                it.status == "PENDING_APPROVAL" || it.status == "WAITING_PERIOD" || it.status == "PROCESSING_PAYOUT"
-            }
-            if (ongoing != null) {
-                tvAlert?.visibility = View.VISIBLE
-                when (ongoing.status) {
-                    "PENDING_APPROVAL" -> tvAlert?.text = "⚠️ Withdrawal Pending Partner Approval"
-                    "WAITING_PERIOD" -> tvAlert?.text = "⏳ Emergency 4-Day Cooldown Active"
-                    "PROCESSING_PAYOUT" -> tvAlert?.text = "🏦 Bank Withdrawal Payout Processing (credited within 48h)"
-                    else -> tvAlert?.visibility = View.GONE
-                }
-            } else {
-                tvAlert?.visibility = View.GONE
-            }
-        }
+        tvAlert?.visibility = View.GONE
+        tvBalance?.text = "Couple's Vault"
+        tvLockBadge?.text = "🔒 Private"
     }
 
     override fun onDestroyView() {
