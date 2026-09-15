@@ -12,17 +12,30 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && proce
 }
 
 /**
- * Saves a file buffer to Cloudinary (or local disk fallback) and returns the public URL
+ * Saves a file buffer to Cloudinary (or local disk fallback) with metadata stripping.
+ * Strips EXIF/GPS coordinates to preserve couple privacy.
  */
-const uploadToFirebase = async (bucket, file, folder = 'ourbloom') => {
-  if (!file) return null;
+const uploadToFirebase = async (bucket, file, folder = 'ourbloom', options = {}) => {
+  if (!file || !file.buffer) return null;
 
-  // 1. Try Cloudinary first for permanent cloud storage
+  const ext = options.ext || path.extname(file.originalname || '').toLowerCase() || '.bin';
+  const safeFilename = `${uuidv4()}`;
+
+  // 1. Permanent Cloudinary storage with privacy flags (strips EXIF / GPS location)
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
     try {
+      const uploadOptions = {
+        folder: folder || 'ourbloom',
+        public_id: safeFilename,
+        resource_type: 'auto',
+        // Strip camera/mobile EXIF, GPS location, and personal device metadata
+        flags: 'strip_profile',
+        image_metadata: false
+      };
+
       const secureUrl = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: folder || 'ourbloom', resource_type: 'auto' },
+          uploadOptions,
           (error, result) => {
             if (error) return reject(error);
             resolve(result.secure_url);
@@ -30,17 +43,15 @@ const uploadToFirebase = async (bucket, file, folder = 'ourbloom') => {
         );
         uploadStream.end(file.buffer);
       });
-      console.log('✿ File uploaded to Cloudinary successfully:', secureUrl);
       return secureUrl;
     } catch (cloudErr) {
-      console.error('✿ Cloudinary upload failed, falling back to local storage:', cloudErr.message);
+      console.error('✿ Cloudinary upload failed, attempting safe fallback:', cloudErr.message);
     }
   }
 
-  // 2. Fallback to local storage
+  // 2. Fallback to local storage using strict UUID filenames
   try {
-    const ext = path.extname(file.originalname);
-    const filename = `${uuidv4()}${ext}`;
+    const filenameWithExt = `${safeFilename}${ext}`;
     const uploadDir = path.join(__dirname, '..', 'uploads');
     
     try {
@@ -49,13 +60,13 @@ const uploadToFirebase = async (bucket, file, folder = 'ourbloom') => {
       await fs.mkdir(uploadDir, { recursive: true });
     }
 
-    const filePath = path.join(uploadDir, filename);
+    const filePath = path.join(uploadDir, filenameWithExt);
     await fs.writeFile(filePath, file.buffer);
 
-    return `/uploads/${filename}`;
+    return `/uploads/${filenameWithExt}`;
   } catch (error) {
     console.error('✿ Error saving file locally:', error);
-    throw new Error('Failed to save file');
+    throw new Error('Failed to save file securely');
   }
 };
 

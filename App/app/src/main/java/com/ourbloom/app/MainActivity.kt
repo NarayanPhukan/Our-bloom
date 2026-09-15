@@ -30,7 +30,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.ourbloom.app.fcm.MyFirebaseMessagingService
 import com.ourbloom.app.workers.AppUpdateWorker
-import com.ourbloom.app.workers.PingServerWorker
 import com.ourbloom.app.workers.ReminderWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -333,12 +332,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBackgroundWorkers() {
-        val pingRequest = PeriodicWorkRequestBuilder<PingServerWorker>(15, TimeUnit.MINUTES).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "PingServerWork",
-            ExistingPeriodicWorkPolicy.KEEP,
-            pingRequest
-        )
+        // Cancel redundant 15-minute ping worker to save battery
+        WorkManager.getInstance(this).cancelUniqueWork("PingServerWork")
 
         val updateRequest = PeriodicWorkRequestBuilder<AppUpdateWorker>(2, TimeUnit.HOURS).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(

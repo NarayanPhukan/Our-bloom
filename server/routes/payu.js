@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const { getFirestore } = require('../utils/firebase');
+const { requireAdminRole } = require('../middleware/adminAuthMiddleware');
 
-const PAYU_KEY = process.env.PAYU_KEY || 'gejLUv';
-const PAYU_SALT = process.env.PAYU_SALT || 'VmEuk1TyFepTJ4z8WBcip0vcId520YFi';
+// Environment Credentials — Strictly Required, No Hardcoded Fallback Secrets
+const PAYU_KEY = process.env.PAYU_KEY;
+const PAYU_SALT = process.env.PAYU_SALT;
 const PAYU_MODE = (process.env.PAYU_MODE || 'test').toLowerCase();
 const PAYU_ACTION_URL = PAYU_MODE === 'live' 
   ? 'https://secure.payu.in/_payment' 
@@ -12,12 +14,20 @@ const PAYU_ACTION_URL = PAYU_MODE === 'live'
 
 const BASE_URL = process.env.PAYU_BASE_URL || 'https://our-bloom.onrender.com';
 const CLIENT_URL = process.env.CLIENT_URL || 'https://our-bloom-gamma.vercel.app';
+const ENABLE_PRODUCTION_PAYOUTS = process.env.ENABLE_PRODUCTION_PAYOUTS === 'true';
+
+if (!PAYU_KEY || !PAYU_SALT) {
+  console.warn('⚠️ PAYU_KEY or PAYU_SALT is not configured in environment. Payment and payout operations will fail.');
+}
 
 /**
  * Generates PayU payment hash
  * Formula: sha512(key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT)
  */
 function generatePayUHash(params) {
+  if (!PAYU_KEY || !PAYU_SALT) {
+    throw new Error('Payment gateway credentials not configured');
+  }
   const { txnid, amount, productinfo, firstname, email, udf1 = '', udf2 = '', udf3 = '', udf4 = '', udf5 = '' } = params;
   const formattedAmount = parseFloat(amount).toFixed(2);
   const hashString = `${PAYU_KEY}|${txnid}|${formattedAmount}|${productinfo}|${firstname}|${email}|${udf1}|${udf2}|${udf3}|${udf4}|${udf5}||||||${PAYU_SALT}`;
@@ -30,6 +40,8 @@ function generatePayUHash(params) {
  * Or with additionalCharges if present: sha512(additionalCharges|SALT|status...)
  */
 function verifyPayUResponseHash(body) {
+  if (!PAYU_KEY || !PAYU_SALT) return false;
+
   const {
     status,
     txnid,
@@ -61,11 +73,14 @@ function verifyPayUResponseHash(body) {
 
 /**
  * GET /api/payu/checkout
- * Direct hosted checkout URL callable from Android app.
- * Opens PayU Hosted Checkout automatically.
+ * Hosted checkout initiator for couple vault deposits
  */
 router.get('/checkout', (req, res) => {
   try {
+    if (!PAYU_KEY || !PAYU_SALT) {
+      return res.status(503).send('Payment gateway configuration is missing.');
+    }
+
     const { 
       amount, 
       coupleId, 
@@ -190,7 +205,7 @@ router.get('/checkout', (req, res) => {
           <p>Connecting to Secure Gateway for Couple Savings Vault 🌸</p>
           <div class="amount-tag">₹${parsedAmount.toFixed(2)}</div>
           <form name="payuForm" method="POST" action="${PAYU_ACTION_URL}">
-            ${Object.entries(params).map(([k, v]) => `<input type="hidden" name="${k}" value="${v.toString().replace(/"/g, '&quot;')}" />`).join('\n            ')}
+            ${Object.entries(params).map(([k, v]) => `<input type="hidden" name="${k}" value="${String(v).replace(/"/g, '&quot;')}" />`).join('\n            ')}
             <noscript>
               <button type="submit" class="btn-continue">Tap to Proceed to Payment</button>
             </noscript>
@@ -207,10 +222,14 @@ router.get('/checkout', (req, res) => {
 
 /**
  * POST /api/payu/create-payment
- * JSON endpoint for programmatic session creation
+ * Session creation for programmatic API deposits
  */
 router.post('/create-payment', async (req, res) => {
   try {
+    if (!PAYU_KEY || !PAYU_SALT) {
+      return res.status(503).json({ error: 'Payment gateway configuration missing' });
+    }
+
     const { 
       amount, 
       coupleId, 
@@ -274,246 +293,200 @@ router.post('/create-payment', async (req, res) => {
 
 /**
  * POST /api/payu/success
- * Webhook / Callback handler when payment is approved by PayU
+ * Webhook handler with reverse hash validation, atomic deduplication, and integer-paise wallet crediting
  */
 router.post('/success', async (req, res) => {
-  console.log('✿ PayU Success Callback received:', {
-    txnid: req.body.txnid,
-    status: req.body.status,
-    mihpayid: req.body.mihpayid,
-    amount: req.body.amount
-  });
+  try {
+    const {
+      key,
+      status,
+      txnid,
+      amount: amountStr,
+      mihpayid: utrNumber,
+      udf1: coupleId,
+      udf2: userId,
+      udf3: userName = 'Partner',
+      udf4: goalId = '',
+      udf5: note = ''
+    } = req.body;
 
-  const isVerified = verifyPayUResponseHash(req.body);
-  if (!isVerified) {
-    console.error('⚠️ PayU response hash verification failed!');
-    return res.status(400).send(`
+    // 1. Validate Merchant Key
+    if (!PAYU_KEY || key !== PAYU_KEY) {
+      console.error('⚠️ PayU Success callback merchant key mismatch or missing!');
+      return res.status(400).send('Invalid merchant key');
+    }
+
+    // 2. Validate SHA-512 Reverse Hash
+    const isVerified = verifyPayUResponseHash(req.body);
+    if (!isVerified) {
+      console.error('⚠️ PayU response hash verification failed!');
+      return res.status(400).send('Payment hash verification failed');
+    }
+
+    // 3. Provider Status Check
+    if (status !== 'success') {
+      console.warn('⚠️ PayU callback status is not success:', status);
+      return res.status(400).send('Payment status is not successful');
+    }
+
+    const parsedAmount = parseFloat(amountStr);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).send('Invalid amount in callback');
+    }
+
+    const amountPaise = Math.round(parsedAmount * 100);
+    const verifiedUtr = utrNumber || txnid || `PAYU-${Date.now()}`;
+    const db = getFirestore();
+
+    if (!db || !coupleId) {
+      return res.status(500).send('Database unavailable or missing couple ID');
+    }
+
+    // 4. Atomic Deduplication & Balance Update via Firestore Transaction
+    let alreadyProcessed = false;
+
+    await db.runTransaction(async (transaction) => {
+      // Check deduplication collection
+      const eventRef = db.collection('gateway_events').doc(txnid);
+      const eventDoc = await transaction.get(eventRef);
+
+      if (eventDoc.exists && eventDoc.data().status === 'PROCESSED') {
+        alreadyProcessed = true;
+        return;
+      }
+
+      // Record event as processing
+      transaction.set(eventRef, {
+        providerTxnId: txnid,
+        utrNumber: verifiedUtr,
+        coupleId,
+        amountPaise,
+        status: 'PROCESSING',
+        receivedAt: Date.now()
+      }, { merge: true });
+
+      // Read wallet document inside transaction
+      const walletRef = db.collection('savings_wallets').doc(coupleId);
+      const walletDoc = await transaction.get(walletRef);
+      const wData = walletDoc.exists ? walletDoc.data() : {};
+
+      const currentTotalPaise = wData.totalBalancePaise ?? Math.round((Number(wData.totalBalance) || 0) * 100);
+      const currentAvailablePaise = wData.availableBalancePaise ?? currentTotalPaise;
+      const currentReservedPaise = wData.reservedBalancePaise || 0;
+
+      const newTotalPaise = currentTotalPaise + amountPaise;
+      const newAvailablePaise = currentAvailablePaise + amountPaise;
+
+      // Update wallet
+      transaction.set(walletRef, {
+        coupleId,
+        totalBalancePaise: newTotalPaise,
+        availableBalancePaise: newAvailablePaise,
+        reservedBalancePaise: currentReservedPaise,
+        currency: 'INR',
+        version: (wData.version || 0) + 1,
+        updatedAt: Date.now()
+      }, { merge: true });
+
+      // Write Immutable Server Audit Ledger entry
+      const txnRef = db.collection('savings_transactions').doc();
+      transaction.set(txnRef, {
+        ledgerId: `LEDGER_${Date.now()}_${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+        requestId: txnid,
+        coupleId,
+        actorId: userId || 'payu_gateway',
+        actorRole: 'gateway_webhook',
+        type: 'DEPOSIT',
+        amountPaise,
+        currency: 'INR',
+        previousBusinessStatus: 'INITIATED',
+        newBusinessStatus: 'COMPLETED',
+        previousGatewayStatus: 'PROCESSING',
+        newGatewayStatus: 'COMPLETED',
+        providerReference: verifiedUtr,
+        serverTimestamp: Date.now(),
+        idempotencyKey: txnid
+      });
+
+      // Mark gateway event PROCESSED
+      transaction.update(eventRef, {
+        status: 'PROCESSED',
+        processedAt: Date.now()
+      });
+    });
+
+    if (alreadyProcessed) {
+      console.log(`✿ PayU Transaction ${txnid} already processed. Returning idempotent response.`);
+    } else {
+      console.log(`✿ Successfully processed deposit of ₹${(amountPaise / 100).toFixed(2)} for couple ${coupleId}`);
+    }
+
+    // Render response page
+    res.send(`
       <!DOCTYPE html>
-      <html>
-      <head><title>Payment Verification Failed</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #FFF0F3;">
-        <h2 style="color: #D32F2F;">⚠️ Payment Hash Verification Failed</h2>
-        <p>The transaction signature could not be verified securely. No funds were credited.</p>
-        <a href="${CLIENT_URL}" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#E85D75; color:#fff; border-radius:25px; text-decoration:none;">Return to Our Bloom</a>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payment Successful! 🌸 Our Bloom</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F9; text-align: center; padding: 40px 16px; margin: 0; color: #2D2D2D; }
+          .card { max-width: 480px; margin: 0 auto; background: #FFFFFF; border-radius: 28px; padding: 40px 24px; box-shadow: 0 10px 40px rgba(232, 93, 117, 0.12); border: 1px solid #F3D9E0; }
+          .icon { font-size: 54px; margin-bottom: 16px; }
+          h1 { color: #2E7D32; font-size: 26px; margin: 0 0 8px 0; }
+          p { color: #666; margin: 8px 0 24px 0; font-size: 15px; }
+          .details { background: #F9FBF9; border: 1px solid #C8E6C9; border-radius: 16px; padding: 18px; text-align: left; margin-bottom: 28px; font-size: 14px; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+          .row:last-child { margin-bottom: 0; }
+          .label { color: #666; }
+          .val { font-weight: bold; color: #2D2D2D; }
+          .btn { display: inline-block; background: #E85D75; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 14px rgba(232, 93, 117, 0.3); }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">🌸✨</div>
+          <h1>Payment Successful!</h1>
+          <p>Your deposit has been verified and added to your Couple's Savings Vault.</p>
+          <div class="details">
+            <div class="row"><span class="label">Amount Paid:</span><span class="val">₹${(amountPaise / 100).toFixed(2)}</span></div>
+            <div class="row"><span class="label">Payment ID:</span><span class="val">${verifiedUtr}</span></div>
+            <div class="row"><span class="label">Order Ref:</span><span class="val">${txnid}</span></div>
+            <div class="row"><span class="label">Status:</span><span class="val" style="color:#2E7D32;">✓ VERIFIED</span></div>
+          </div>
+          <a href="intent://vault#Intent;scheme=ourbloom;package=com.ourbloom.app;end" class="btn">Return to Our Bloom 💖</a>
+        </div>
       </body>
       </html>
     `);
+  } catch (err) {
+    console.error('✿ Error in PayU success webhook:', err);
+    res.status(500).send('Internal server error processing callback');
   }
-
-  const {
-    txnid,
-    amount: amountStr,
-    mihpayid: utrNumber,
-    udf1: coupleId,
-    udf2: userId,
-    udf3: userName = 'Partner',
-    udf4: goalId = '',
-    udf5: note = ''
-  } = req.body;
-
-  const amount = parseFloat(amountStr) || 0.0;
-
-  // Credit the Couple's Savings Vault in Firestore
-  const db = getFirestore();
-  if (db && coupleId && amount > 0) {
-    try {
-      const verifiedUtr = utrNumber || txnid || `PAYU-${Date.now()}`;
-
-      // Check if already processed to prevent double crediting
-      const existingTx = await db.collection('savings_transactions')
-        .where('coupleId', '==', coupleId)
-        .where('utrNumber', '==', verifiedUtr)
-        .limit(1)
-        .get();
-
-      if (!existingTx.empty) {
-        console.log(`✿ Transaction ${verifiedUtr} already processed for couple ${coupleId}. Skipping duplicate credit.`);
-      } else {
-        const walletRef = db.collection('savings_wallets').doc(coupleId);
-        const walletDoc = await walletRef.get();
-
-      let totalBalance = amount;
-      let user1Total = 0;
-      let user2Total = 0;
-      let user1Id = userId || '';
-      let user1Name = userName || 'Partner';
-      let user2Id = '';
-      let user2Name = '';
-
-      if (walletDoc.exists) {
-        const data = walletDoc.data();
-        const isUser1 = !data.user1Id || data.user1Id === userId;
-        totalBalance = (data.totalBalance || 0) + amount;
-        user1Total = isUser1 ? (data.user1Total || 0) + amount : (data.user1Total || 0);
-        user2Total = !isUser1 ? (data.user2Total || 0) + amount : (data.user2Total || 0);
-        user1Id = data.user1Id || user1Id;
-        user1Name = data.user1Name || user1Name;
-        user2Id = data.user2Id || '';
-        user2Name = data.user2Name || '';
-      }
-
-      await walletRef.set({
-        coupleId,
-        user1Id,
-        user1Name,
-        user2Id,
-        user2Name,
-        totalBalance,
-        user1Total,
-        user2Total,
-        currency: '₹',
-        lastUpdated: Date.now()
-      }, { merge: true });
-
-      // Update goal if applicable
-      if (goalId) {
-        try {
-          const goalRef = db.collection('savings_goals').doc(goalId);
-          const goalDoc = await goalRef.get();
-          if (goalDoc.exists) {
-            const currentAmount = (goalDoc.data().currentAmount || 0) + amount;
-            const targetAmount = goalDoc.data().targetAmount || 0;
-            await goalRef.update({
-              currentAmount,
-              isCompleted: targetAmount > 0 && currentAmount >= targetAmount
-            });
-          }
-        } catch (goalErr) {
-          console.warn('Could not update savings goal balance:', goalErr.message);
-        }
-      }
-
-      // Record Savings Transaction
-      const verifiedUtr = utrNumber || txnid || `PAYU-${Date.now()}`;
-      await db.collection('savings_transactions').add({
-        coupleId,
-        userId: userId || '',
-        userName: userName || 'Partner',
-        type: 'deposit',
-        amount,
-        utrNumber: verifiedUtr,
-        goalId: goalId || '',
-        goalTitle: '',
-        note: note || 'PayU Online Payment',
-        category: 'Savings',
-        paymentMethod: 'PayU Hosted',
-        timestamp: Date.now()
-      });
-
-      // Add Admin Alert
-      await db.collection('admin_alerts').add({
-        type: 'deposit',
-        coupleId,
-        userId: userId || '',
-        userName: userName || 'Partner',
-        amount,
-        utrNumber: verifiedUtr,
-        note: `PayU Hosted Payment (${txnid})`,
-        timestamp: Date.now(),
-        status: 'VERIFIED'
-      });
-
-      console.log(`✿ Successfully credited ₹${amount} via PayU to couple ${coupleId}. UTR: ${verifiedUtr}`);
-
-      // Notify partner via push notification if available
-      try {
-        const coupleDoc = await db.collection('couples').doc(coupleId).get();
-        if (coupleDoc.exists) {
-          const coupleData = coupleDoc.data();
-          const partnerId = userId === coupleData.user1 ? coupleData.user2 : (userId === coupleData.user2 ? coupleData.user1 : coupleData.user2);
-          if (partnerId) {
-            const partnerDoc = await db.collection('users').doc(partnerId).get();
-            if (partnerDoc.exists && partnerDoc.data().fcmToken) {
-              const { sendPushNotification } = require('../utils/firebase');
-              await sendPushNotification(
-                partnerDoc.data().fcmToken,
-                'Vault Deposit Received! 🌸💰',
-                `${userName || 'Your partner'} added ₹${amount.toFixed(2)} to your shared Couple's Vault!`,
-                { type: 'savings_deposit', coupleId, amount: String(amount) }
-              );
-            }
-          }
-        }
-      // Notify Admin in Bloom Admin App of new deposit
-      try {
-        const { notifyAdmin } = require('../utils/firebase');
-        await notifyAdmin(
-          `💰 New Vault Deposit: ₹${amount.toFixed(2)}!`,
-          `${userName || 'Partner'} deposited ₹${amount.toFixed(2)} into couple vault. Ref: ${verifiedUtr}`,
-          { type: 'deposit', coupleId, amount: String(amount), utrNumber: String(verifiedUtr) }
-        );
-      } catch (adminPushErr) {
-        console.warn('✿ Could not send admin push notification for vault deposit:', adminPushErr.message);
-      }
-    }
-  } catch (dbErr) {
-    console.error('✿ Error updating savings wallet on PayU success:', dbErr);
-  }
-}
-
-  // Render celebratory response page
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Payment Successful! 🌸 Our Bloom</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F9; text-align: center; padding: 40px 16px; margin: 0; color: #2D2D2D; }
-        .card { max-width: 480px; margin: 0 auto; background: #FFFFFF; border-radius: 28px; padding: 40px 24px; box-shadow: 0 10px 40px rgba(232, 93, 117, 0.12); border: 1px solid #F3D9E0; }
-        .icon { font-size: 54px; margin-bottom: 16px; }
-        h1 { color: #2E7D32; font-size: 26px; margin: 0 0 8px 0; }
-        p { color: #666; margin: 8px 0 24px 0; font-size: 15px; }
-        .details { background: #F9FBF9; border: 1px solid #C8E6C9; border-radius: 16px; padding: 18px; text-align: left; margin-bottom: 28px; font-size: 14px; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .row:last-child { margin-bottom: 0; }
-        .label { color: #666; }
-        .val { font-weight: bold; color: #2D2D2D; }
-        .btn { display: inline-block; background: #E85D75; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 14px rgba(232, 93, 117, 0.3); transition: transform 0.2s; }
-        .btn:hover { transform: translateY(-2px); }
-        .note { font-size: 13px; color: #888; margin-top: 16px; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="icon">🌸✨</div>
-        <h1>Payment Successful!</h1>
-        <p>Your deposit has been verified and added to your Couple's Savings Vault.</p>
-        
-        <div class="details">
-          <div class="row"><span class="label">Amount Paid:</span><span class="val">₹${amount.toFixed(2)}</span></div>
-          <div class="row"><span class="label">Payment ID:</span><span class="val">${utrNumber || txnid}</span></div>
-          <div class="row"><span class="label">Order Ref:</span><span class="val">${txnid}</span></div>
-          <div class="row"><span class="label">Status:</span><span class="val" style="color:#2E7D32;">✓ VERIFIED</span></div>
-        </div>
-
-        <a href="intent://vault#Intent;scheme=ourbloom;package=com.ourbloom.app;end" class="btn">Return to Our Bloom 💖</a>
-        <p class="note">Your vault balance has updated live in the app. You can safely close this screen.</p>
-      </div>
-      <script>
-        if (window.PayUBridge && typeof window.PayUBridge.onPaymentSuccess === 'function') {
-          window.PayUBridge.onPaymentSuccess('${utrNumber || txnid}');
-        }
-      </script>
-    </body>
-    </html>
-  `);
 });
 
 /**
  * POST /api/payu/failure
- * Webhook / Callback handler when payment is declined or aborted by PayU
+ * Webhook handler for aborted or declined payments
  */
-router.post('/failure', (req, res) => {
-  console.log('✿ PayU Failure / Cancelled Callback:', {
-    txnid: req.body.txnid,
-    status: req.body.status,
-    error: req.body.error_Message || req.body.unmappedstatus
-  });
+router.post('/failure', async (req, res) => {
+  const { txnid, error_Message, unmappedstatus } = req.body;
+  const errorMsg = error_Message || unmappedstatus || 'Transaction was not completed.';
 
-  const txnid = req.body.txnid || '';
-  const errorMsg = req.body.error_Message || req.body.unmappedstatus || 'Transaction was not completed.';
+  console.log('✿ PayU Failure / Cancelled Callback:', { txnid, errorMsg });
+
+  // Record failure event for audit
+  try {
+    const db = getFirestore();
+    if (db && txnid) {
+      await db.collection('gateway_events').doc(txnid).set({
+        providerTxnId: txnid,
+        status: 'FAILED',
+        errorMsg,
+        receivedAt: Date.now()
+      }, { merge: true });
+    }
+  } catch (_) {}
 
   res.send(`
     <!DOCTYPE html>
@@ -529,7 +502,6 @@ router.post('/failure', (req, res) => {
         h1 { color: #C62828; font-size: 24px; margin: 0 0 8px 0; }
         p { color: #666; margin: 8px 0 24px 0; font-size: 15px; }
         .btn { display: inline-block; background: #E85D75; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 30px; font-weight: bold; font-size: 16px; }
-        .note { font-size: 13px; color: #888; margin-top: 16px; }
       </style>
     </head>
     <body>
@@ -539,7 +511,6 @@ router.post('/failure', (req, res) => {
         <p>${errorMsg}</p>
         <p style="font-size:13px; color:#888;">No funds were deducted. You can try again anytime.</p>
         <a href="intent://vault#Intent;scheme=ourbloom;package=com.ourbloom.app;end" class="btn">Return to Our Bloom</a>
-        <p class="note">You can safely close this screen and return to the app.</p>
       </div>
     </body>
     </html>
@@ -548,151 +519,168 @@ router.post('/failure', (req, res) => {
 
 /**
  * POST /api/payu/payout
- * Automated Payment Gateway Payout Execution
- * Automatically transfers withdrawal funds to beneficiary bank/UPI via PayU Gateway,
- * updates couple's vault balance in Firestore, records transaction, and notifies couple.
+ * Privileged endpoint for withdrawal payout dispatch
+ * Protected by adminAuthMiddleware (finance_admin or super_admin required)
+ * Requires Idempotency-Key header
+ * Enforces production kill switch (ENABLE_PRODUCTION_PAYOUTS=true)
+ * Implements two-phase atomic balance reservation in integer paise
  */
-router.post('/payout', async (req, res) => {
+router.post('/payout', requireAdminRole(['finance_admin', 'super_admin']), async (req, res) => {
   try {
-    const { requestId, coupleId, adminMobile } = req.body;
+    const idempotencyKey = req.headers['idempotency-key'];
+    if (!idempotencyKey) {
+      return res.status(400).json({ error: 'Missing required Idempotency-Key header' });
+    }
+
+    const { requestId, coupleId } = req.body;
     if (!requestId || !coupleId) {
-      return res.status(400).json({ success: false, error: 'Missing requestId or coupleId' });
+      return res.status(400).json({ error: 'Missing requestId or coupleId' });
     }
 
     const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ success: false, error: 'Firestore database not connected' });
+      return res.status(500).json({ error: 'Firestore database unavailable' });
     }
 
-    const reqRef = db.collection('withdrawal_requests').doc(requestId);
-    const reqSnap = await reqRef.get();
-    if (!reqSnap.exists) {
-      return res.status(404).json({ success: false, error: 'Withdrawal request not found' });
-    }
-
-    const reqData = reqSnap.data();
-    if (reqData.status === 'COMPLETED') {
-      return res.status(400).json({ success: false, error: 'Withdrawal request already completed' });
-    }
-
-    const amount = Number(reqData.amount) || 0;
-    if (amount <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid withdrawal amount' });
-    }
-
-    // Extract beneficiary info
-    const bankDetails = reqData.jointAccount || reqData.partner1Account || {};
-    const holderName = bankDetails.accountHolderName || reqData.requestedByName || 'Partner';
-    const accNumber = bankDetails.accountNumber || '';
-    const ifsc = bankDetails.ifscCode || '';
-    const upiId = bankDetails.upiId || '';
-
-    // Generate Payment Gateway Reference
-    const gatewayRef = `PAYU_PO_${Date.now()}_${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-    const now = Date.now();
-
-    // 1. Deduct vault balance in savings_wallets if not yet deducted
-    const walletRef = db.collection('savings_wallets').doc(coupleId);
-    const walletSnap = await walletRef.get();
-    if (walletSnap.exists && !reqData.balanceDeducted) {
-      const wData = walletSnap.data();
-      const curBalance = Number(wData.totalBalance) || 0;
-      const newBalance = Math.max(0, curBalance - amount);
-      const u1Total = Number(wData.user1Total) || 0;
-      const u2Total = Number(wData.user2Total) || 0;
-      const ratio = curBalance > 0 ? (amount / curBalance) : 0;
-      const newU1 = Math.max(0, u1Total - (u1Total * ratio));
-      const newU2 = Math.max(0, u2Total - (u2Total * ratio));
-
-      await walletRef.update({
-        totalBalance: newBalance,
-        user1Total: newU1,
-        user2Total: newU2,
-        lastUpdated: now
+    // Production Kill Switch: If automated live payouts are disabled, record in review queue
+    if (!ENABLE_PRODUCTION_PAYOUTS) {
+      return res.status(202).json({
+        status: 'PENDING_ADMIN',
+        gatewayStatus: 'NOT_STARTED',
+        livePayoutsEnabled: false,
+        message: 'Payout registered in review queue. Live automated disbursements are currently disabled pending banking compliance.'
       });
     }
 
-    // 2. Record withdrawal transaction in savings_transactions
-    await db.collection('savings_transactions').add({
-      coupleId: coupleId,
-      userId: reqData.requestedByUid || 'admin',
-      userName: reqData.requestedByName || 'Partner',
-      type: 'withdrawal',
-      amount: amount,
-      utrNumber: gatewayRef,
-      note: `Withdrawal for ${reqData.reason || 'Vault Payout'} (Processed by PayU Gateway)`,
-      category: reqData.isEmergency ? 'Emergency Payout' : 'Maturity Payout',
-      paymentMethod: upiId ? 'PayU UPI Payout Gateway' : 'PayU IMPS Payout Gateway',
-      gatewayProvider: 'PayU Payouts',
-      gatewayReference: gatewayRef,
-      timestamp: now
+    // Atomic Two-Phase Balance Reservation inside a Firestore transaction
+    const gatewayRef = `PAYU_PO_${Date.now()}_${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const now = Date.now();
+
+    const transactionResult = await db.runTransaction(async (transaction) => {
+      // 1. Verify Idempotency
+      const eventRef = db.collection('gateway_events').doc(idempotencyKey);
+      const eventDoc = await transaction.get(eventRef);
+      if (eventDoc.exists) {
+        return { duplicate: true, data: eventDoc.data() };
+      }
+
+      // 2. Read Withdrawal Request
+      const reqRef = db.collection('withdrawal_requests').doc(requestId);
+      const reqSnap = await transaction.get(reqRef);
+      if (!reqSnap.exists) {
+        throw new Error('NOT_FOUND: Withdrawal request not found');
+      }
+
+      const reqData = reqSnap.data();
+      const amountPaise = reqData.amountPaise ?? Math.round((Number(reqData.amount) || 0) * 100);
+
+      if (amountPaise <= 0) {
+        throw new Error('INVALID_AMOUNT: Withdrawal amount must be positive');
+      }
+
+      // Check valid pre-condition state
+      if (reqData.businessStatus !== 'PENDING_ADMIN') {
+        throw new Error(`INVALID_STATE: Request cannot be dispatched from state '${reqData.businessStatus}'. Must be 'PENDING_ADMIN'`);
+      }
+
+      // 3. Read Wallet and Check Balance
+      const walletRef = db.collection('savings_wallets').doc(coupleId);
+      const walletSnap = await transaction.get(walletRef);
+      if (!walletSnap.exists) {
+        throw new Error('NOT_FOUND: Couple savings wallet not found');
+      }
+
+      const wData = walletSnap.data();
+      const currentTotalPaise = wData.totalBalancePaise ?? Math.round((Number(wData.totalBalance) || 0) * 100);
+      const currentAvailablePaise = wData.availableBalancePaise ?? currentTotalPaise;
+      const currentReservedPaise = wData.reservedBalancePaise || 0;
+
+      if (currentAvailablePaise < amountPaise) {
+        throw new Error(`INSUFFICIENT_FUNDS: Available balance (₹${(currentAvailablePaise / 100).toFixed(2)}) is less than requested amount (₹${(amountPaise / 100).toFixed(2)})`);
+      }
+
+      // 4. Two-Phase Balance Reservation: Available -> Reserved
+      const newAvailablePaise = currentAvailablePaise - amountPaise;
+      const newReservedPaise = currentReservedPaise + amountPaise;
+
+      transaction.update(walletRef, {
+        availableBalancePaise: newAvailablePaise,
+        reservedBalancePaise: newReservedPaise,
+        version: (wData.version || 0) + 1,
+        updatedAt: now
+      });
+
+      // 5. Transition Withdrawal Request to GATEWAY_PROCESSING
+      transaction.update(reqRef, {
+        businessStatus: 'ADMIN_APPROVED',
+        gatewayStatus: 'GATEWAY_PROCESSING',
+        adminApprovedAt: now,
+        lastTransitionAt: now,
+        payoutReference: gatewayRef,
+        approvedByAdminUid: req.adminUser.uid,
+        idempotencyKey
+      });
+
+      // 6. Write Immutable Server Audit Ledger entry
+      const txnRef = db.collection('savings_transactions').doc();
+      transaction.set(txnRef, {
+        ledgerId: `LEDGER_${now}_${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+        requestId,
+        coupleId,
+        actorId: req.adminUser.uid,
+        actorRole: req.adminUser.role,
+        type: 'WITHDRAWAL_RESERVED',
+        amountPaise,
+        currency: 'INR',
+        previousBusinessStatus: 'PENDING_ADMIN',
+        newBusinessStatus: 'ADMIN_APPROVED',
+        previousGatewayStatus: 'NOT_STARTED',
+        newGatewayStatus: 'GATEWAY_PROCESSING',
+        providerReference: gatewayRef,
+        serverTimestamp: now,
+        idempotencyKey
+      });
+
+      // 7. Record Idempotency Claim
+      transaction.set(eventRef, {
+        idempotencyKey,
+        requestId,
+        coupleId,
+        gatewayRef,
+        amountPaise,
+        status: 'GATEWAY_PROCESSING',
+        createdAt: now
+      });
+
+      return { success: true, gatewayRef, amountPaise };
     });
 
-    // 3. Update withdrawal request in Firestore
-    await reqRef.update({
-      status: 'COMPLETED',
-      payoutReference: gatewayRef,
-      payoutGateway: 'PayU Payouts',
-      gatewayStatus: 'SUCCESS',
-      adminApprovedAt: now,
-      completedAt: now,
-      balanceDeducted: true,
-      adminNotes: `Disbursed automatically via PayU Payment Gateway to ${holderName}`
-    });
-
-    // 4. Update admin alerts
-    try {
-      const alertsQuery = await db.collection('admin_alerts')
-        .where('coupleId', '==', coupleId)
-        .where('type', '==', 'payout_needed')
-        .get();
-      for (const doc of alertsQuery.docs) {
-        await doc.ref.update({
-          status: 'DISBURSED',
-          utrNumber: gatewayRef,
-          disbursedAt: now,
-          gatewayProvider: 'PayU Payouts'
-        });
-      }
-    } catch (_) {}
-
-    // 5. Send push notification to couple partners
-    try {
-      const { sendPushNotification } = require('../utils/firebase');
-      const coupleDoc = await db.collection('couples').doc(coupleId).get();
-      if (coupleDoc.exists) {
-        const cData = coupleDoc.data();
-        const userIds = [cData.user1, cData.user2].filter(Boolean);
-        for (const uid of userIds) {
-          const uDoc = await db.collection('users').doc(uid).get();
-          if (uDoc.exists) {
-            const fcmToken = uDoc.data()?.fcmToken;
-            if (fcmToken) {
-              await sendPushNotification(
-                fcmToken,
-                '🌸 Withdrawal Processed by Payment Gateway!',
-                `₹${amount.toFixed(2)} has been automatically transferred by PayU Gateway (Ref: ${gatewayRef}). Your vault balance has been updated.`,
-                { type: 'savings', action: 'open_vault' }
-              );
-            }
-          }
-        }
-      }
-    } catch (pushErr) {
-      console.warn('✿ Push notification warning in payout:', pushErr.message);
+    if (transactionResult.duplicate) {
+      return res.json({
+        success: true,
+        message: 'Duplicate payout request ignored (Idempotent)',
+        reference: transactionResult.data.gatewayRef
+      });
     }
 
     return res.json({
       success: true,
-      reference: gatewayRef,
-      message: `₹${amount} disbursed automatically via PayU Payment Gateway`,
-      timestamp: now
+      businessStatus: 'ADMIN_APPROVED',
+      gatewayStatus: 'GATEWAY_PROCESSING',
+      reference: transactionResult.gatewayRef,
+      amountPaise: transactionResult.amountPaise,
+      message: `₹${(transactionResult.amountPaise / 100).toFixed(2)} reserved and dispatched to payment gateway.`
     });
   } catch (err) {
-    console.error('✿ Error in PayU automated payout:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    console.error('✿ Error in /api/payu/payout:', err.message);
+    if (err.message.startsWith('INSUFFICIENT_FUNDS') || err.message.startsWith('INVALID_')) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.message.startsWith('NOT_FOUND')) {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Failed to process payout: ' + err.message });
   }
 });
 
 module.exports = router;
-

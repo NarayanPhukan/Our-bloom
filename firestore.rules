@@ -3,39 +3,367 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // =========================================================================
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // User profiles: authenticated users can read, user can edit their own profile
+    function isCoupleDocMember(coupleData) {
+      return isSignedIn() && (
+        coupleData.user1 == request.auth.uid || 
+        coupleData.user2 == request.auth.uid
+      );
+    }
+
+    function isExistingCoupleMember(coupleId) {
+      return coupleId != null &&
+        exists(/databases/$(database)/documents/couples/$(coupleId)) &&
+        isCoupleDocMember(get(/databases/$(database)/documents/couples/$(coupleId)).data);
+    }
+
+    function isParentCoupleMember(coupleId) {
+      return isExistingCoupleMember(coupleId);
+    }
+
+    function isCoupleMemberOfUser(userId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.coupleId != null &&
+        isExistingCoupleMember(get(/databases/$(database)/documents/users/$(userId)).data.coupleId);
+    }
+
+    // Authoritative Admin Authorization: Firebase Custom Claim is authoritative
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+      );
+    }
+
+    function isFinanceAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true &&
+        request.auth.token.role in ['finance_admin', 'super_admin']
+      );
+    }
+
+    // =========================================================================
+    // USER PROFILES
+    // =========================================================================
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isOwner(userId);
+      // User themselves, their active partner, or admin can read
+      allow read: if isUser(userId) || isCoupleMemberOfUser(userId) || isAdmin();
+      
+      allow create: if isUser(userId) && request.resource.data.uid == userId;
+      
+      allow update: if isUser(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'avatarUrl', 'nicknameForPartner', 'fcmToken', 'connectedGoogleEmail', 'updatedAt'
+        ])
+        && request.resource.data.uid == resource.data.uid;
+        
+      allow delete: if isUser(userId);
     }
 
-    // Couple workspaces and subcollections (messages, memories, notes, timeline, pings)
+    // =========================================================================
+    // COUPLE WORKSPACES & EXPLICIT SUBCOLLECTIONS
+    // =========================================================================
     match /couples/{coupleId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isCoupleDocMember(resource.data) || isAdmin();
 
-      match /{allSubcollections=**} {
-        allow read, write: if isAuthenticated();
+      // Couple creation is strictly server-transaction-only via /api/couples/pair
+      allow create: if false;
+
+      // Clients can only update cosmetic themes/phrases
+      allow update: if isCoupleDocMember(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'theme', 'heroImageUrl', 'specialPhrase', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+
+      // 1. Messages (Couple Chat Subcollection)
+      match /messages/{msgId} {
+        allow read: if isParentCoupleMember(coupleId) || isAdmin();
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'reactions', 'readBy', 'editedAt'
+          ]);
+        allow delete: if isParentCoupleMember(coupleId) && resource.data.senderId == request.auth.uid;
+      }
+
+      // 2. Memories (Polaroid Scrapbook Subcollection)
+      match /memories/{memId} {
+        allow read: if isParentCoupleMember(coupleId) || isAdmin();
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == resource.data.coupleId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'description', 'mediaUrl', 'memoryDate', 'updatedAt', 'tags', 'location'
+          ]);
+        allow delete: if isParentCoupleMember(coupleId);
+      }
+
+      // 3. Love Notes (Private Sticky Notes Subcollection)
+      match /loveNotes/{noteId} {
+        allow read: if isParentCoupleMember(coupleId) || isAdmin();
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == resource.data.coupleId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'content', 'theme', 'isRead', 'readAt', 'updatedAt', 'deletedFor'
+          ]);
+        allow delete: if isParentCoupleMember(coupleId);
+      }
+
+      // 4. Live Presence & Touch Sync (Ephemeral coordinates / status)
+      match /live/{docId} {
+        allow read: if isParentCoupleMember(coupleId);
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'activeState', 'lastPing', 'participantUids', 'updatedAt'
+          ])
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.coupleId == resource.data.coupleId
+          && request.resource.data.sessionId == resource.data.sessionId;
+        allow delete: if isParentCoupleMember(coupleId);
+      }
+
+      // 5. Milestones & Timeline Subcollection
+      match /milestones/{milestoneId} {
+        allow read: if isParentCoupleMember(coupleId) || isAdmin();
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == resource.data.coupleId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'targetDate', 'category', 'isAchieved', 'updatedAt', 'description', 'date'
+          ]);
+        allow delete: if isParentCoupleMember(coupleId);
+      }
+
+      // 6. Unified Story Entries (Save to Story Archive Subcollection)
+      match /storyEntries/{entryId} {
+        allow read: if isParentCoupleMember(coupleId) || isAdmin();
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == resource.data.coupleId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'caption', 'visibility', 'updatedAt'
+          ]);
+        allow delete: if isParentCoupleMember(coupleId);
+      }
+
+      // 7. Dream Travel Locations Subcollection
+      match /dreamLocations/{locId} {
+        allow read: if isParentCoupleMember(coupleId) || isAdmin();
+        allow create: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == coupleId;
+        allow update: if isParentCoupleMember(coupleId)
+          && request.resource.data.coupleId == resource.data.coupleId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'location', 'description', 'updatedAt'
+          ]);
+        allow delete: if isParentCoupleMember(coupleId);
+      }
+
+      // Deny-by-default for any unmapped subcollections under /couples/{coupleId}
+      match /{otherSubcollections=**} {
+        allow read, write: if false;
       }
     }
 
-    // Pair invitation codes
-    match /invites/{code} {
-      allow read, write: if isAuthenticated();
+    // =========================================================================
+    // TOP-LEVEL COMPATIBILITY COLLECTIONS (SECURED BY COUPLE MEMBERSHIP)
+    // =========================================================================
+
+    // Chat messages (Top-level collection used by Android FirestoreRepository)
+    match /chat_messages/{msgId} {
+      allow read: if isSignedIn() && (isExistingCoupleMember(resource.data.coupleId) || isAdmin());
+      allow create: if isSignedIn()
+        && isExistingCoupleMember(request.resource.data.coupleId)
+        && request.resource.data.senderId == request.auth.uid;
+      allow update: if isSignedIn()
+        && isExistingCoupleMember(resource.data.coupleId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reactions', 'readBy', 'editedAt', 'deletedFor', 'status', 'isRead', 'readAt', 'deliveryStatus', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn()
+        && isExistingCoupleMember(resource.data.coupleId)
+        && resource.data.senderId == request.auth.uid;
     }
 
-    // Fallback: strictly deny unauthenticated access
+    // Top-level memories collection
+    match /memories/{memId} {
+      allow read: if isSignedIn() && (isExistingCoupleMember(resource.data.coupleId) || isAdmin());
+      allow create: if isSignedIn()
+        && isExistingCoupleMember(request.resource.data.coupleId);
+      allow update: if isSignedIn()
+        && isExistingCoupleMember(resource.data.coupleId)
+        && request.resource.data.coupleId == resource.data.coupleId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'mediaUrl', 'memoryDate', 'updatedAt', 'tags', 'location'
+        ]);
+      allow delete: if isSignedIn() && isExistingCoupleMember(resource.data.coupleId);
+    }
+
+    // Top-level loveNotes collection
+    match /loveNotes/{noteId} {
+      allow read: if isSignedIn() && (isExistingCoupleMember(resource.data.coupleId) || isAdmin());
+      allow create: if isSignedIn()
+        && isExistingCoupleMember(request.resource.data.coupleId);
+      allow update: if isSignedIn()
+        && isExistingCoupleMember(resource.data.coupleId)
+        && request.resource.data.coupleId == resource.data.coupleId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'content', 'theme', 'isRead', 'readAt', 'updatedAt', 'deletedFor'
+        ]);
+      allow delete: if isSignedIn() && isExistingCoupleMember(resource.data.coupleId);
+    }
+
+    // Top-level milestones collection
+    match /milestones/{milestoneId} {
+      allow read: if isSignedIn() && (isExistingCoupleMember(resource.data.coupleId) || isAdmin());
+      allow create: if isSignedIn()
+        && isExistingCoupleMember(request.resource.data.coupleId);
+      allow update: if isSignedIn()
+        && isExistingCoupleMember(resource.data.coupleId)
+        && request.resource.data.coupleId == resource.data.coupleId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'targetDate', 'category', 'isAchieved', 'updatedAt', 'description', 'date'
+        ]);
+      allow delete: if isSignedIn() && isExistingCoupleMember(resource.data.coupleId);
+    }
+
+    // Pair invitation codes: Protected Backend API Only via /api/invites/*
+    match /invites/{code} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // SAVINGS VAULT & FINANCIAL STATE (CLIENT WRITE STRICTLY PROHIBITED)
+    // =========================================================================
+
+    // Wallet balances: CLIENT WRITE IS STRICTLY FORBIDDEN!
+    match /savings_wallets/{coupleId} {
+      allow read: if isExistingCoupleMember(coupleId) || isAdmin();
+      allow write: if false; // Only Server Admin SDK can modify balances
+    }
+
+    // Ledger transactions: CLIENT WRITE/DELETE IS STRICTLY FORBIDDEN!
+    match /savings_transactions/{txnId} {
+      allow read: if (isSignedIn() && isExistingCoupleMember(resource.data.coupleId)) || isAdmin();
+      allow write, delete: if false; // Only Server Admin SDK can append immutable transactions
+    }
+
+    // Withdrawal requests
+    match /withdrawal_requests/{requestId} {
+      allow read: if (isSignedIn() && isExistingCoupleMember(resource.data.coupleId)) || isAdmin();
+      
+      // Couple member can create with status strictly "REQUESTED"
+      allow create: if isSignedIn() && 
+        isExistingCoupleMember(request.resource.data.coupleId) &&
+        request.resource.data.requestedByUid == request.auth.uid &&
+        request.resource.data.businessStatus == 'REQUESTED' &&
+        request.resource.data.gatewayStatus == 'NOT_STARTED';
+
+      // Partner approval toggle: ONLY non-requesting partner can toggle partnerApproved or partnerDeclined
+      allow update: if (
+        isSignedIn() &&
+        isExistingCoupleMember(resource.data.coupleId) &&
+        request.auth.uid != resource.data.requestedByUid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerApproved', 'partnerDeclined']) &&
+        !(request.resource.data.partnerApproved == true && request.resource.data.partnerDeclined == true)
+      ) || isAdmin();
+
+      allow delete: if false;
+    }
+
+    // Gateway events deduplication: Server-only
+    match /gateway_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // REAL-TIME SIGNALS & COMMUNICATIONS
+    // =========================================================================
+
+    // Heartbeats
+    match /heartbeats/{hbId} {
+      allow read: if isSignedIn() && (
+        isExistingCoupleMember(resource.data.coupleId) || 
+        resource.data.senderId == request.auth.uid
+      );
+      allow create: if isSignedIn() && 
+        isExistingCoupleMember(request.resource.data.coupleId) &&
+        request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Video call signaling
+    match /video_calls/{coupleId} {
+      allow read, write: if isExistingCoupleMember(coupleId);
+    }
+
+    // Error telemetry (write-only for app diagnostic reporting)
+    match /error_reports/{errId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // ADMIN PRIVILEGED COLLECTIONS (CLIENT WRITE STRICTLY DENIED)
+    // =========================================================================
+    match /admin_config/{document=**} {
+      allow read: if isSignedIn(); // needed for min app version check
+      allow write: if isAdmin();
+    }
+
+    match /admin_users/{userId} {
+      allow read: if isAdmin();
+      allow write: if false; // Server-only IAM provisioning
+    }
+
+    match /admin_bugs/{bugId} {
+      allow create: if isSignedIn(); // bug radar logs exceptions
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /admin_bug_reports/{bugId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /admin_devices/{deviceId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow write: if false; // Server Admin SDK only
+    }
+
+    // =========================================================================
+    // DEFAULT CATCH-ALL: STRICTLY DENIED!
+    // =========================================================================
     match /{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if false;
     }
   }
 }

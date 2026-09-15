@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const Couple = require('../models/Couple');
 const User = require('../models/User');
 const Milestone = require('../models/Milestone');
@@ -370,6 +371,145 @@ router.post('/:slug/heartbeat', authMiddleware, coupleMiddleware, async (req, re
     res.json({ success: true, message: 'Heartbeat sent', timestamp });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/couples/pair — Backend-Only Couple Pairing Transaction
+router.post('/pair', authMiddleware, async (req, res) => {
+  try {
+    const { inviteCode } = req.body;
+    if (!inviteCode) {
+      return res.status(400).json({ error: 'Invite code is required for couple pairing' });
+    }
+
+    const callerUid = req.user.firebaseUid || req.user.userId?.toString();
+    const db = getFirestore();
+    if (!db) {
+      return res.status(500).json({ error: 'Firestore service unavailable' });
+    }
+
+    const cleanCode = String(inviteCode).trim().toUpperCase();
+
+    const result = await db.runTransaction(async (transaction) => {
+      // 1. Verify invite document
+      const inviteRef = db.collection('invites').doc(cleanCode);
+      const inviteDoc = await transaction.get(inviteRef);
+
+      if (!inviteDoc.exists) {
+        throw new Error('NOT_FOUND: Invalid invite code');
+      }
+
+      const inviteData = inviteDoc.data();
+      if (inviteData.isRedeemed) {
+        throw new Error('ALREADY_REDEEMED: This invitation has already been used');
+      }
+
+      if (inviteData.expiresAt && inviteData.expiresAt < Date.now()) {
+        throw new Error('EXPIRED: This invitation code has expired');
+      }
+
+      const partnerUid = inviteData.createdBy;
+      if (partnerUid === callerUid) {
+        throw new Error('SELF_PAIR: You cannot pair with your own invite code');
+      }
+
+      // 2. Verify neither user is already attached to an active couple
+      const callerUserRef = db.collection('users').doc(callerUid);
+      const partnerUserRef = db.collection('users').doc(partnerUid);
+
+      const [callerDoc, partnerDoc] = await Promise.all([
+        transaction.get(callerUserRef),
+        transaction.get(partnerUserRef)
+      ]);
+
+      if (callerDoc.exists && callerDoc.data().coupleId) {
+        throw new Error('CALLER_ALREADY_PAIRED: You are already attached to an active couple workspace');
+      }
+
+      if (partnerDoc.exists && partnerDoc.data().coupleId) {
+        throw new Error('PARTNER_ALREADY_PAIRED: Inviting partner is already attached to an active couple workspace');
+      }
+
+      // 3. Generate secure couple ID and create /couples/{coupleId}
+      const coupleId = `couple_${crypto.randomUUID()}`;
+      const coupleRef = db.collection('couples').doc(coupleId);
+      const now = Date.now();
+
+      transaction.set(coupleRef, {
+        id: coupleId,
+        user1: partnerUid,
+        user2: callerUid,
+        status: 'ACTIVE',
+        isArchived: false,
+        theme: 'default',
+        specialPhrase: '',
+        heroImageUrl: '',
+        createdAt: now,
+        updatedAt: now
+      });
+
+      // 4. Update both users with new coupleId
+      transaction.set(callerUserRef, {
+        coupleId,
+        updatedAt: now
+      }, { merge: true });
+
+      transaction.set(partnerUserRef, {
+        coupleId,
+        updatedAt: now
+      }, { merge: true });
+
+      // 5. Initialize Savings Wallet in Integer Paise (0 balance)
+      const walletRef = db.collection('savings_wallets').doc(coupleId);
+      transaction.set(walletRef, {
+        coupleId,
+        totalBalancePaise: 0,
+        availableBalancePaise: 0,
+        reservedBalancePaise: 0,
+        currency: 'INR',
+        version: 1,
+        updatedAt: now
+      });
+
+      // 6. Invalidate/Redeem the invite
+      transaction.update(inviteRef, {
+        isRedeemed: true,
+        redeemedBy: callerUid,
+        redeemedAt: now
+      });
+
+      return { coupleId, partnerUid, callerUid };
+    });
+
+    // Also sync to MongoDB if connected
+    try {
+      const user1Mongo = await User.findOne({ $or: [{ _id: result.partnerUid }, { email: result.partnerUid }] }).catch(() => null);
+      const user2Mongo = await User.findById(req.user.userId).catch(() => null);
+      if (user1Mongo && user2Mongo) {
+        const slug = Couple.generateSlug(user1Mongo.name || 'Partner', user2Mongo.name || 'Partner');
+        const coupleMongo = new Couple({
+          slug,
+          user1: user1Mongo._id,
+          user2: user2Mongo._id,
+          inviteCode: cleanCode
+        });
+        await coupleMongo.save().catch(() => {});
+      }
+    } catch (_) {}
+
+    return res.status(201).json({
+      success: true,
+      coupleId: result.coupleId,
+      status: 'ACTIVE'
+    });
+  } catch (err) {
+    console.error('✿ Couple pairing error:', err.message);
+    if (err.message.startsWith('NOT_FOUND') || err.message.startsWith('EXPIRED') ||
+        err.message.startsWith('ALREADY_REDEEMED') || err.message.startsWith('SELF_PAIR') ||
+        err.message.includes('ALREADY_PAIRED')) {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Failed to pair couple: ' + err.message });
   }
 });
 

@@ -638,6 +638,11 @@ class DashboardFragment : Fragment() {
         savingsReqListener = null
         cooldownTimer?.cancel()
         cooldownTimer = null
+        if (profileBottomSheetDialog?.isShowing == true) {
+            profileBottomSheetDialog?.dismiss()
+        }
+        profileBottomSheetDialog = null
+        tvDashboardPartnerBattery = null
     }
 
     private fun showNicknameDialog() {

@@ -17,6 +17,7 @@ const dreamLocationRoutes = require('./routes/dreamLocations');
 const settingsRoutes = require('./routes/settings');
 const uploadRoutes = require('./routes/upload');
 const payuRoutes = require('./routes/payu');
+const inviteRoutes = require('./routes/invites');
 const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
 const { initAnniversaryEmailJob } = require('./jobs/anniversaryEmail');
@@ -351,6 +352,9 @@ app.use('/api/upload', uploadRoutes);
 
 // PayU payment gateway endpoints (create payment, callbacks, webhooks)
 app.use('/api/payu', payuRoutes);
+
+// Protected invite validation and creation endpoints
+app.use('/api/invites', inviteRoutes);
 
 // Couple management routes (auth required)
 app.use('/api/couples', coupleRoutes);
