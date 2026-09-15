@@ -374,9 +374,13 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // Anthem FAB
-        val fabAnthem = view.findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.fab_anthem)
-        fabAnthem.setOnClickListener {
+        // Anthem Music Action (Header Button & FAB Stub)
+        val btnHeaderMusic = view.findViewById<View>(R.id.btn_header_music)
+        btnHeaderMusic?.setOnClickListener {
+            showAnthemDialog()
+        }
+        val fabAnthem = view.findViewById<View>(R.id.fab_anthem)
+        fabAnthem?.setOnClickListener {
             showAnthemDialog()
         }
 

@@ -68,8 +68,9 @@
 
     <style name="Widget.OurBloom.CardView" parent="Widget.MaterialComponents.CardView">
         <item name="shapeAppearance">@style/ShapeAppearance.OurBloom.Medium</item>
-        <item name="cardBackgroundColor">@color/bloom_secondary_container</item>
-        <item name="cardElevation">4dp</item>
-        <item name="strokeWidth">0dp</item>
+        <item name="cardBackgroundColor">@color/bloom_surface</item>
+        <item name="cardElevation">1dp</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="strokeColor">@color/bloom_outline</item>
     </style>
 </resources>

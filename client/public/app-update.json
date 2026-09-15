@@ -1,8 +1,8 @@
 {
-  "versionCode": 56,
-  "versionName": "1.55",
+  "versionCode": 57,
+  "versionName": "1.56",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Instant PayU live deposit crediting & enhanced WebView checkout callback handling",
+  "changelog": "Phase 2.5: Light & Dark Botanical Sanctuary UI, streamlined compact timer, calm falling sakura petals, and serene couple spaces 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

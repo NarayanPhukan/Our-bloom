@@ -16,7 +16,7 @@ class BlossomPetalView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private val petals = mutableListOf<Petal>()
-    private val maxPetals = 28
+    private val maxPetals = 8
     private var isRunning = true
     private val petalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -26,7 +26,7 @@ class BlossomPetalView @JvmOverloads constructor(
         Color.parseColor("#FFF0F5"), // Lavender blush
         Color.parseColor("#FFD2DD"), // Soft sakura
         Color.parseColor("#FFCCD5"), // Romantic blossom
-        Color.parseColor("#FF9ebb"), // Vibrant petal
+        Color.parseColor("#E85D75"), // Petal rose
         Color.parseColor("#FFB3C6")  // Warm pink
     )
 
@@ -49,11 +49,27 @@ class BlossomPetalView @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
+        if (isReducedMotion()) {
+            isRunning = false
+        }
+    }
+
+    private fun isReducedMotion(): Boolean {
+        return try {
+            val durationScale = android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            )
+            durationScale == 0f
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w > 0 && h > 0 && petals.isEmpty()) {
+        if (w > 0 && h > 0 && petals.isEmpty() && isRunning) {
             initPetals(w, h)
         }
     }
@@ -66,24 +82,33 @@ class BlossomPetalView @JvmOverloads constructor(
     }
 
     private fun createPetal(w: Int, h: Int, randomizeY: Boolean = false): Petal {
-        val y = if (randomizeY) Random.nextFloat() * h else -40f - Random.nextFloat() * 80f
-        val x = Random.nextFloat() * w
-        val size = Random.nextFloat() * 12f + 14f // 14 to 26 dp-like
+        val y = if (randomizeY) Random.nextFloat() * h else -30f - Random.nextFloat() * 60f
+        // Subtly bias towards margins so center text remains legible
+        val x = if (Random.nextFloat() < 0.7f) {
+            if (Random.nextBoolean()) {
+                Random.nextFloat() * (w * 0.3f)
+            } else {
+                w * 0.7f + Random.nextFloat() * (w * 0.3f)
+            }
+        } else {
+            Random.nextFloat() * w
+        }
+        val size = Random.nextFloat() * 8f + 12f // 12 to 20 dp
         return Petal(
             x = x,
             y = y,
-            vy = Random.nextFloat() * 1.8f + 1.2f, // Gentle descent
-            vx = (Random.nextFloat() - 0.5f) * 0.8f,
+            vy = Random.nextFloat() * 0.6f + 0.35f, // Very slow, meditative drift
+            vx = (Random.nextFloat() - 0.5f) * 0.3f,
             size = size,
             rotation = Random.nextFloat() * 360f,
-            rotSpeed = (Random.nextFloat() - 0.5f) * 2.0f,
+            rotSpeed = (Random.nextFloat() - 0.5f) * 0.8f,
             swayPhase = Random.nextFloat() * 6.28f,
-            swaySpeed = Random.nextFloat() * 0.03f + 0.02f,
-            swayAmplitude = Random.nextFloat() * 1.5f + 0.8f,
+            swaySpeed = Random.nextFloat() * 0.02f + 0.01f,
+            swayAmplitude = Random.nextFloat() * 1.0f + 0.5f,
             flipPhase = Random.nextFloat() * 6.28f,
-            flipSpeed = Random.nextFloat() * 0.04f + 0.02f,
+            flipSpeed = Random.nextFloat() * 0.025f + 0.015f,
             color = colors[Random.nextInt(colors.size)],
-            baseAlpha = Random.nextInt(140, 210)
+            baseAlpha = Random.nextInt(35, 75) // Translucent, soft drift
         )
     }
 

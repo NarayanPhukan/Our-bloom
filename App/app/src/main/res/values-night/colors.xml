@@ -1,56 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Serene Azure Bloom Material 3 Tokens (Dark Mode Equivalents) -->
-    <color name="bloom_primary">#b3c5ff</color>
-    <color name="bloom_on_primary">#002a78</color>
-    <color name="bloom_primary_container">#004ac6</color>
-    <color name="bloom_on_primary_container">#dbe1ff</color>
+    <!-- Moonlit Garden Botanical Sanctuary Tokens (Dark Mode) -->
+    <color name="bloom_primary">#E89AB5</color>
+    <color name="bloom_on_primary">#3B0D1E</color>
+    <color name="bloom_primary_container">#521624</color>
+    <color name="bloom_on_primary_container">#FFD9E2</color>
     
-    <color name="bloom_secondary">#bbc7db</color>
-    <color name="bloom_on_secondary">#233240</color>
-    <color name="bloom_secondary_container">#394857</color>
-    <color name="bloom_on_secondary_container">#d5e4f8</color>
+    <color name="bloom_secondary">#BDB1BC</color>
+    <color name="bloom_on_secondary">#292630</color>
+    <color name="bloom_secondary_container">#292630</color>
+    <color name="bloom_on_secondary_container">#F4EEF2</color>
     
-    <color name="bloom_tertiary">#a0c9ff</color>
-    <color name="bloom_on_tertiary">#00325f</color>
-    <color name="bloom_tertiary_container">#004b8b</color>
-    <color name="bloom_on_tertiary_container">#d3e4ff</color>
+    <color name="bloom_tertiary">#AAA0E0</color>
+    <color name="bloom_on_tertiary">#231B45</color>
+    <color name="bloom_tertiary_container">#372E5E</color>
+    <color name="bloom_on_tertiary_container">#E5DFFF</color>
     
-    <color name="bloom_background">#191c1e</color>
-    <color name="bloom_on_background">#e3e2e6</color>
+    <color name="bloom_background">#151719</color>
+    <color name="bloom_on_background">#F4EEF2</color>
     
-    <color name="bloom_surface">#191c1e</color>
-    <color name="bloom_on_surface">#e3e2e6</color>
-    <color name="bloom_surface_variant">#434655</color>
-    <color name="bloom_on_surface_variant">#c3c6d7</color>
-    <color name="bloom_outline">#8d91a2</color>
-    <color name="bloom_outline_variant">#434655</color>
+    <color name="bloom_surface">#211F25</color>
+    <color name="bloom_on_surface">#F4EEF2</color>
+    <color name="bloom_surface_variant">#292630</color>
+    <color name="bloom_on_surface_variant">#BDB1BC</color>
+    <color name="bloom_outline">#3A3540</color>
+    <color name="bloom_outline_variant">#2C2832</color>
     
-    <color name="bloom_surface_container">#1d2024</color>
-    <color name="bloom_surface_container_low">#191c1e</color>
+    <color name="bloom_surface_container">#292630</color>
+    <color name="bloom_surface_container_low">#1B1920</color>
+
+    <!-- Curated Botanical Accent Palettes (Dark Mode) -->
+    <color name="botanical_rose">#E89AB5</color>
+    <color name="botanical_rose_bg">#2E1E26</color>
+    <color name="botanical_lavender">#AAA0E0</color>
+    <color name="botanical_lavender_bg">#252136</color>
+    <color name="botanical_sage">#91AA98</color>
+    <color name="botanical_sage_bg">#1E2822</color>
+    <color name="botanical_powder_blue">#82A7C9</color>
+    <color name="botanical_powder_blue_bg">#1B2530</color>
+    <color name="botanical_gold">#D8BC73</color>
+    <color name="botanical_gold_bg">#2E281C</color>
+    <color name="botanical_plum">#F4EEF2</color>
+    <color name="botanical_plum_muted">#BDB1BC</color>
     
     <!-- Navbar specific -->
-    <color name="bottom_nav_bg">#E6191C1E</color>
-    <color name="bottom_nav_stroke">#33434655</color>
+    <color name="bottom_nav_bg">#F2151719</color>
+    <color name="bottom_nav_stroke">#333A3540</color>
     
     <!-- Chat & Bottom Sheet Tokens (Dark Mode) -->
-    <color name="chat_bg">#0E0B10</color>
-    <color name="chat_header_bg">#161218</color>
-    <color name="chat_header_text">#FFFFFF</color>
-    <color name="chat_header_subtitle">#80FFFFFF</color>
-    <color name="chat_header_icon">#FFB6C1</color>
+    <color name="chat_bg">#151719</color>
+    <color name="chat_header_bg">#211F25</color>
+    <color name="chat_header_text">#F4EEF2</color>
+    <color name="chat_header_subtitle">#BDB1BC</color>
+    <color name="chat_header_icon">#E89AB5</color>
     
     <color name="chat_input_bar_bg">#00000000</color>
-    <color name="chat_input_bg">#1F1A22</color>
-    <color name="chat_input_stroke">#26FFFFFF</color>
-    <color name="chat_input_text">#FFFFFF</color>
-    <color name="chat_input_hint">#66FFFFFF</color>
-    <color name="chat_attach_icon">#FFB6C1</color>
+    <color name="chat_input_bg">#292630</color>
+    <color name="chat_input_stroke">#3A3540</color>
+    <color name="chat_input_text">#F4EEF2</color>
+    <color name="chat_input_hint">#BDB1BC</color>
+    <color name="chat_attach_icon">#E89AB5</color>
     
     <!-- WhatsApp Chat Styling -->
     <color name="whatsapp_action_green">#E85D75</color>
     <color name="whatsapp_action_green_pressed">#D94562</color>
-    <color name="chat_action_pink">#E85D75</color>
+    <color name="chat_action_pink">#E89AB5</color>
     <color name="chat_action_pink_pressed">#D94562</color>
     <color name="whatsapp_icon_tint">#8696A0</color>
     <color name="whatsapp_pill_bg">#1F2C34</color>
@@ -65,7 +79,7 @@
     <color name="chat_bubble_received_bg">#241E24</color>
     <color name="chat_bubble_received_stroke">#1AFFFFFF</color>
     <color name="chat_bubble_received_text">#EAEAEA</color>
-    <color name="chat_bubble_received_sender">#E85D75</color>
+    <color name="chat_bubble_received_sender">#E89AB5</color>
     <color name="chat_bubble_received_time">#80FFFFFF</color>
     <color name="chat_avatar_bg">#2A1B28</color>
     
@@ -78,23 +92,23 @@
     <color name="chat_selection_overlay">#3DE85D75</color>
     <color name="chat_quote_sent_bg">#33000000</color>
     <color name="chat_quote_received_bg">#1C161D</color>
-    <color name="chat_quote_accent">#E85D75</color>
+    <color name="chat_quote_accent">#E89AB5</color>
     <color name="chat_quote_accent_blue">#34B7F1</color>
     
     <!-- Bottom Sheet & Cards Tokens (Dark Mode) -->
-    <color name="sheet_bg">#161218</color>
-    <color name="sheet_handle">#40FFFFFF</color>
-    <color name="sheet_title">#FFFFFF</color>
-    <color name="sheet_subtitle">#A0FFFFFF</color>
-    <color name="sheet_card_bg">#211A23</color>
-    <color name="sheet_card_stroke">#382C3C</color>
-    <color name="sheet_card_title">#FFFFFF</color>
-    <color name="sheet_card_subtitle">#80FFFFFF</color>
-    <color name="sheet_input_bg">#161218</color>
-    <color name="sheet_input_stroke">#40FFFFFF</color>
-    <color name="sheet_input_text">#FFFFFF</color>
-    <color name="sheet_input_hint">#50FFFFFF</color>
-    <color name="sheet_button_secondary_bg">#2E2430</color>
-    <color name="sheet_button_secondary_text">#FFFFFF</color>
-    <color name="sheet_button_secondary_stroke">#40FFFFFF</color>
+    <color name="sheet_bg">#211F25</color>
+    <color name="sheet_handle">#3A3540</color>
+    <color name="sheet_title">#F4EEF2</color>
+    <color name="sheet_subtitle">#BDB1BC</color>
+    <color name="sheet_card_bg">#292630</color>
+    <color name="sheet_card_stroke">#3A3540</color>
+    <color name="sheet_card_title">#F4EEF2</color>
+    <color name="sheet_card_subtitle">#BDB1BC</color>
+    <color name="sheet_input_bg">#211F25</color>
+    <color name="sheet_input_stroke">#3A3540</color>
+    <color name="sheet_input_text">#F4EEF2</color>
+    <color name="sheet_input_hint">#80F4EEF2</color>
+    <color name="sheet_button_secondary_bg">#292630</color>
+    <color name="sheet_button_secondary_text">#F4EEF2</color>
+    <color name="sheet_button_secondary_stroke">#3A3540</color>
 </resources>

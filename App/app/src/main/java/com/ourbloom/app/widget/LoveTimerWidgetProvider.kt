@@ -1,5 +1,6 @@
 package com.ourbloom.app.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -11,6 +12,7 @@ import android.widget.RemoteViews
 import com.ourbloom.app.MainActivity
 import com.ourbloom.app.R
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -24,6 +26,7 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
+        scheduleMidnightAlarm(context)
         try {
             WidgetLiveUpdateService.start(context)
         } catch (e: Throwable) {
@@ -33,6 +36,7 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
+        scheduleMidnightAlarm(context)
         try {
             WidgetLiveUpdateService.start(context)
         } catch (e: Throwable) {
@@ -42,6 +46,7 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
+        cancelMidnightAlarm(context)
         try {
             WidgetLiveUpdateService.stop(context)
         } catch (e: Throwable) {
@@ -56,6 +61,7 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
             val thisWidget = ComponentName(context, LoveTimerWidgetProvider::class.java)
             val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
             onUpdate(context, appWidgetManager, allWidgetIds)
+            scheduleMidnightAlarm(context)
         }
     }
 
@@ -180,6 +186,7 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
                 apply()
             }
             updateAllWidgets(context)
+            scheduleMidnightAlarm(context)
             try {
                 WidgetLiveUpdateService.start(context)
             } catch (e: Throwable) {
@@ -212,6 +219,64 @@ class LoveTimerWidgetProvider : AppWidgetProvider() {
                 }
             }
             return false
+        }
+
+        fun scheduleMidnightAlarm(context: Context) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, LoveTimerWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH_WIDGET
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                9091,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Target next calendar midnight + 1 second
+            val calendar = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 1)
+                set(Calendar.MILLISECOND, 0)
+            }
+
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setExact(
+                        AlarmManager.RTC,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                }
+            } catch (e: SecurityException) {
+                alarmManager.set(
+                    AlarmManager.RTC,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            }
+        }
+
+        fun cancelMidnightAlarm(context: Context) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, LoveTimerWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH_WIDGET
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                9091,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
         }
     }
 }

@@ -197,15 +197,42 @@ class ThumbKissActivity : AppCompatActivity() {
         }
     }
 
+    private var connectionTimeoutJob: Job? = null
+
+    private fun startConnectionTimeout() {
+        connectionTimeoutJob?.cancel()
+        connectionTimeoutJob = lifecycleScope.launch {
+            delay(30000L) // 30-second gentle timeout
+            if (!isFinishing && !isDestroyed && !touchCanvas.isPartnerTouching) {
+                val partnerName = partnerUser?.name?.ifBlank { "Your partner" } ?: "Your partner"
+                tvPartnerStatus.text = "$partnerName might be away right now 🌸"
+                tvConnectionStatus.text = "Partner Away • Tap Nudge below 💌"
+                btnNudgePartner.animate()
+                    .scaleX(1.08f).scaleY(1.08f)
+                    .setDuration(300)
+                    .withEndAction {
+                        btnNudgePartner.animate().scaleX(1.0f).scaleY(1.0f).setDuration(300).start()
+                    }.start()
+            }
+        }
+    }
+
     private fun listenToPartnerTouch() {
         if (coupleId.isBlank() || partnerUid.isBlank()) return
 
         partnerListener?.remove()
+        startConnectionTimeout()
+
         val docRef = db.collection("couples").document(coupleId)
             .collection("live").document("touch_$partnerUid")
 
         partnerListener = docRef.addSnapshotListener { snapshot, error ->
-            if (error != null || snapshot == null || !snapshot.exists()) {
+            if (error != null) {
+                Log.w(TAG, "Live touch snapshot warning: ${error.message}")
+                touchCanvas.updatePartnerTouch(0f, 0f, false)
+                return@addSnapshotListener
+            }
+            if (snapshot == null || !snapshot.exists()) {
                 touchCanvas.updatePartnerTouch(0f, 0f, false)
                 return@addSnapshotListener
             }
@@ -221,6 +248,7 @@ class ThumbKissActivity : AppCompatActivity() {
             val wasPartnerTouching = touchCanvas.isPartnerTouching
             touchCanvas.updatePartnerTouch(x, y, activeTouching)
             if (activeTouching) {
+                connectionTimeoutJob?.cancel()
                 if (!wasPartnerTouching) {
                     triggerHapticPulse(50)
                 }
@@ -383,14 +411,17 @@ class ThumbKissActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        connectionTimeoutJob?.cancel()
         stopHeartbeatVibration()
         streamLocalTouch(0f, 0f, false)
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        connectionTimeoutJob?.cancel()
         stopHeartbeatVibration()
         partnerListener?.remove()
+        partnerListener = null
         streamLocalTouch(0f, 0f, false)
     }
 }
