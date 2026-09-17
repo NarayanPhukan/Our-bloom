@@ -2,17 +2,17 @@ package com.ourbloom.app.payment
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
 import android.os.Message
 import android.util.Log
 import android.view.View
 import android.webkit.*
-import android.widget.ImageButton
 import android.widget.ProgressBar
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -82,6 +82,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
     private var goalTitle: String = ""
 
     private var isCompleted = false
+    private var currentTxnId: String = ""
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -114,24 +115,11 @@ class PayUCheckoutActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progress_checkout)
         layoutError = findViewById(R.id.layout_checkout_error)
 
-        findViewById<ImageButton>(R.id.btn_close_checkout).setOnClickListener {
-            finish()
-        }
-
         findViewById<View>(R.id.btn_retry_checkout).setOnClickListener {
             layoutError.visibility = View.GONE
             initiatePayment()
         }
-
-        val tvAmount = findViewById<TextView>(R.id.tv_checkout_amount_badge)
-        val cleanAmount = if (amount % 1.0 == 0.0) amount.toInt().toString() else String.format(Locale.US, "%.2f", amount)
-        tvAmount.text = "₹$cleanAmount"
-
-        val tvTitle = findViewById<TextView>(R.id.tv_checkout_title)
-        tvTitle.text = if (goalTitle.isNotBlank()) "Goal Deposit: $goalTitle 🎯" else "Our Bloom Vault Deposit 🌸"
     }
-
-    private var currentTxnId: String = ""
 
     inner class PaymentBridge {
         @android.webkit.JavascriptInterface
@@ -296,41 +284,131 @@ class PayUCheckoutActivity : AppCompatActivity() {
             return true
         }
 
-        // Intercept UPI, NetBanking deep links & intent schemes
-        if (url.startsWith("upi://") ||
-            url.startsWith("intent://") ||
-            url.startsWith("gpay://") ||
-            url.startsWith("phonepe://") ||
-            url.startsWith("paytmmp://") ||
-            url.startsWith("credpay://") ||
-            url.startsWith("bhim://")
+        // Handle standard UPI URL (upi://pay?...)
+        if (url.startsWith("upi://", ignoreCase = true)) {
+            return launchUpiIntent(url)
+        }
+
+        // Handle Android Intent URL (intent://...#Intent;scheme=...;end)
+        if (url.startsWith("intent://", ignoreCase = true)) {
+            return launchGenericIntent(url)
+        }
+
+        // Handle direct app schemes (gpay://, phonepe://, paytmmp://, etc.)
+        if (url.startsWith("gpay://", ignoreCase = true) ||
+            url.startsWith("phonepe://", ignoreCase = true) ||
+            url.startsWith("paytmmp://", ignoreCase = true) ||
+            url.startsWith("credpay://", ignoreCase = true) ||
+            url.startsWith("bhim://", ignoreCase = true) ||
+            url.startsWith("mobikwik://", ignoreCase = true)
         ) {
+            return launchSpecificAppIntent(url)
+        }
+
+        return false
+    }
+
+    private fun launchUpiIntent(url: String): Boolean {
+        Log.d("PayUCheckout", "Triggering UPI Payment intent for: $url")
+        return try {
+            val uri = Uri.parse(url)
+            val upiIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+
+            val chooser = Intent.createChooser(upiIntent, "Pay via UPI App").apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(chooser)
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.w("PayUCheckout", "No UPI apps found on this device: ${e.message}")
+            Toast.makeText(
+                this,
+                "No UPI app (GPay, PhonePe, Paytm) found on this device. Please install one or use Card/NetBanking on PayU.",
+                Toast.LENGTH_LONG
+            ).show()
+            true
+        } catch (e: Exception) {
+            Log.e("PayUCheckout", "Error launching UPI intent: ${e.message}", e)
+            Toast.makeText(this, "Could not open UPI app: ${e.message}", Toast.LENGTH_SHORT).show()
+            true
+        }
+    }
+
+    private fun launchGenericIntent(url: String): Boolean {
+        Log.d("PayUCheckout", "Triggering generic Android intent for: $url")
+        try {
+            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
+                if (action.isNullOrBlank()) {
+                    action = Intent.ACTION_VIEW
+                }
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+
+            // 1. Try launching specific package if intent targeted one and it is installed
             try {
-                val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                 if (intent.resolveActivity(packageManager) != null) {
                     startActivity(intent)
                     return true
                 }
-                // Fallback to generic UPI chooser if specific app intent wasn't directly resolvable
-                val uri = intent.data
-                if (uri != null && (uri.scheme == "upi" || url.startsWith("upi://"))) {
-                    val chooser = Intent(Intent.ACTION_VIEW, uri)
-                    startActivity(Intent.createChooser(chooser, "Complete Payment with UPI"))
-                    return true
+            } catch (_: Exception) {}
+
+            // 2. If it's a UPI scheme, strip the specific package to allow any installed UPI app to handle it
+            val dataUri = intent.data
+            if (dataUri != null && dataUri.scheme.equals("upi", ignoreCase = true)) {
+                val genericUpiIntent = Intent(Intent.ACTION_VIEW, dataUri).apply {
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                if (!fallbackUrl.isNullOrBlank()) {
-                    webView.loadUrl(fallbackUrl)
-                    return true
+                val chooser = Intent.createChooser(genericUpiIntent, "Pay via UPI App").apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-            } catch (e: Exception) {
-                Log.w("PayUCheckout", "Failed to launch payment app: ${e.message}")
-                Toast.makeText(this, "Could not open payment app directly", Toast.LENGTH_SHORT).show()
+                startActivity(chooser)
                 return true
             }
-        }
 
-        return false
+            // 3. Try browser fallback URL if provided
+            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+            if (!fallbackUrl.isNullOrBlank()) {
+                webView.loadUrl(fallbackUrl)
+                return true
+            }
+
+            Toast.makeText(this, "Selected payment app is not installed on this device", Toast.LENGTH_SHORT).show()
+            return true
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "The requested payment app is not installed on this device", Toast.LENGTH_SHORT).show()
+            return true
+        } catch (e: Exception) {
+            Log.e("PayUCheckout", "Failed to parse intent URL: ${e.message}", e)
+            return false
+        }
+    }
+
+    private fun launchSpecificAppIntent(url: String): Boolean {
+        Log.d("PayUCheckout", "Triggering app scheme: $url")
+        try {
+            val uri = Uri.parse(url)
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+            return true
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "The requested payment app is not installed on this device", Toast.LENGTH_SHORT).show()
+            return true
+        } catch (e: Exception) {
+            Log.e("PayUCheckout", "Failed to launch specific app URL: ${e.message}", e)
+            return false
+        }
     }
 
     private fun initiatePayment() {
@@ -407,6 +485,20 @@ class PayUCheckoutActivity : AppCompatActivity() {
         Toast.makeText(this, "Payment was not completed. No money was deducted.", Toast.LENGTH_LONG).show()
         setResult(Activity.RESULT_CANCELED)
         finish()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        try {
+            webView.onResume()
+        } catch (_: Exception) {}
+    }
+
+    override fun onPause() {
+        try {
+            webView.onPause()
+        } catch (_: Exception) {}
+        super.onPause()
     }
 
     @Deprecated("Deprecated in Java")
