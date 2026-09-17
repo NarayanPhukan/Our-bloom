@@ -300,6 +300,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Payment intents: Server-only (Clients monitor via authenticated GET /api/payu/payment-status/:txnid)
+    match /payment_intents/{intentId} {
+      allow read, write: if false;
+    }
+
+    // Platform fee accounting ledger: Server-only
+    match /platform_fees/{feeId} {
+      allow read, write: if false;
+    }
+
+    // Payment intent request idempotency records: Server-only
+    match /payment_intent_requests/{requestId} {
+      allow read, write: if false;
+    }
+
+    // Administrative manual review alerts: Server-only
+    match /admin_alerts/{alertId} {
+      allow read, write: if false;
+    }
+
+    // External refunds tracking records: Server-only
+    match /refunds/{refundId} {
+      allow read, write: if false;
+    }
+
     // =========================================================================
     // REAL-TIME SIGNALS & COMMUNICATIONS
     // =========================================================================

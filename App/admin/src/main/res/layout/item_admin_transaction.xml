@@ -62,6 +62,17 @@
             android:text="Savings contribution"
             android:textColor="@color/admin_text_muted"
             android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/tv_admin_tx_fee_breakdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:fontFamily="sans-serif"
+            android:text="Gross: ₹1,000.00 • Fee: ₹20.00 • Net: ₹980.00 [Settlement: PENDING]"
+            android:textColor="@color/admin_text_secondary"
+            android:textSize="10sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <!-- Amount Column -->

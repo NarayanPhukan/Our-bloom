@@ -18,6 +18,7 @@ import com.ourbloom.app.data.models.SavingsGoal
 import com.ourbloom.app.data.models.SavingsTransaction
 import com.ourbloom.app.data.models.WithdrawalRequest
 import com.ourbloom.app.data.models.BankAccountDetails
+import com.ourbloom.app.data.models.PaymentStatusDto
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -1840,6 +1841,45 @@ class FirestoreRepository {
             }
     }
 
+    suspend fun getPaymentStatus(txnid: String): PaymentStatusDto? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return@withContext null
+                val request = okhttp3.Request.Builder()
+                    .url("$baseUrl/api/payu/payment-status/$txnid")
+                    .addHeader("Authorization", "Bearer $token")
+                    .get()
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val json = org.json.JSONObject(body)
+                    val vaultAmountPaise = if (json.has("vaultAmountPaise") && !json.isNull("vaultAmountPaise")) json.optLong("vaultAmountPaise") else null
+                    val platformFeePaise = if (json.has("platformFeePaise") && !json.isNull("platformFeePaise")) json.optLong("platformFeePaise") else null
+                    val payableAmountPaise = if (json.has("payableAmountPaise") && !json.isNull("payableAmountPaise")) json.optLong("payableAmountPaise") else null
+                    val netVaultCreditPaise = if (json.has("netVaultCreditPaise") && !json.isNull("netVaultCreditPaise")) json.optLong("netVaultCreditPaise") else null
+                    PaymentStatusDto(
+                        txnid = json.optString("txnid"),
+                        coupleId = json.optString("coupleId"),
+                        status = json.optString("status"),
+                        vaultAmountPaise = vaultAmountPaise ?: netVaultCreditPaise,
+                        platformFeePaise = platformFeePaise,
+                        payableAmountPaise = payableAmountPaise,
+                        netVaultCreditPaise = netVaultCreditPaise ?: vaultAmountPaise,
+                        pricingModel = if (json.has("pricingModel")) json.optString("pricingModel") else null
+                    )
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                Log.e("FirestoreRepo", "Error polling payment status: ${e.message}")
+                null
+            }
+        }
+    }
+
+    @Deprecated("Vault balance updates are authoritatively performed by server PayU webhook")
     suspend fun recordDeposit(
         context: Context,
         coupleId: String,

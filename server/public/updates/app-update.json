@@ -1,8 +1,8 @@
 {
-  "versionCode": 58,
-  "versionName": "1.57",
+  "versionCode": 59,
+  "versionName": "1.58",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Phase 2.5 Polish: Tightened home vertical rhythm, quiet navigation dock, sparse margin petals, floating heartbeat pill, and unified romantic personalization 🌸",
+  "changelog": "Vault Transparency: Live 2% platform fee breakdown card, pure integer paise accounting, server-authoritative crediting, and multi-phase refund protections 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

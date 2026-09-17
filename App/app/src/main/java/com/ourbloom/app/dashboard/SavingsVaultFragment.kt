@@ -31,8 +31,14 @@ import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -54,6 +60,83 @@ class SavingsVaultFragment : Fragment() {
     private var goalsListener: ListenerRegistration? = null
     private var txnsListener: ListenerRegistration? = null
     private var withReqsListener: ListenerRegistration? = null
+
+    private var activeTxnId: String? = null
+    private var statusPollJob: Job? = null
+
+    private val payuLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val txnid = result.data?.getStringExtra("txnid")
+            if (!txnid.isNullOrBlank()) {
+                activeTxnId = txnid
+                pollPaymentStatus(txnid)
+            }
+        }
+    }
+
+    private fun formatRupees(paise: Long): String {
+        val amount = BigDecimal.valueOf(paise, 2)
+        return NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply {
+            currency = Currency.getInstance("INR")
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }.format(amount)
+    }
+
+    private fun parseRupeesToPaise(value: String): Long? {
+        val clean = value.trim()
+        if (!clean.matches(Regex("^\\d+(\\.\\d{1,2})?$"))) return null
+        return try {
+            val paise = BigDecimal(clean)
+                .movePointRight(2)
+                .setScale(0, RoundingMode.UNNECESSARY)
+                .longValueExact()
+            if (paise < 100L || paise > 50_000_000L) null else paise
+        } catch (_: ArithmeticException) {
+            null
+        }
+    }
+
+    private fun calculateDepositAmounts(vaultAmountPaise: Long): Pair<Long, Long> {
+        require(vaultAmountPaise in 100L..50_000_000L) {
+            "Invalid or out-of-bounds deposit amount"
+        }
+        val platformFeePaise = (vaultAmountPaise * 200L + 5000L) / 10000L
+        val payableAmountPaise = vaultAmountPaise + platformFeePaise
+        return Pair(platformFeePaise, payableAmountPaise)
+    }
+
+    private fun calculateDeposit(grossAmountPaise: Long): Pair<Long, Long> {
+        return calculateDepositAmounts(grossAmountPaise)
+    }
+
+    private fun pollPaymentStatus(txnid: String) {
+        statusPollJob?.cancel()
+        statusPollJob = viewLifecycleOwner.lifecycleScope.launch {
+            var attempts = 0
+            val maxAttempts = 30 // 60 seconds at 2s interval
+            while (isActive && attempts < maxAttempts) {
+                delay(2000)
+                attempts++
+                val statusDto = repository.getPaymentStatus(txnid)
+                if (statusDto != null && statusDto.txnid == activeTxnId) {
+                    if (statusDto.status == "COMPLETED") {
+                        val creditedPaise = statusDto.vaultAmountPaise ?: statusDto.netVaultCreditPaise ?: 0L
+                        val msg = if (creditedPaise > 0) {
+                            "${formatRupees(creditedPaise)} added to your Vault 🌸"
+                        } else {
+                            "Deposit confirmed and added to your Vault 🌸"
+                        }
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
+                        break
+                    } else if (statusDto.status in listOf("FAILED", "EXPIRED", "CANCELLED")) {
+                        Toast.makeText(requireContext(), "Payment status: ${statusDto.status}", Toast.LENGTH_SHORT).show()
+                        break
+                    }
+                }
+            }
+        }
+    }
 
     private lateinit var goalsAdapter: SavingsGoalsAdapter
     private lateinit var txnsAdapter: SavingsTransactionsAdapter
@@ -367,6 +450,39 @@ class SavingsVaultFragment : Fragment() {
         val etNote = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_note)
         val spinnerGoal = sheetView.findViewById<Spinner>(R.id.spinner_deposit_goal)
         val btnPayPayu = sheetView.findViewById<MaterialButton>(R.id.btn_pay_payu)
+        val tvDepositGrossVal = sheetView.findViewById<TextView>(R.id.tv_deposit_gross_val)
+        val tvDepositFeeVal = sheetView.findViewById<TextView>(R.id.tv_deposit_fee_val)
+        val tvDepositNetVal = sheetView.findViewById<TextView>(R.id.tv_deposit_net_val)
+
+        activeTxnId = null
+        statusPollJob?.cancel()
+
+        fun updateTransparencyBreakdown(input: String) {
+            val vaultAmountPaise = parseRupeesToPaise(input)
+            if (vaultAmountPaise == null) {
+                btnPayPayu.isEnabled = false
+                btnPayPayu.text = "Enter valid amount (₹1.00 – ₹5,00,000.00)"
+                tvDepositGrossVal?.text = "₹0.00"
+                tvDepositFeeVal?.text = "+ ₹0.00"
+                tvDepositNetVal?.text = "₹0.00"
+            } else {
+                btnPayPayu.isEnabled = true
+                val (platformFeePaise, payableAmountPaise) = calculateDepositAmounts(vaultAmountPaise)
+                tvDepositGrossVal?.text = formatRupees(vaultAmountPaise)
+                tvDepositFeeVal?.text = "+ ${formatRupees(platformFeePaise)}"
+                tvDepositNetVal?.text = formatRupees(payableAmountPaise)
+                btnPayPayu.text = "Pay ${formatRupees(payableAmountPaise)} to add ${formatRupees(vaultAmountPaise)}"
+            }
+        }
+
+        etAmount.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateTransparencyBreakdown(s?.toString() ?: "")
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+        updateTransparencyBreakdown(etAmount.text.toString())
 
         sheetView.findViewById<View>(R.id.btn_close_deposit).setOnClickListener {
             dialog.dismiss()
@@ -403,16 +519,18 @@ class SavingsVaultFragment : Fragment() {
         // Pay via PayU Hosted Gateway
         btnPayPayu.setOnClickListener {
             val amountStr = etAmount.text.toString().trim()
-            val amount = amountStr.toDoubleOrNull()
-            if (amount == null || amount <= 0.0) {
-                Toast.makeText(requireContext(), "Please enter a valid deposit amount", Toast.LENGTH_SHORT).show()
+            val vaultAmountPaise = parseRupeesToPaise(amountStr)
+            if (vaultAmountPaise == null) {
+                Toast.makeText(requireContext(), "Please enter a valid deposit amount (₹1.00 – ₹5,00,000.00)", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
+            val (platformFeePaise, payableAmountPaise) = calculateDepositAmounts(vaultAmountPaise)
             val note = etNote.text.toString().trim()
             val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
+            val payableAmountDouble = BigDecimal.valueOf(payableAmountPaise, 2).toDouble()
 
-            launchPayUCheckout(amount, note, selectedGoal?.id, selectedGoal?.title)
+            launchPayUCheckout(payableAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
             dialog.dismiss()
         }
 
@@ -454,7 +572,7 @@ class SavingsVaultFragment : Fragment() {
             goalId = goalId,
             goalTitle = goalTitle
         )
-        startActivity(intent)
+        payuLauncher.launch(intent)
     }
 
     // ==========================================
@@ -732,8 +850,14 @@ class SavingsVaultFragment : Fragment() {
         datePicker.show()
     }
 
+    override fun onPause() {
+        super.onPause()
+        statusPollJob?.cancel()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
+        statusPollJob?.cancel()
         stopCountdownTimer()
         walletListener?.remove()
         goalsListener?.remove()

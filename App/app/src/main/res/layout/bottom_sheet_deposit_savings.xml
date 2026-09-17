@@ -154,12 +154,121 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp" />
 
+        <!-- Deposit Transparency Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_deposit_transparency"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#FCE4EC"
+            app:cardBackgroundColor="#FFF0F3">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Financial Breakdown 🌸"
+                    android:textAppearance="?attr/textAppearanceLabelMedium"
+                    android:textColor="#E85D75"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Amount to add to Vault:"
+                        android:textColor="#666666"
+                        android:textSize="13sp" />
+                    <TextView
+                        android:id="@+id/tv_deposit_gross_val"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₹0.00"
+                        android:textColor="#2D2D2D"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Platform service fee (2%):"
+                        android:textColor="#666666"
+                        android:textSize="13sp" />
+                    <TextView
+                        android:id="@+id/tv_deposit_fee_val"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+ ₹0.00"
+                        android:textColor="#E85D75"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="#F8BBD0" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Total payable:"
+                        android:textColor="#2E7D32"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_deposit_net_val"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₹0.00"
+                        android:textColor="#2E7D32"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="🌸 OurBloom charges a 2% platform service fee on top of your deposit to support secure payment infrastructure, automated reconciliation, and ongoing Vault operations."
+                    android:textColor="#888888"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Action: Pay via Secure Gateway -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pay_payu"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="6dp"
             android:text="Pay Now (Card / UPI)"
             android:textAppearance="?attr/textAppearanceTitleSmall"
@@ -172,11 +281,12 @@
             app:iconTint="#FFFFFF" />
 
         <TextView
+            android:id="@+id/tv_deposit_security_badge"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:gravity="center"
-            android:text="⚡ Instant Auto-Credit • 100% Secure Checkout"
+            android:text="🔒 Secure Checkout • Vault Credit Upon Gateway Verification"
             android:textColor="#E85D75"
             android:textSize="12sp"
             android:textStyle="bold" />

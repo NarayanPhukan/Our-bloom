@@ -388,32 +388,17 @@ class PayUCheckoutActivity : AppCompatActivity() {
         isCompleted = true
 
         progressBar.visibility = View.VISIBLE
-        Toast.makeText(this, "Payment approved! Crediting Vault... 🌸", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Payment received. Vault credit is pending verification.", Toast.LENGTH_LONG).show()
 
         val generatedRef = ref?.ifBlank { null } ?: currentTxnId.ifBlank { "PAYU_${System.currentTimeMillis()}" }
 
-        lifecycleScope.launch {
-            val success = repository.recordDeposit(
-                context = this@PayUCheckoutActivity,
-                coupleId = coupleId,
-                amount = amount,
-                utrNumber = generatedRef,
-                note = note.ifBlank { "Online Contribution" },
-                category = "Savings",
-                paymentMethod = "Online",
-                goalId = goalId.ifBlank { null },
-                goalTitle = goalTitle.ifBlank { null }
-            )
-
-            if (success) {
-                Toast.makeText(this@PayUCheckoutActivity, "₹${amount.toInt()} credited to Our Vault! 🎉🌸", Toast.LENGTH_LONG).show()
-                setResult(Activity.RESULT_OK, Intent().putExtra("amount", amount))
-            } else {
-                Toast.makeText(this@PayUCheckoutActivity, "Deposit logged! Balance will update shortly.", Toast.LENGTH_LONG).show()
-                setResult(Activity.RESULT_OK)
-            }
-            finish()
+        val resultIntent = Intent().apply {
+            putExtra("txnid", currentTxnId)
+            putExtra("reference", generatedRef)
+            putExtra("amount", amount)
         }
+        setResult(Activity.RESULT_OK, resultIntent)
+        finish()
     }
 
     private fun onPaymentDeclined() {

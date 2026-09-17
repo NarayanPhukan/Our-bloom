@@ -13,18 +13,21 @@ export default function RefundPolicy() {
         <li><strong>Withdrawal Settlement:</strong> Verified withdrawal requests are processed and settled directly to your designated bank account within <strong>24 to 48 business hours</strong>.</li>
       </ul>
 
-      <h2 className="font-serif text-xl font-bold text-on-surface pt-4">2. Accidental or Duplicate Payment Refunds</h2>
+      <h2 className="font-serif text-xl font-bold text-on-surface pt-4">2. Accidental, Erroneous, or Duplicate Transactions &amp; 100% Contributor Refund</h2>
       <p>
-        If you experience an accidental, duplicate, or erroneous deposit due to a network glitch:
+        If you experience an accidental, duplicate, or erroneous deposit:
       </p>
       <ul className="list-disc pl-5 space-y-2">
-        <li>You may request a direct refund within <strong>7 days</strong> of the transaction date.</li>
-        <li>Email our support team at <a href="mailto:support@ourbloom.app" className="text-primary font-semibold">support@ourbloom.app</a> with your account email and the 12-digit UPI UTR number from your payment receipt.</li>
+        <li><strong>100% Gross Refund:</strong> You may request a refund within <strong>7 days</strong> of the transaction date. When approved, <strong>100% of your total payment (including the 2% platform service fee)</strong> is refunded back to the originating payment source (e.g. ₹102.00 full refund for a ₹100.00 Vault deposit).</li>
+        <li><strong>2% Platform Fee Reversal:</strong> Our Bloom completely reverses its 2% platform fee on approved refunds (Total Refund of ₹102.00 = ₹100.00 Vault deduction + ₹2.00 platform fee reversal).</li>
+        <li><strong>Vault Balance Safety (Option A):</strong> If vault funds have already been partially withdrawn such that available balance is less than the vault amount to be reversed (₹100.00), the transaction is held for administrative review and couple notification to avoid negative balances.</li>
+        <li><strong>Gateway Terms:</strong> Third-party payment gateway transaction processing charges (if levied directly by PayU or banking networks) remain subject to provider settlement guidelines.</li>
+        <li>Email our support team at <a href="mailto:support@ourbloom.app" className="text-primary font-semibold">support@ourbloom.app</a> with your account email, txnid/PayU reference ID, and UPI UTR number from your payment receipt.</li>
       </ul>
 
-      <h2 className="font-serif text-xl font-bold text-on-surface pt-4">3. Refund Processing Timeline</h2>
+      <h2 className="font-serif text-xl font-bold text-on-surface pt-4">3. Multi-Phase Refund Processing Timeline</h2>
       <p>
-        Approved refunds are credited back to the original source payment method (bank account / UPI) within <strong>5 to 7 working days</strong>, adhering to standard banking and payment gateway (PayU / NPCI) guidelines.
+        Approved refunds are dispatched to PayU within 24 business hours. Funds are credited back to your original source payment method (bank account / UPI VPA) within <strong>5 to 7 working days</strong>, adhering to standard NPCI and banking turnaround cycles.
       </p>
 
       <h2 className="font-serif text-xl font-bold text-on-surface pt-4">4. Digital Feature Cancellations</h2>

@@ -68,6 +68,18 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Fee Transparency Breakdown -->
+        <TextView
+            android:id="@+id/tv_txn_fee_breakdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Deposit: ₹1,234.56 • 2% Fee: ₹24.69 • Net: +₹1,209.87"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="#E85D75"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
         <!-- Sweet Note with quote styling -->
         <TextView
             android:id="@+id/tv_txn_note"
