@@ -1,8 +1,8 @@
 {
-  "versionCode": 60,
-  "versionName": "1.59",
+  "versionCode": 61,
+  "versionName": "1.60",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Native PayU Fullscreen Checkout: Fixed UPI payment intent dispatching, package visibility for all major UPI apps (GPay, PhonePe, Paytm, BHIM), and removed custom header for pure PayU UI 🌸",
+  "changelog": "Native PayU Fullscreen Checkout: Fixed UPI click handling, single-window routing, and added dual QR Code / VPA mode fallback for emulators and devices without UPI apps 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

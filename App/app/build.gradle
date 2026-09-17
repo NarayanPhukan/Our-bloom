@@ -26,8 +26,8 @@ android {
         applicationId "com.ourbloom.app"
         minSdk 21
         targetSdk 34
-        versionCode 60
-        versionName "1.59"
+        versionCode 61
+        versionName "1.60"
         
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
