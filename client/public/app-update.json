@@ -4,5 +4,5 @@
   "title": "New Bloom Update Available! 🌸",
   "changelog": "Native PayU Fullscreen Checkout: Fixed UPI click handling, single-window routing, and added dual QR Code / VPA mode fallback for emulators and devices without UPI apps 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
-  "forceUpdate": false
+  "forceUpdate": true
 }

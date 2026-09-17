@@ -493,17 +493,55 @@ app.post('/api/call/notify', async (req, res) => {
   }
 });
 
-// App update manifest endpoint
-app.get('/api/app-update', (req, res) => {
-  try {
-    const updatePath = path.join(__dirname, 'public/updates/app-update.json');
-    if (fs.existsSync(updatePath)) {
-      const data = JSON.parse(fs.readFileSync(updatePath, 'utf8'));
-      return res.json(data);
-    }
-  } catch (e) {
-    console.error('Error reading app-update.json:', e.message);
+// App update manifest endpoint (with live GitHub fallback and 60s cache)
+let updateManifestCache = null;
+let updateManifestCacheTime = 0;
+
+app.get(['/api/app-update', '/updates/app-update.json'], async (req, res) => {
+  const now = Date.now();
+  if (updateManifestCache && (now - updateManifestCacheTime < 60000)) {
+    return res.json(updateManifestCache);
   }
+
+  // 1. Try reading local files first
+  const candidatePaths = [
+    path.join(__dirname, 'public/updates/app-update.json'),
+    path.join(__dirname, '../app-update.json'),
+    path.join(__dirname, 'app-update.json')
+  ];
+
+  let localData = null;
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        localData = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (localData && localData.versionCode) break;
+      } catch (_) {}
+    }
+  }
+
+  // 2. Fetch live GitHub raw manifest
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const ghRes = await fetch('https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/app-update.json', { signal: controller.signal });
+    clearTimeout(timeout);
+    if (ghRes.ok) {
+      const ghData = await ghRes.json();
+      if (ghData && (!localData || (ghData.versionCode || 0) >= (localData.versionCode || 0))) {
+        updateManifestCache = ghData;
+        updateManifestCacheTime = now;
+        return res.json(ghData);
+      }
+    }
+  } catch (_) {}
+
+  if (localData) {
+    updateManifestCache = localData;
+    updateManifestCacheTime = now;
+    return res.json(localData);
+  }
+
   res.status(404).json({ error: 'Update info not available' });
 });
 
