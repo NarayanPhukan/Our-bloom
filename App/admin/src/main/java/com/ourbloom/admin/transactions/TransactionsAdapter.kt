@@ -81,6 +81,15 @@ class TransactionsAdapter : ListAdapter<SavingsTransaction, TransactionsAdapter.
                 imgType.setColorFilter(ContextCompat.getColor(itemView.context, R.color.admin_emerald))
                 val isFeeOnTop = item.pricingModel == "FEE_ON_TOP" || item.vaultAmountPaise > 0
 
+                val settlementTag = if (item.isSettled) {
+                    val ref = item.merchantUtr ?: item.providerBankReference
+                    if (!ref.isNullOrBlank()) "Settled via PayU • Ref: $ref" else "Settled via PayU"
+                } else if (item.paymentMethod.contains("Admin", ignoreCase = true) || item.category == "Audit Correction") {
+                    "Internal Adjustment"
+                } else {
+                    "Settlement: ${item.settlementStatus}"
+                }
+
                 if (isFeeOnTop) {
                     val vaultPaise = if (item.vaultAmountPaise > 0) item.vaultAmountPaise else item.netVaultCreditPaise
                     val paidPaise = if (item.payableAmountPaise > 0) item.payableAmountPaise else (if (item.grossAmountPaise > 0) item.grossAmountPaise else (vaultPaise + item.platformFeePaise))
@@ -89,7 +98,7 @@ class TransactionsAdapter : ListAdapter<SavingsTransaction, TransactionsAdapter.
                     tvTitle.text = "Deposit • ${item.userName.ifBlank { "Partner" }}"
 
                     tvFeeBreakdown.visibility = View.VISIBLE
-                    tvFeeBreakdown.text = "Vault: ${formatRupees(vaultPaise)} • Fee: ${formatRupees(item.platformFeePaise)} • Paid: ${formatRupees(paidPaise)} [Settlement: ${item.settlementStatus}]"
+                    tvFeeBreakdown.text = "Vault: ${formatRupees(vaultPaise)} • Fee: ${formatRupees(item.platformFeePaise)} • Paid: ${formatRupees(paidPaise)} [$settlementTag]"
                 } else {
                     val netPaise = if (item.netVaultCreditPaise > 0) item.netVaultCreditPaise else Math.round(item.amount * 100)
                     tvAmount.text = "+${formatRupees(netPaise)}"
@@ -98,9 +107,10 @@ class TransactionsAdapter : ListAdapter<SavingsTransaction, TransactionsAdapter.
 
                     if (item.grossAmountPaise > 0) {
                         tvFeeBreakdown.visibility = View.VISIBLE
-                        tvFeeBreakdown.text = "Gross: ${formatRupees(item.grossAmountPaise)} • Fee: ${formatRupees(item.platformFeePaise)} • Net: ${formatRupees(item.netVaultCreditPaise)} [Settlement: ${item.settlementStatus}]"
+                        tvFeeBreakdown.text = "Gross: ${formatRupees(item.grossAmountPaise)} • Fee: ${formatRupees(item.platformFeePaise)} • Net: ${formatRupees(item.netVaultCreditPaise)} [$settlementTag]"
                     } else {
-                        tvFeeBreakdown.visibility = View.GONE
+                        tvFeeBreakdown.visibility = View.VISIBLE
+                        tvFeeBreakdown.text = "Amount: ${formatRupees(netPaise)} [$settlementTag]"
                     }
                 }
             } else {

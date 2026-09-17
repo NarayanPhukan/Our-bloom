@@ -49,6 +49,9 @@ class AdminDashboardFragment : Fragment() {
     private lateinit var tvEmptyActivity: TextView
     private val adapter = TransactionsAdapter()
 
+    private var currentTransactions: List<SavingsTransaction> = emptyList()
+    private var currentWallets: List<SavingsWallet> = emptyList()
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -81,8 +84,10 @@ class AdminDashboardFragment : Fragment() {
         recyclerRecent.adapter = adapter
 
         swipeRefresh.setOnRefreshListener {
-            // Firestore listeners are real-time, just toggle spinner
-            swipeRefresh.isRefreshing = false
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.syncPayUSettlements()
+                swipeRefresh.isRefreshing = false
+            }
         }
 
         root.findViewById<View>(R.id.btn_urgent_action).setOnClickListener {
@@ -99,6 +104,16 @@ class AdminDashboardFragment : Fragment() {
 
         root.findViewById<View>(R.id.btn_quick_manual_credit).setOnClickListener {
             showManualCreditDialog()
+        }
+
+        root.findViewById<View>(R.id.card_hero_treasury)?.setOnClickListener {
+            com.ourbloom.admin.treasury.TreasuryDialog(
+                requireContext(),
+                currentTransactions,
+                currentWallets,
+                repository,
+                viewLifecycleOwner.lifecycleScope
+            ).show()
         }
 
         // Bug Radar Strip
@@ -160,15 +175,40 @@ class AdminDashboardFragment : Fragment() {
     }
 
     private fun setupListeners() {
+        // Trigger automatic PayU settlement sync on launch
+        viewLifecycleOwner.lifecycleScope.launch {
+            repository.syncPayUSettlements()
+        }
+
         // 1. Observe Transactions for deposits calculation & recent activity
         txListener = repository.observeTransactions { transactions ->
             if (!isAdded) return@observeTransactions
+            currentTransactions = transactions
 
-            val deposits = transactions.filter { it.type.equals("deposit", ignoreCase = true) }
-            val totalDepSum = deposits.sumOf { it.amount }
-            val cleanDep = if (totalDepSum % 1.0 == 0.0) totalDepSum.toInt().toString() else String.format(Locale.US, "%.2f", totalDepSum)
+            val settledDeposits = transactions.filter {
+                it.type.equals("deposit", ignoreCase = true) &&
+                it.isSettled
+            }
+            val pendingPayUDeposits = transactions.filter {
+                it.type.equals("deposit", ignoreCase = true) &&
+                !it.isSettled &&
+                (it.paymentMethod.contains("PayU", ignoreCase = true) ||
+                 it.paymentMethod.equals("Online", ignoreCase = true) ||
+                 it.utrNumber.startsWith("OB_")) &&
+                !it.paymentMethod.contains("Admin", ignoreCase = true) &&
+                it.category != "Audit Correction"
+            }
+
+            val totalSettledSum = settledDeposits.sumOf { it.settledAmount }
+            val cleanDep = if (totalSettledSum % 1.0 == 0.0) totalSettledSum.toInt().toString() else String.format(Locale.US, "%.2f", totalSettledSum)
             tvTotalDeposits.text = "₹$cleanDep"
-            tvDepositsCount.text = "${deposits.size} deposits"
+
+            val countText = if (pendingPayUDeposits.isNotEmpty()) {
+                "${settledDeposits.size} settled (${pendingPayUDeposits.size} pending)"
+            } else {
+                "${settledDeposits.size} settled deposits"
+            }
+            tvDepositsCount.text = countText
 
             // Show latest 5 transactions in recent activity
             val recent5 = transactions.take(5)
@@ -179,6 +219,7 @@ class AdminDashboardFragment : Fragment() {
         // 2. Observe Wallets for total reserve balances
         walletListener = repository.observeSavingsWallets { wallets ->
             if (!isAdded) return@observeSavingsWallets
+            currentWallets = wallets
 
             val totalReserves = wallets.sumOf { it.totalBalance }
             val cleanRes = if (totalReserves % 1.0 == 0.0) totalReserves.toInt().toString() else String.format(Locale.US, "%.2f", totalReserves)

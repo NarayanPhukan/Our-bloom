@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.ourbloom.admin.data.models.AdminAlert
+import com.ourbloom.admin.data.models.AppControlConfig
 import com.ourbloom.admin.data.models.SavingsTransaction
 import com.ourbloom.admin.data.models.SavingsWallet
 import com.ourbloom.admin.data.models.WithdrawalRequest
@@ -24,6 +25,9 @@ class AdminFirestoreRepository {
     companion object {
         private const val TAG = "AdminFirestoreRepo"
         private const val PAYU_PAYOUT_URL = "https://our-bloom.onrender.com/api/payu/payout"
+        private const val PAYU_SETTLEMENT_SYNC_URL = "https://our-bloom.onrender.com/api/payu/settlements/sync"
+        private const val BROADCAST_URL = "https://our-bloom.onrender.com/api/admin/broadcast"
+        private const val SYSTEM_HEALTH_URL = "https://our-bloom.onrender.com/api/admin/system-health"
     }
 
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
@@ -331,6 +335,29 @@ class AdminFirestoreRepository {
             }
     }
 
+    suspend fun syncPayUSettlements(days: Int = 30): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$PAYU_SETTLEMENT_SYNC_URL?days=$days")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 10000
+                readTimeout = 15000
+            }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val responseStr = conn.inputStream.bufferedReader().readText()
+                Log.i(TAG, "PayU settlements sync response: $responseStr")
+                true
+            } else {
+                Log.w(TAG, "PayU settlements sync failed with HTTP $code")
+                false
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "PayU settlements sync error: ${e.message}")
+            false
+        }
+    }
+
     suspend fun manualCreditDeposit(
         coupleId: String,
         amount: Double,
@@ -496,5 +523,131 @@ class AdminFirestoreRepository {
             Log.w(TAG, "Could not fetch partner FCM tokens: ${e.message}")
         }
         tokens
+    }
+
+    // =========================================================================
+    // COUPLE CRM & STATEMENT INSPECTOR
+    // =========================================================================
+
+    fun observeCoupleTransactions(coupleId: String, onUpdate: (List<SavingsTransaction>) -> Unit): ListenerRegistration {
+        return db.collection("savings_transactions")
+            .whereEqualTo("coupleId", coupleId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error observing couple transactions for $coupleId", error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsTransaction::class.java) } ?: emptyList()
+                onUpdate(list.sortedByDescending { it.timestamp })
+            }
+    }
+
+    suspend fun freezeWallet(coupleId: String, freeze: Boolean, reason: String = ""): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val updateMap = mutableMapOf<String, Any>(
+                "isFrozen" to freeze,
+                "freezeReason" to reason.trim(),
+                "lastUpdated" to System.currentTimeMillis()
+            )
+            db.collection("savings_wallets").document(coupleId)
+                .set(updateMap, com.google.firebase.firestore.SetOptions.merge())
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error toggling freeze on wallet $coupleId", e)
+            false
+        }
+    }
+
+    // =========================================================================
+    // REMOTE CONFIG & APP CONTROL
+    // =========================================================================
+
+    fun observeAppControlConfig(onUpdate: (AppControlConfig) -> Unit): ListenerRegistration {
+        return db.collection("admin_config").document("app_control")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error observing app_control config", error)
+                    return@addSnapshotListener
+                }
+                val config = snapshot?.toObject(AppControlConfig::class.java) ?: AppControlConfig()
+                onUpdate(config)
+            }
+    }
+
+    suspend fun updateAppControlConfig(config: AppControlConfig): Boolean = withContext(Dispatchers.IO) {
+        try {
+            db.collection("admin_config").document("app_control")
+                .set(config.copy(lastUpdated = System.currentTimeMillis()))
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating app_control config", e)
+            false
+        }
+    }
+
+    // =========================================================================
+    // PUSH BROADCAST ANNOUNCEMENTS
+    // =========================================================================
+
+    suspend fun sendBroadcastAnnouncement(
+        title: String,
+        body: String,
+        target: String = "all",
+        coupleId: String = ""
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(BROADCAST_URL)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = 10000
+                readTimeout = 15000
+                doOutput = true
+            }
+            val payload = JSONObject().apply {
+                put("title", title.trim())
+                put("body", body.trim())
+                put("target", target)
+                if (coupleId.isNotBlank()) put("coupleId", coupleId.trim())
+            }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val res = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(res)
+                Result.success(json.optString("message", "Broadcast delivered successfully!"))
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.readText() ?: "HTTP $code"
+                Result.failure(Exception("Broadcast failed: $err"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // =========================================================================
+    // SYSTEM TELEMETRY & HEALTH
+    // =========================================================================
+
+    suspend fun fetchSystemHealth(): Result<JSONObject> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(SYSTEM_HEALTH_URL)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 10000
+                readTimeout = 12000
+            }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val res = conn.inputStream.bufferedReader().readText()
+                Result.success(JSONObject(res))
+            } else {
+                Result.failure(Exception("Health check returned HTTP $code"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

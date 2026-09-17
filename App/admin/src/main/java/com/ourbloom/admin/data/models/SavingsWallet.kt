@@ -16,5 +16,7 @@ data class SavingsWallet(
     val user2Name: String = "",
     val user2Total: Double = 0.0,
     val lockUntilDate: Long = 0L,
+    val isFrozen: Boolean = false,
+    val freezeReason: String = "",
     val lastUpdated: Long = 0L
 )

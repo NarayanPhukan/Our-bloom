@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_admin_card"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-black"
+                android:text="Push Announcement Broadcast"
+                android:textColor="@color/admin_navy"
+                android:textSize="18sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dispatch real-time FCM notification to couples"
+                android:textColor="@color/admin_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btn_close_broadcast"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close"
+            android:src="@drawable/ic_cancel"
+            app:tint="@color/admin_text_muted" />
+    </LinearLayout>
+
+    <!-- Target Audience Radio -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:fontFamily="sans-serif-bold"
+        android:text="TARGET AUDIENCE"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp" />
+
+    <RadioGroup
+        android:id="@+id/rg_broadcast_target"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/rb_target_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="All Active Couples"
+            android:textColor="@color/admin_navy"
+            android:textSize="13sp" />
+
+        <RadioButton
+            android:id="@+id/rb_target_couple"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Specific Couple"
+            android:textColor="@color/admin_navy"
+            android:textSize="13sp" />
+    </RadioGroup>
+
+    <!-- Couple ID (Conditional) -->
+    <LinearLayout
+        android:id="@+id/layout_broadcast_couple_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-bold"
+            android:text="COUPLE ID"
+            android:textColor="@color/admin_text_muted"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/et_broadcast_couple_id"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_input"
+            android:fontFamily="monospace"
+            android:hint="e.g. 66e81f..."
+            android:paddingHorizontal="12dp"
+            android:textColor="@color/admin_navy"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Announcement Title -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:fontFamily="sans-serif-bold"
+        android:text="ANNOUNCEMENT TITLE"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp" />
+
+    <EditText
+        android:id="@+id/et_broadcast_title"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_input"
+        android:hint="e.g. Important Maintenance Notice"
+        android:paddingHorizontal="12dp"
+        android:textColor="@color/admin_navy"
+        android:textSize="13sp" />
+
+    <!-- Announcement Message -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:fontFamily="sans-serif-bold"
+        android:text="MESSAGE BODY"
+        android:textColor="@color/admin_text_muted"
+        android:textSize="11sp" />
+
+    <EditText
+        android:id="@+id/et_broadcast_body"
+        android:layout_width="match_parent"
+        android:layout_height="90dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_input"
+        android:gravity="top|start"
+        android:hint="Type your broadcast message to users here..."
+        android:padding="12dp"
+        android:textColor="@color/admin_navy"
+        android:textSize="13sp" />
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_cancel_broadcast"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:text="Cancel"
+            android:textColor="@color/admin_navy"
+            app:cornerRadius="8dp"
+            app:strokeColor="@color/admin_navy" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_send_broadcast"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/admin_navy"
+            android:text="Dispatch Push"
+            android:textColor="@color/white"
+            app:cornerRadius="8dp" />
+    </LinearLayout>
+
+</LinearLayout>

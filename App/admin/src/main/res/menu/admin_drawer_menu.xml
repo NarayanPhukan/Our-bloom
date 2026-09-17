@@ -19,6 +19,27 @@
             android:title="Couple Vault Reserves" />
     </group>
 
+    <item android:title="Treasury &amp; Operations">
+        <menu>
+            <item
+                android:id="@+id/drawer_item_treasury"
+                android:icon="@drawable/ic_treasury"
+                android:title="Treasury &amp; Solvency" />
+            <item
+                android:id="@+id/drawer_item_health"
+                android:icon="@drawable/ic_telemetry"
+                android:title="System Health Radar" />
+            <item
+                android:id="@+id/drawer_item_broadcast"
+                android:icon="@drawable/ic_broadcast"
+                android:title="Push Announcement Broadcast" />
+            <item
+                android:id="@+id/drawer_item_app_control"
+                android:icon="@drawable/ic_control"
+                android:title="App Release &amp; Kill-Switches" />
+        </menu>
+    </item>
+
     <item android:title="System &amp; Administration">
         <menu>
             <item

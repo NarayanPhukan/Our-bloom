@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -15,7 +16,8 @@ import java.util.Date
 import java.util.Locale
 
 class WalletsAdapter(
-    private val onAdjustClick: (SavingsWallet) -> Unit
+    private val onAdjustClick: (SavingsWallet) -> Unit,
+    private val onWalletClick: (SavingsWallet) -> Unit
 ) : ListAdapter<SavingsWallet, WalletsAdapter.WalletViewHolder>(DiffCallback) {
 
     private val dateFormat = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
@@ -41,7 +43,13 @@ class WalletsAdapter(
         private val btnAdjust: Button = itemView.findViewById(R.id.btn_adjust_wallet)
 
         fun bind(item: SavingsWallet) {
-            tvCoupleId.text = item.coupleId.ifBlank { item.id }
+            val frozenTag = if (item.isFrozen) " [FROZEN]" else ""
+            tvCoupleId.text = "${item.coupleId.ifBlank { item.id }}$frozenTag"
+            if (item.isFrozen) {
+                tvCoupleId.setTextColor(ContextCompat.getColor(itemView.context, R.color.admin_crimson))
+            } else {
+                tvCoupleId.setTextColor(ContextCompat.getColor(itemView.context, R.color.admin_text_muted))
+            }
 
             val p1 = item.user1Name.ifBlank { "Partner 1" }
             val p2 = item.user2Name.ifBlank { "Partner 2" }
@@ -59,9 +67,10 @@ class WalletsAdapter(
             tvU2Amount.text = "₹$u2Clean"
 
             val dateStr = if (item.lastUpdated > 0) "Updated: ${dateFormat.format(Date(item.lastUpdated))}" else "Active Vault"
-            tvLastUpdated.text = dateStr
+            tvLastUpdated.text = "$dateStr • Tap for statements"
 
             btnAdjust.setOnClickListener { onAdjustClick(item) }
+            itemView.setOnClickListener { onWalletClick(item) }
         }
     }
 

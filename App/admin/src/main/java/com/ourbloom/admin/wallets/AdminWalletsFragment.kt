@@ -33,8 +33,18 @@ class AdminWalletsFragment : Fragment() {
     private var allWallets: List<SavingsWallet> = emptyList()
     private var searchQuery: String = ""
 
-    private val adapter = WalletsAdapter { wallet ->
-        handleAdjustWallet(wallet)
+    private val adapter = WalletsAdapter(
+        onAdjustClick = { wallet -> handleAdjustWallet(wallet) },
+        onWalletClick = { wallet -> openCoupleDetail(wallet) }
+    )
+
+    private fun openCoupleDetail(wallet: SavingsWallet) {
+        CoupleDetailDialog(
+            requireContext(),
+            wallet,
+            repository,
+            viewLifecycleOwner.lifecycleScope
+        ).show()
     }
 
     override fun onCreateView(

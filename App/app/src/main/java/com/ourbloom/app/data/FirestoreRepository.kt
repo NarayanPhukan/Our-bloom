@@ -1824,7 +1824,16 @@ class FirestoreRepository {
                     return@addSnapshotListener
                 }
                 val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsTransaction::class.java) } ?: emptyList()
-                onUpdate(list.sortedByDescending { it.timestamp })
+                // Filter out internal administrative adjustments so couples only see their own contributions & payouts
+                val userVisible = list.filterNot {
+                    it.paymentMethod.contains("Admin", ignoreCase = true) ||
+                    it.category.equals("Audit Correction", ignoreCase = true) ||
+                    it.userId.equals("admin", ignoreCase = true) ||
+                    it.utrNumber.startsWith("ADJUST-", ignoreCase = true) ||
+                    it.note.contains("Balance Adjustment", ignoreCase = true) ||
+                    it.paymentMethod.contains("Adjustment", ignoreCase = true)
+                }
+                onUpdate(userVisible.sortedByDescending { it.timestamp })
             }
     }
 

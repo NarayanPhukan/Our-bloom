@@ -35,6 +35,7 @@ class AdminTransactionsFragment : Fragment() {
     private lateinit var fabManualCredit: ExtendedFloatingActionButton
 
     private var allTransactions: List<SavingsTransaction> = emptyList()
+    private var currentFilteredTransactions: List<SavingsTransaction> = emptyList()
     private var currentTypeFilter: String = "ALL"
     private var currentSearchQuery: String = ""
 
@@ -84,6 +85,15 @@ class AdminTransactionsFragment : Fragment() {
             override fun afterTextChanged(s: Editable?) {}
         })
 
+        root.findViewById<View>(R.id.btn_export_ledger_csv)?.setOnClickListener {
+            val toExport = if (currentFilteredTransactions.isNotEmpty()) currentFilteredTransactions else allTransactions
+            if (toExport.isEmpty()) {
+                Toast.makeText(requireContext(), "No transactions to export", Toast.LENGTH_SHORT).show()
+            } else {
+                com.ourbloom.admin.util.CsvExporter.exportTransactions(requireContext(), toExport)
+            }
+        }
+
         fabManualCredit.setOnClickListener {
             ManualCreditDialog(requireContext()) { coupleId, amount, utr, note ->
                 viewLifecycleOwner.lifecycleScope.launch {
@@ -125,6 +135,7 @@ class AdminTransactionsFragment : Fragment() {
             }
         }
 
+        currentFilteredTransactions = filtered
         adapter.submitList(filtered)
         tvEmpty.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
     }

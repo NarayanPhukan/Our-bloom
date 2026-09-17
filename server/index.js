@@ -396,6 +396,118 @@ app.post('/api/admin/notify', async (req, res) => {
   }
 });
 
+// Admin Broadcast Push Announcement endpoint (sends to all couples or specific couple)
+app.post('/api/admin/broadcast', async (req, res) => {
+  try {
+    const { title, body, target, coupleId, actionUrl } = req.body;
+    if (!title || !body) {
+      return res.status(400).json({ error: 'title and body required' });
+    }
+
+    const { sendPushNotification, getFirestore, isInitialized } = require('./utils/firebase');
+    if (!isInitialized) {
+      return res.status(500).json({ error: 'Firebase is not initialized' });
+    }
+
+    const db = getFirestore();
+    let sentCount = 0;
+    const tokens = new Set();
+
+    if (target === 'couple' && coupleId) {
+      // Find all users in couple
+      const usersSnap = await db.collection('users').where('coupleId', '==', coupleId).get();
+      usersSnap.docs.forEach(doc => {
+        const t = doc.data().fcmToken;
+        if (t) tokens.add(t);
+      });
+    } else {
+      // All users with FCM tokens
+      const usersSnap = await db.collection('users').get();
+      usersSnap.docs.forEach(doc => {
+        const t = doc.data().fcmToken;
+        if (t) tokens.add(t);
+      });
+    }
+
+    for (const token of tokens) {
+      try {
+        const ok = await sendPushNotification(token, title, body, {
+          type: 'admin_broadcast',
+          actionUrl: actionUrl || '',
+          timestamp: Date.now()
+        });
+        if (ok) sentCount++;
+      } catch (e) {
+        console.warn('Broadcast send failure for token:', e.message);
+      }
+    }
+
+    console.log(`✿ Broadcast sent: "${title}" dispatched to ${sentCount}/${tokens.size} active devices`);
+    res.json({
+      success: true,
+      targetedDevices: tokens.size,
+      sentCount,
+      message: `Broadcast delivered to ${sentCount} devices.`
+    });
+  } catch (err) {
+    console.error('✿ Error in /api/admin/broadcast:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin System Telemetry & Infrastructure Health endpoint
+app.get('/api/admin/system-health', async (req, res) => {
+  try {
+    const startMs = Date.now();
+    const { isInitialized, getFirestore } = require('./utils/firebase');
+    let firestoreStatus = 'UNAVAILABLE';
+    let firestoreLatencyMs = null;
+
+    if (isInitialized) {
+      try {
+        const fsStart = Date.now();
+        const db = getFirestore();
+        await db.collection('settings').limit(1).get();
+        firestoreLatencyMs = Date.now() - fsStart;
+        firestoreStatus = 'HEALTHY';
+      } catch (e) {
+        firestoreStatus = 'ERROR: ' + e.message;
+      }
+    }
+
+    const totalLatencyMs = Date.now() - startMs;
+    res.json({
+      success: true,
+      status: 'OPERATIONAL',
+      timestamp: Date.now(),
+      latencyMs: totalLatencyMs,
+      services: {
+        apiServer: {
+          status: 'UP',
+          uptimeSeconds: Math.floor(process.uptime()),
+          memoryUsageMb: Math.round(process.memoryUsage().rss / (1024 * 1024))
+        },
+        mongoDb: {
+          status: mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED',
+          host: mongoose.connection.host || 'Atlas Cluster'
+        },
+        firestore: {
+          status: firestoreStatus,
+          latencyMs: firestoreLatencyMs
+        },
+        payu: {
+          status: 'CONFIGURED',
+          mode: process.env.PAYU_MODE || 'live',
+          merchantKeyConfigured: Boolean(process.env.PAYU_KEY)
+        }
+      }
+    });
+  } catch (err) {
+    console.error('✿ Error in /api/admin/system-health:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Instant chat push notification endpoint (wakes up Render & guarantees real-time FCM dispatch)
 app.post('/api/chat/notify', async (req, res) => {
   try {
@@ -654,6 +766,23 @@ mongoose
         initAnniversaryEmailJob();
         initDailyLoveNoteJob();
         setInterval(checkAndBroadcastNewRelease, 60 * 60 * 1000);
+
+        // Automated PayU settlement sync (initial delay on boot + every 6 hours)
+        setTimeout(() => {
+          if (payuRoutes.syncPayUSettlements) {
+            payuRoutes.syncPayUSettlements(14).catch(err => {
+              console.warn('✿ Startup PayU settlement sync error:', err.message);
+            });
+          }
+        }, 15000);
+
+        setInterval(() => {
+          if (payuRoutes.syncPayUSettlements) {
+            payuRoutes.syncPayUSettlements(14).catch(err => {
+              console.warn('✿ Background PayU settlement sync error:', err.message);
+            });
+          }
+        }, 6 * 60 * 60 * 1000);
 
         // Keepalive self-ping on Render free tier to prevent 50s cold-start sleep
         if (process.env.RENDER) {

@@ -75,10 +75,14 @@
 
             <!-- SECTION 2: Hero Executive Reserves Card (Navy Blue Gradient/Card) -->
             <LinearLayout
+                android:id="@+id/card_hero_treasury"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@color/admin_navy"
+                android:clickable="true"
                 android:elevation="3dp"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 android:orientation="vertical"
                 android:padding="20dp">
 
@@ -142,7 +146,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="TOTAL INFLOW DEPOSITS"
+                            android:text="PAYU SETTLED INFLOW"
                             android:textColor="#94A3B8"
                             android:textSize="10sp"
                             android:textStyle="bold" />

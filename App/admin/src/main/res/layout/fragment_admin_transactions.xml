@@ -18,13 +18,34 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-black"
-                android:text="Financial Ledger"
-                android:textColor="@color/admin_text_primary"
-                android:textSize="20sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-black"
+                    android:text="Financial Ledger"
+                    android:textColor="@color/admin_text_primary"
+                    android:textSize="20sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_export_ledger_csv"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:text="Export CSV"
+                    android:textSize="12sp"
+                    android:textColor="@color/admin_navy"
+                    app:icon="@drawable/ic_download"
+                    app:iconSize="16dp"
+                    app:iconTint="@color/admin_navy"
+                    app:cornerRadius="8dp" />
+            </LinearLayout>
 
             <!-- Search Field -->
             <EditText

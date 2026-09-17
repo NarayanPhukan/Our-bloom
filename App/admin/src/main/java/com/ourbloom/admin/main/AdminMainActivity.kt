@@ -33,6 +33,14 @@ import com.ourbloom.admin.profile.AdminProfileFragment
 import com.ourbloom.admin.profile.AdminProfileRepository
 import com.ourbloom.admin.transactions.AdminTransactionsFragment
 import com.ourbloom.admin.wallets.AdminWalletsFragment
+import com.google.firebase.firestore.ListenerRegistration
+import com.ourbloom.admin.broadcast.BroadcastDialog
+import com.ourbloom.admin.config.AppControlDialog
+import com.ourbloom.admin.data.AdminFirestoreRepository
+import com.ourbloom.admin.data.models.SavingsTransaction
+import com.ourbloom.admin.data.models.SavingsWallet
+import com.ourbloom.admin.telemetry.SystemHealthDialog
+import com.ourbloom.admin.treasury.TreasuryDialog
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -41,6 +49,12 @@ class AdminMainActivity : AppCompatActivity() {
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navDrawer: NavigationView
     private lateinit var bottomNav: BottomNavigationView
+
+    private val repository = AdminFirestoreRepository()
+    private var txListener: ListenerRegistration? = null
+    private var walletListener: ListenerRegistration? = null
+    private var cachedTransactions: List<SavingsTransaction> = emptyList()
+    private var cachedWallets: List<SavingsWallet> = emptyList()
 
     private val dashboardFragment = AdminDashboardFragment()
     private val payoutsFragment = AdminPayoutsFragment()
@@ -148,6 +162,9 @@ class AdminMainActivity : AppCompatActivity() {
             switchFragment(dashboardFragment)
         }
 
+        txListener = repository.observeTransactions { cachedTransactions = it }
+        walletListener = repository.observeSavingsWallets { cachedWallets = it }
+
         setupFinancialNotifications()
     }
 
@@ -188,6 +205,18 @@ class AdminMainActivity : AppCompatActivity() {
                 R.id.drawer_item_wallets -> {
                     switchFragment(walletsFragment)
                     bottomNav.selectedItemId = R.id.nav_item_wallets
+                }
+                R.id.drawer_item_treasury -> {
+                    TreasuryDialog(this, cachedTransactions, cachedWallets, repository, lifecycleScope).show()
+                }
+                R.id.drawer_item_health -> {
+                    SystemHealthDialog(this, repository, lifecycleScope).show()
+                }
+                R.id.drawer_item_broadcast -> {
+                    BroadcastDialog(this, null, repository, lifecycleScope).show()
+                }
+                R.id.drawer_item_app_control -> {
+                    AppControlDialog(this, repository, lifecycleScope).show()
                 }
                 R.id.drawer_item_profile -> {
                     openProfileSection()
@@ -262,5 +291,11 @@ class AdminMainActivity : AppCompatActivity() {
 
     fun navigateToTab(tabId: Int) {
         bottomNav.selectedItemId = tabId
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        txListener?.remove()
+        walletListener?.remove()
     }
 }

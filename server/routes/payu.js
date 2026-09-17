@@ -1509,11 +1509,146 @@ router.post('/payout', requireAdminRole(['finance_admin', 'super_admin']), async
   }
 });
 
+/**
+ * Synchronizes PayU settlement data from PayU WebService API into Firestore savings_transactions
+ * Uses PayU's get_settlement_details command across recent dates
+ */
+async function syncPayUSettlements(daysBack = 30) {
+  if (!PAYU_KEY || !PAYU_SALT) {
+    console.warn('✿ PayU credentials missing, skipping settlement sync');
+    return { success: false, error: 'PAYU_CREDENTIALS_MISSING' };
+  }
+
+  const db = getFirestore();
+  if (!db) {
+    return { success: false, error: 'FIRESTORE_UNAVAILABLE' };
+  }
+
+  const postServiceUrl = PAYU_MODE === 'live'
+    ? 'https://info.payu.in/merchant/postservice.php?form=2'
+    : 'https://test.payu.in/merchant/postservice.php?form=2';
+
+  const today = new Date();
+  const allSettledRecords = [];
+  const processedTxnIds = new Set();
+
+  for (let i = 0; i < daysBack; i++) {
+    const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toISOString().split('T')[0];
+    try {
+      const command = 'get_settlement_details';
+      const hash = crypto.createHash('sha512').update(`${PAYU_KEY}|${command}|${dateStr}|${PAYU_SALT}`).digest('hex');
+      const form = new URLSearchParams();
+      form.append('key', PAYU_KEY);
+      form.append('command', command);
+      form.append('var1', dateStr);
+      form.append('hash', hash);
+
+      const res = await fetch(postServiceUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString()
+      });
+      const data = await res.json();
+      if (data && Array.isArray(data.Txn_details)) {
+        for (const item of data.Txn_details) {
+          const txnid = item.txnid || '';
+          const payuid = item.payuid || '';
+          const key = txnid || payuid;
+          if (key && !processedTxnIds.has(key)) {
+            processedTxnIds.add(key);
+            allSettledRecords.push({ ...item, settlementDate: dateStr });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`✿ PayU settlement fetch error for date ${dateStr}:`, e.message);
+    }
+  }
+
+  let updatedCount = 0;
+  let totalSettledPaise = 0;
+
+  // Query all savings_transactions
+  const txnsSnapshot = await db.collection('savings_transactions').get();
+  const batch = db.batch();
+  let batchOps = 0;
+
+  for (const doc of txnsSnapshot.docs) {
+    const data = doc.data();
+    const docUtr = (data.utrNumber || '').trim();
+    const docId = doc.id;
+
+    // Match by txnid or payuid in utrNumber or doc id
+    const match = allSettledRecords.find(item =>
+      (item.txnid && item.txnid === docUtr) ||
+      (item.payuid && item.payuid === docUtr) ||
+      (item.txnid && docId.includes(item.txnid))
+    );
+
+    if (match) {
+      const netAmount = parseFloat(match.mer_net_amount || match.amount || '0');
+      const feeAmount = parseFloat(match.mer_service_fee || '0');
+      const taxAmount = parseFloat(match.mer_service_tax || '0');
+      const netAmountPaise = Math.round(netAmount * 100);
+      const feePaise = Math.round((feeAmount + taxAmount) * 100);
+
+      totalSettledPaise += netAmountPaise;
+      updatedCount++;
+
+      batch.update(doc.ref, {
+        settlementStatus: 'SETTLED',
+        gatewaySettlementAmountPaise: netAmountPaise,
+        gatewayFeePaise: feePaise,
+        providerBankReference: match.mer_utr || null,
+        merchantUtr: match.mer_utr || null,
+        providerReference: match.payuid || null,
+        settledAt: match.txndate ? new Date(match.txndate).getTime() : Date.now(),
+        settlementDate: match.settlementDate
+      });
+      batchOps++;
+      if (batchOps >= 400) {
+        await batch.commit();
+        batchOps = 0;
+      }
+    }
+  }
+
+  if (batchOps > 0) {
+    await batch.commit();
+  }
+
+  console.log(`✿ PayU Settlement sync completed: ${updatedCount} transactions marked SETTLED. Total settled: ₹${(totalSettledPaise / 100).toFixed(2)}`);
+  return {
+    success: true,
+    settledCount: updatedCount,
+    totalSettledAmount: totalSettledPaise / 100,
+    totalSettledPaise
+  };
+}
+
+/**
+ * GET /api/payu/settlements/sync
+ * POST /api/payu/settlements/sync
+ * Syncs PayU settled payouts with savings_transactions
+ */
+router.all('/settlements/sync', async (req, res) => {
+  try {
+    const daysBack = parseInt(req.query.days || req.body?.days || '30', 10);
+    const result = await syncPayUSettlements(daysBack);
+    return res.json(result);
+  } catch (err) {
+    console.error('✿ Error in /api/payu/settlements/sync:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.calculateDepositAmounts = calculateDepositAmounts;
 router.calculateDeposit = calculateDeposit;
 router.parseRupeesToPaise = parseRupeesToPaise;
 router.assertSafePaise = assertSafePaise;
 router.readSafePaise = readSafePaise;
+router.syncPayUSettlements = syncPayUSettlements;
 router.CONFIG = CONFIG;
 
 module.exports = router;

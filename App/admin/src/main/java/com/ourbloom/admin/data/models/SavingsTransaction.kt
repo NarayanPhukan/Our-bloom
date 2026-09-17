@@ -22,6 +22,9 @@ data class SavingsTransaction(
     val settlementStatus: String = "PENDING",
     val providerReference: String? = null,
     val providerBankReference: String? = null,
+    val merchantUtr: String? = null,
+    val settledAt: Long? = null,
+    val settlementDate: String? = null,
     val platformTransactionId: String = "",
     val originalTransactionId: String? = null,
     val refundId: String? = null,
@@ -37,4 +40,14 @@ data class SavingsTransaction(
     @Deprecated("Use grossAmountPaise") val grossAmount: Double = 0.0,
     @Deprecated("Use platformFeePaise") val platformFee: Double = 0.0,
     @Deprecated("Use netVaultCreditPaise") val netVaultCredit: Double = 0.0
-)
+) {
+    val isSettled: Boolean
+        get() = settlementStatus.equals("SETTLED", ignoreCase = true)
+
+    val settledAmount: Double
+        get() = if (gatewaySettlementAmountPaise != null && gatewaySettlementAmountPaise > 0L) {
+            gatewaySettlementAmountPaise / 100.0
+        } else {
+            amount
+        }
+}
