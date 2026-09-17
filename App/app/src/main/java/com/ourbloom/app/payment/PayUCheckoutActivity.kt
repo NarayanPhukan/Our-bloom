@@ -3,23 +3,24 @@ package com.ourbloom.app.payment
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.Message
 import android.util.Log
 import android.view.View
 import android.webkit.*
+import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import com.google.android.material.chip.Chip
 import com.ourbloom.app.BuildConfig
 import com.ourbloom.app.R
-import com.ourbloom.app.data.FirestoreRepository
-import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.*
@@ -39,6 +40,9 @@ class PayUCheckoutActivity : AppCompatActivity() {
 
         private const val LIVE_ACTION_URL = "https://secure.payu.in/_payment"
         private const val TEST_ACTION_URL = "https://test.payu.in/_payment"
+
+        private const val DESKTOP_USER_AGENT =
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
         fun createIntent(
             context: Context,
@@ -66,10 +70,14 @@ class PayUCheckoutActivity : AppCompatActivity() {
         }
     }
 
-    private val repository = FirestoreRepository()
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var layoutError: View
+    private lateinit var btnClose: ImageButton
+    private lateinit var chipModeToggle: Chip
+
+    private var defaultMobileUserAgent: String = ""
+    private var isDesktopMode = false
 
     private var amount: Double = 0.0
     private var coupleId: String = ""
@@ -105,6 +113,10 @@ class PayUCheckoutActivity : AppCompatActivity() {
             return
         }
 
+        // On emulators or devices without UPI apps, default to QR code/desktop mode so user can scan & pay
+        val upiAvailable = isAnyUpiAppInstalled()
+        isDesktopMode = !upiAvailable
+
         initViews()
         setupWebView()
         initiatePayment()
@@ -114,11 +126,46 @@ class PayUCheckoutActivity : AppCompatActivity() {
         webView = findViewById(R.id.web_view_checkout)
         progressBar = findViewById(R.id.progress_checkout)
         layoutError = findViewById(R.id.layout_checkout_error)
+        btnClose = findViewById(R.id.btn_close_checkout)
+        chipModeToggle = findViewById(R.id.chip_mode_toggle)
+
+        defaultMobileUserAgent = webView.settings.userAgentString
+
+        updateToggleChipText()
+
+        btnClose.setOnClickListener {
+            onBackPressed()
+        }
+
+        chipModeToggle.setOnClickListener {
+            enableDesktopMode(!isDesktopMode)
+        }
 
         findViewById<View>(R.id.btn_retry_checkout).setOnClickListener {
             layoutError.visibility = View.GONE
             initiatePayment()
         }
+    }
+
+    private fun updateToggleChipText() {
+        if (isDesktopMode) {
+            chipModeToggle.text = "📱 Mobile Apps"
+        } else {
+            chipModeToggle.text = "📷 Scan QR / VPA"
+        }
+    }
+
+    private fun enableDesktopMode(enable: Boolean) {
+        isDesktopMode = enable
+        updateToggleChipText()
+        if (enable) {
+            webView.settings.userAgentString = DESKTOP_USER_AGENT
+            Toast.makeText(this, "Switched to QR Code & UPI ID mode. Scan with phone!", Toast.LENGTH_SHORT).show()
+        } else {
+            webView.settings.userAgentString = defaultMobileUserAgent
+            Toast.makeText(this, "Switched to Mobile UPI Apps mode", Toast.LENGTH_SHORT).show()
+        }
+        initiatePayment()
     }
 
     inner class PaymentBridge {
@@ -147,7 +194,15 @@ class PayUCheckoutActivity : AppCompatActivity() {
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.javaScriptCanOpenWindowsAutomatically = true
-        settings.setSupportMultipleWindows(true)
+
+        // Keep false so window.open() handles in the existing WebView without swallowing redirects
+        settings.setSupportMultipleWindows(false)
+
+        if (isDesktopMode) {
+            settings.userAgentString = DESKTOP_USER_AGENT
+        } else {
+            settings.userAgentString = defaultMobileUserAgent
+        }
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
@@ -163,26 +218,6 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 } else {
                     progressBar.visibility = View.VISIBLE
                 }
-            }
-
-            override fun onCreateWindow(
-                view: WebView?,
-                isDialog: Boolean,
-                isUserGesture: Boolean,
-                resultMsg: Message?
-            ): Boolean {
-                val newWebView = WebView(this@PayUCheckoutActivity)
-                newWebView.settings.javaScriptEnabled = true
-                newWebView.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        val url = request?.url?.toString() ?: return false
-                        return handleUrl(url)
-                    }
-                }
-                val transport = resultMsg?.obj as? WebView.WebViewTransport
-                transport?.webView = newWebView
-                resultMsg?.sendToTarget()
-                return true
             }
         }
 
@@ -300,12 +335,24 @@ class PayUCheckoutActivity : AppCompatActivity() {
             url.startsWith("paytmmp://", ignoreCase = true) ||
             url.startsWith("credpay://", ignoreCase = true) ||
             url.startsWith("bhim://", ignoreCase = true) ||
-            url.startsWith("mobikwik://", ignoreCase = true)
+            url.startsWith("mobikwik://", ignoreCase = true) ||
+            url.startsWith("amazonpay://", ignoreCase = true)
         ) {
             return launchSpecificAppIntent(url)
         }
 
         return false
+    }
+
+    private fun isAnyUpiAppInstalled(): Boolean {
+        return try {
+            val uri = Uri.parse("upi://pay")
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            val activities = packageManager.queryIntentActivities(intent, 0)
+            activities.isNotEmpty()
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun launchUpiIntent(url: String): Boolean {
@@ -318,22 +365,23 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
 
-            val chooser = Intent.createChooser(upiIntent, "Pay via UPI App").apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            val activities = packageManager.queryIntentActivities(upiIntent, 0)
+            if (activities.isNotEmpty()) {
+                val chooser = Intent.createChooser(upiIntent, "Pay via UPI App").apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(chooser)
+                true
+            } else {
+                showNoUpiAppDialog(url)
+                true
             }
-            startActivity(chooser)
-            true
         } catch (e: ActivityNotFoundException) {
-            Log.w("PayUCheckout", "No UPI apps found on this device: ${e.message}")
-            Toast.makeText(
-                this,
-                "No UPI app (GPay, PhonePe, Paytm) found on this device. Please install one or use Card/NetBanking on PayU.",
-                Toast.LENGTH_LONG
-            ).show()
+            showNoUpiAppDialog(url)
             true
         } catch (e: Exception) {
             Log.e("PayUCheckout", "Error launching UPI intent: ${e.message}", e)
-            Toast.makeText(this, "Could not open UPI app: ${e.message}", Toast.LENGTH_SHORT).show()
+            showNoUpiAppDialog(url)
             true
         }
     }
@@ -358,7 +406,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {}
 
-            // 2. If it's a UPI scheme, strip the specific package to allow any installed UPI app to handle it
+            // 2. If it's a UPI scheme, check if any installed UPI app can handle it
             val dataUri = intent.data
             if (dataUri != null && dataUri.scheme.equals("upi", ignoreCase = true)) {
                 val genericUpiIntent = Intent(Intent.ACTION_VIEW, dataUri).apply {
@@ -366,11 +414,17 @@ class PayUCheckoutActivity : AppCompatActivity() {
                     addCategory(Intent.CATEGORY_BROWSABLE)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-                val chooser = Intent.createChooser(genericUpiIntent, "Pay via UPI App").apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                val activities = packageManager.queryIntentActivities(genericUpiIntent, 0)
+                if (activities.isNotEmpty()) {
+                    val chooser = Intent.createChooser(genericUpiIntent, "Pay via UPI App").apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(chooser)
+                    return true
+                } else {
+                    showNoUpiAppDialog(dataUri.toString())
+                    return true
                 }
-                startActivity(chooser)
-                return true
             }
 
             // 3. Try browser fallback URL if provided
@@ -380,14 +434,15 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 return true
             }
 
-            Toast.makeText(this, "Selected payment app is not installed on this device", Toast.LENGTH_SHORT).show()
+            showNoUpiAppDialog(url)
             return true
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(this, "The requested payment app is not installed on this device", Toast.LENGTH_SHORT).show()
+            showNoUpiAppDialog(url)
             return true
         } catch (e: Exception) {
             Log.e("PayUCheckout", "Failed to parse intent URL: ${e.message}", e)
-            return false
+            showNoUpiAppDialog(url)
+            return true
         }
     }
 
@@ -400,14 +455,40 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 addCategory(Intent.CATEGORY_BROWSABLE)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            startActivity(intent)
-            return true
+            val activities = packageManager.queryIntentActivities(intent, 0)
+            if (activities.isNotEmpty()) {
+                startActivity(intent)
+                return true
+            } else {
+                showNoUpiAppDialog(url)
+                return true
+            }
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(this, "The requested payment app is not installed on this device", Toast.LENGTH_SHORT).show()
+            showNoUpiAppDialog(url)
             return true
         } catch (e: Exception) {
             Log.e("PayUCheckout", "Failed to launch specific app URL: ${e.message}", e)
-            return false
+            showNoUpiAppDialog(url)
+            return true
+        }
+    }
+
+    private fun showNoUpiAppDialog(upiUrl: String) {
+        runOnUiThread {
+            AlertDialog.Builder(this)
+                .setTitle("No UPI App on this Device")
+                .setMessage("No UPI app (Google Pay, PhonePe, Paytm) was found installed on this device or emulator.\n\nTo complete payment:\n• Switch to QR Code mode to scan with your phone\n• Or copy the UPI payment link\n• Or pay using Card / NetBanking below")
+                .setPositiveButton("📷 Scan QR with Phone") { _, _ ->
+                    enableDesktopMode(true)
+                }
+                .setNeutralButton("📋 Copy Link") { _, _ ->
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("UPI URL", upiUrl)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(this, "UPI payment URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Dismiss", null)
+                .show()
         }
     }
 
@@ -457,7 +538,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
             append("&udf5=").append(URLEncoder.encode(cleanNote, "UTF-8"))
         }.toString().toByteArray(Charsets.UTF_8)
 
-        Log.d("PayUCheckout", "Initiating Live PayU Checkout at $actionUrl for amount $formattedAmount")
+        Log.d("PayUCheckout", "Initiating Live PayU Checkout at $actionUrl for amount $formattedAmount (desktopMode=$isDesktopMode)")
         webView.postUrl(actionUrl, postData)
     }
 
@@ -507,7 +588,14 @@ class PayUCheckoutActivity : AppCompatActivity() {
         if (webView.canGoBack()) {
             webView.goBack()
         } else {
-            super.onBackPressed()
+            AlertDialog.Builder(this)
+                .setTitle("Cancel Payment?")
+                .setMessage("Are you sure you want to cancel this payment? No money will be deducted from your account.")
+                .setPositiveButton("Yes, Cancel") { _, _ ->
+                    onPaymentDeclined()
+                }
+                .setNegativeButton("Continue Payment", null)
+                .show()
         }
     }
 

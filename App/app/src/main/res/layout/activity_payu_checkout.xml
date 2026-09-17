@@ -21,6 +21,47 @@
         android:indeterminateTint="#E85D75"
         android:indeterminate="true" />
 
+    <!-- Top Controls Floating Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp">
+
+        <ImageButton
+            android:id="@+id/btn_close_checkout"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_checkout_circle_btn"
+            android:elevation="6dp"
+            android:contentDescription="Close"
+            android:src="@drawable/ic_close"
+            app:tint="#444444" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_mode_toggle"
+            style="@style/Widget.Material3.Chip.Assist.Elevated"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📷 Scan QR / VPA"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#E85D75"
+            android:elevation="6dp"
+            app:chipBackgroundColor="#FFFFFF"
+            app:chipStrokeColor="#FCE4EC"
+            app:chipStrokeWidth="1dp" />
+    </LinearLayout>
+
     <!-- Error Fallback View -->
     <LinearLayout
         android:id="@+id/layout_checkout_error"
