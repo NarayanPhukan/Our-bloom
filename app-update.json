@@ -1,8 +1,8 @@
 {
-  "versionCode": 61,
-  "versionName": "1.60",
+  "versionCode": 62,
+  "versionName": "1.61",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Native PayU Fullscreen Checkout: Fixed UPI click handling, single-window routing, and added dual QR Code / VPA mode fallback for emulators and devices without UPI apps 🌸",
+  "changelog": "• Exact PayU bank settlement reconciliation\n• Streamlined couple vault transactions\n• Internal adjustments hidden from couple vault view\n• Security and performance optimizations 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": true
 }

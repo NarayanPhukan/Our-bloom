@@ -694,11 +694,11 @@ app.get('/api/admin/app/download', (req, res) => {
 // Admin App version metadata endpoint
 app.get('/api/admin/app/version', (req, res) => {
   res.json({
-    latestVersionCode: 2,
-    latestVersionName: '1.1.0',
+    latestVersionCode: 3,
+    latestVersionName: '1.2.0',
     downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
-    changelog: '• White & Navy Blue executive theme\n• Hamburger navigation drawer\n• Clean, decluttered homescreen sections\n• Admin Profile & Password management\n• Direct in-app background download & one-tap install',
-    forceUpdate: false
+    changelog: '• Exact PayU bank settlement sync (₹840.50 settled inflow)\n• Couple Vault CRM with detailed Payment Statements\n• 1-Click Statement CSV sharing & Export\n• Vault freeze/unfreeze emergency controls\n• Treasury & Solvency Radar with batch grouping\n• Realtime System Health Radar telemetry\n• Targeted & Global Push Announcement console\n• Remote App Release & Kill-Switches',
+    forceUpdate: true
   });
 });
 
