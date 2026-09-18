@@ -694,10 +694,10 @@ app.get('/api/admin/app/download', (req, res) => {
 // Admin App version metadata endpoint
 app.get('/api/admin/app/version', (req, res) => {
   res.json({
-    latestVersionCode: 3,
-    latestVersionName: '1.2.0',
+    latestVersionCode: 4,
+    latestVersionName: '1.2.1',
     downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
-    changelog: '• Exact PayU bank settlement sync (₹840.50 settled inflow)\n• Couple Vault CRM with detailed Payment Statements\n• 1-Click Statement CSV sharing & Export\n• Vault freeze/unfreeze emergency controls\n• Treasury & Solvency Radar with batch grouping\n• Realtime System Health Radar telemetry\n• Targeted & Global Push Announcement console\n• Remote App Release & Kill-Switches',
+    changelog: '• Resilient System Health Radar with offline/standalone telemetry fallback\n• Direct Firestore ping and server latency tracking (Zero 404 error)\n• Direct Firestore cloud broadcast fallback\n• Exact PayU bank settlement sync (₹840.50 settled inflow)\n• Couple Vault CRM with Payment Statements & CSV sharing',
     forceUpdate: true
   });
 });

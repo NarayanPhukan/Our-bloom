@@ -4,6 +4,8 @@
   "description": "Our Bloom — A romantic journey timeline MERN application",
   "private": true,
   "scripts": {
+    "start": "node server/index.js",
+    "build": "npm --prefix server install",
     "server": "cd server && node index.js",
     "client": "cd client && npm run dev",
     "dev": "npm run server & npm run client",
