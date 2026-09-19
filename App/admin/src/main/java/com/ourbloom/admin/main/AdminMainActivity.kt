@@ -31,6 +31,7 @@ import com.ourbloom.admin.fcm.AdminFirebaseMessagingService
 import com.ourbloom.admin.payouts.AdminPayoutsFragment
 import com.ourbloom.admin.profile.AdminProfileFragment
 import com.ourbloom.admin.profile.AdminProfileRepository
+import com.ourbloom.admin.revenue.AdminRevenueFragment
 import com.ourbloom.admin.transactions.AdminTransactionsFragment
 import com.ourbloom.admin.wallets.AdminWalletsFragment
 import com.google.firebase.firestore.ListenerRegistration
@@ -61,6 +62,7 @@ class AdminMainActivity : AppCompatActivity() {
     private val ledgerFragment = AdminTransactionsFragment()
     private val walletsFragment = AdminWalletsFragment()
     private val profileFragment = AdminProfileFragment()
+    private val revenueFragment = AdminRevenueFragment()
 
     private val requestNotificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -206,6 +208,9 @@ class AdminMainActivity : AppCompatActivity() {
                     switchFragment(walletsFragment)
                     bottomNav.selectedItemId = R.id.nav_item_wallets
                 }
+                R.id.drawer_item_revenue -> {
+                    openRevenueDashboard()
+                }
                 R.id.drawer_item_treasury -> {
                     TreasuryDialog(this, cachedTransactions, cachedWallets, repository, lifecycleScope).show()
                 }
@@ -234,6 +239,10 @@ class AdminMainActivity : AppCompatActivity() {
             drawerLayout.closeDrawer(GravityCompat.START)
             true
         }
+    }
+
+    fun openRevenueDashboard() {
+        switchFragment(revenueFragment)
     }
 
     private fun openProfileSection() {

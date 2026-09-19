@@ -77,8 +77,73 @@ function inspectFileBuffer(buffer) {
     return { mime: 'audio/mpeg', ext: '.mp3', category: 'audio', maxSize: MAX_AUDIO_SIZE };
   }
 
+  // 8. PDF Document: %PDF (25 50 44 46)
+  if (
+    buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46
+  ) {
+    return { mime: 'application/pdf', ext: '.pdf', category: 'document', maxSize: 25 * 1024 * 1024 };
+  }
+
   return null;
 }
+
+/**
+ * POST /api/upload/treasury-confirmation
+ * Authenticated admin endpoint to upload and securely store PNB e-FD confirmation documents.
+ */
+router.post('/treasury-confirmation', authMiddleware, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'No file buffer received' });
+    }
+
+    const userId = req.user.firebaseUid || req.user.userId?.toString() || req.user.uid;
+    const userEmail = req.user.email || 'admin@ourbloom.com';
+    const isAdmin = req.user.admin === true || req.user.role === 'super_admin' || req.user.role === 'finance_admin';
+
+    // Verify admin role
+    const db = getFirestore();
+    let verifiedAdmin = isAdmin;
+    if (!verifiedAdmin && db && userId) {
+      const adminDoc = await db.collection('admin_users').doc(userId).get();
+      if (adminDoc.exists) verifiedAdmin = true;
+    }
+
+    if (!verifiedAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Admin privileges required to upload treasury confirmations' });
+    }
+
+    // Inspect file buffer
+    const fileInfo = inspectFileBuffer(req.file.buffer);
+    if (!fileInfo || (fileInfo.category !== 'document' && fileInfo.category !== 'image')) {
+      return res.status(400).json({ error: 'Invalid file type. Only authentic PDF or Image receipts are permitted.' });
+    }
+
+    const pathMod = require('path');
+    const originalName = req.file.originalname || `PNB_FD_Confirmation${fileInfo.ext}`;
+    const storageFolder = 'treasury_documents/confirmations';
+    const secureUrl = await uploadToFirebase(null, req.file, storageFolder, {
+      ext: fileInfo.ext,
+      mime: fileInfo.mime
+    });
+
+    if (!secureUrl) {
+      return res.status(500).json({ error: 'Failed to upload confirmation document' });
+    }
+
+    res.status(201).json({
+      url: secureUrl,
+      fileName: originalName,
+      storagePath: `${storageFolder}/${pathMod.basename(secureUrl)}`,
+      sizeBytes: req.file.size,
+      uploadedBy: userEmail,
+      uploadedAt: Date.now()
+    });
+  } catch (err) {
+    console.error('✿ Error in /api/upload/treasury-confirmation:', err);
+    res.status(500).json({ error: err.message || 'Internal error during treasury upload' });
+  }
+});
 
 /**
  * POST /api/upload

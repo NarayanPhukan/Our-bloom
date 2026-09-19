@@ -47,12 +47,6 @@ service cloud.firestore {
       );
     }
 
-    function isFinanceAdmin() {
-      return isSignedIn() && (
-        request.auth.token.admin == true &&
-        request.auth.token.role in ['finance_admin', 'super_admin']
-      );
-    }
 
     // =========================================================================
     // USER PROFILES
@@ -382,6 +376,20 @@ service cloud.firestore {
     match /admin_alerts/{alertId} {
       allow read: if isAdmin();
       allow write: if false; // Server Admin SDK only
+    }
+
+    // Canonical immutable revenue ledger: Append-only, updates & deletes strictly denied!
+    match /revenue_records/{recordId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Immutable audit trail for PNB treasury position changes: Append-only!
+    match /treasury_audit_log/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
     }
 
     // =========================================================================

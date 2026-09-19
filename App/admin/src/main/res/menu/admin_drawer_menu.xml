@@ -22,6 +22,10 @@
     <item android:title="Treasury &amp; Operations">
         <menu>
             <item
+                android:id="@+id/drawer_item_revenue"
+                android:icon="@drawable/ic_revenue"
+                android:title="Revenue &amp; Treasury" />
+            <item
                 android:id="@+id/drawer_item_treasury"
                 android:icon="@drawable/ic_treasury"
                 android:title="Treasury &amp; Solvency" />

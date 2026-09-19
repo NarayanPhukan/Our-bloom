@@ -44,10 +44,36 @@ data class SavingsTransaction(
     val isSettled: Boolean
         get() = settlementStatus.equals("SETTLED", ignoreCase = true)
 
-    val settledAmount: Double
-        get() = if (gatewaySettlementAmountPaise != null && gatewaySettlementAmountPaise > 0L) {
-            gatewaySettlementAmountPaise / 100.0
+    val effectiveVaultPaise: Long
+        get() = if (vaultAmountPaise > 0L) {
+            vaultAmountPaise
+        } else if (grossAmountPaise > 0L) {
+            grossAmountPaise
         } else {
-            amount
+            Math.round(amount * 100.0)
         }
+
+    val effectivePlatformFeePaise: Long
+        get() = if (platformFeePaise > 0L) {
+            platformFeePaise
+        } else {
+            // Standard 2% platform fee calculation: round-half-up integer division
+            (effectiveVaultPaise * 200L + 5000L) / 10000L
+        }
+
+    val effectiveSettledPaise: Long
+        get() = if (gatewaySettlementAmountPaise != null && gatewaySettlementAmountPaise > 0L) {
+            gatewaySettlementAmountPaise
+        } else {
+            effectiveVaultPaise
+        }
+
+    val isGiftRevenue: Boolean
+        get() = category.contains("gift", ignoreCase = true) || type.contains("gift", ignoreCase = true)
+
+    val isSubscriptionRevenue: Boolean
+        get() = category.contains("subscription", ignoreCase = true) || type.contains("subscription", ignoreCase = true)
+
+    val settledAmount: Double
+        get() = effectiveSettledPaise / 100.0
 }

@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "our-bloom"
+  },
   "targets": {},
   "etags": {}
 }

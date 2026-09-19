@@ -5,20 +5,39 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import com.ourbloom.admin.data.models.AdminAlert
 import com.ourbloom.admin.data.models.AppControlConfig
+import com.ourbloom.admin.data.models.RevenueRecord
 import com.ourbloom.admin.data.models.SavingsTransaction
 import com.ourbloom.admin.data.models.SavingsWallet
+import com.ourbloom.admin.data.models.TreasuryAuditLog
+import com.ourbloom.admin.data.models.TreasuryPosition
 import com.ourbloom.admin.data.models.WithdrawalRequest
 import com.ourbloom.admin.util.AdminFcmSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+
+data class TreasuryDocumentMeta(
+    val url: String = "",
+    val fileName: String = "",
+    val storagePath: String = "",
+    val sizeBytes: Long = 0L,
+    val uploadedBy: String = "",
+    val uploadedAt: Long = 0L
+)
 
 class AdminFirestoreRepository {
 
@@ -28,6 +47,7 @@ class AdminFirestoreRepository {
         private const val PAYU_SETTLEMENT_SYNC_URL = "https://our-bloom.onrender.com/api/payu/settlements/sync"
         private const val BROADCAST_URL = "https://our-bloom.onrender.com/api/admin/broadcast"
         private const val SYSTEM_HEALTH_URL = "https://our-bloom.onrender.com/api/admin/system-health"
+        private const val TREASURY_DOC_UPLOAD_URL = "https://our-bloom.onrender.com/api/upload/treasury-confirmation"
     }
 
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
@@ -722,5 +742,362 @@ class AdminFirestoreRepository {
         }
 
         Result.success(fallbackJson)
+    }
+
+    // =========================================================================
+    // REVENUE & TREASURY LEDGER (CANONICAL FINANCIAL DOMAINS)
+    // =========================================================================
+
+    /**
+     * Observes the canonical OurBloom revenue ledger (/revenue_records).
+     * Strictly append-only: One financial event -> Exactly one RevenueRecord.
+     */
+    fun observeRevenueRecords(onUpdate: (List<RevenueRecord>) -> Unit): ListenerRegistration {
+        return db.collection("revenue_records")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error observing revenue records", error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { it.toObject(RevenueRecord::class.java) } ?: emptyList()
+                val sorted = list.sortedByDescending { it.timestamp }
+                onUpdate(sorted)
+            }
+    }
+
+    /**
+     * Observes the Active PNB FD Position snapshot (/admin_config/treasury_positions).
+     */
+    fun observeTreasuryPosition(onUpdate: (TreasuryPosition) -> Unit): ListenerRegistration {
+        return db.collection("admin_config").document("treasury_positions")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error observing treasury position", error)
+                    return@addSnapshotListener
+                }
+                val pos = snapshot?.toObject(TreasuryPosition::class.java) ?: TreasuryPosition()
+                onUpdate(pos)
+            }
+    }
+
+    /**
+     * Observes the immutable PNB Treasury Audit Log (/treasury_audit_log).
+     */
+    fun observeTreasuryAuditLog(onUpdate: (List<TreasuryAuditLog>) -> Unit): ListenerRegistration {
+        return db.collection("treasury_audit_log")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error observing treasury audit log", error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { it.toObject(TreasuryAuditLog::class.java) } ?: emptyList()
+                val sorted = list.sortedByDescending { it.timestamp }
+                onUpdate(sorted)
+            }
+    }
+
+    /**
+     * Records or updates the Active PNB Treasury Position within an ATOMIC Firestore transaction:
+     * 1. Reads existing position to capture pre-mutation values.
+     * 2. Writes new position to admin_config/treasury_positions.
+     * 3. Creates immutable audit log entry in /treasury_audit_log with previous and new states.
+     * Guaranteed: All succeed or none commit!
+     */
+    suspend fun recordTreasuryPosition(
+        position: TreasuryPosition,
+        reason: String,
+        adminName: String,
+        adminId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val configRef = db.collection("admin_config").document("treasury_positions")
+            val auditRef = db.collection("treasury_audit_log").document()
+
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(configRef)
+                val previousState = if (snapshot.exists()) {
+                    snapshot.toObject(TreasuryPosition::class.java) ?: TreasuryPosition()
+                } else {
+                    TreasuryPosition()
+                }
+
+                // Determine document mutation action
+                val docAction = when {
+                    previousState.documentUrl.isNotBlank() && position.documentUrl.isNotBlank() && previousState.documentUrl != position.documentUrl -> "REPLACED"
+                    previousState.documentUrl.isBlank() && position.documentUrl.isNotBlank() -> "ATTACHED"
+                    previousState.documentUrl.isNotBlank() && position.documentUrl.isBlank() -> "REMOVED"
+                    else -> "UNCHANGED"
+                }
+
+                // 1. Write updated position
+                transaction.set(configRef, position)
+
+                // 2. Write immutable audit log using strictly captured pre-mutation values
+                val auditLog = TreasuryAuditLog(
+                    id = auditRef.id,
+                    adminId = adminId.ifBlank { "admin" },
+                    adminName = adminName.ifBlank { "Administrator" },
+                    timestamp = System.currentTimeMillis(),
+                    bankName = position.bankName,
+                    fdReferenceNumber = position.fdReferenceNumber,
+                    previousFdPrincipalPaise = previousState.fdPrincipalPaise,
+                    newFdPrincipalPaise = position.fdPrincipalPaise,
+                    previousLiquidReservePaise = previousState.liquidBankReservePaise,
+                    newLiquidReservePaise = position.liquidBankReservePaise,
+                    reason = reason.trim().ifBlank { "Treasury position update" },
+                    documentAction = docAction,
+                    previousDocumentFileName = previousState.documentFileName,
+                    newDocumentFileName = position.documentFileName,
+                    documentUrl = position.documentUrl
+                )
+                transaction.set(auditRef, auditLog)
+                null
+            }.await()
+
+            Log.i(TAG, "Successfully committed atomic PNB treasury update and audit log")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed atomic treasury update transaction", e)
+            false
+        }
+    }
+
+    /**
+     * Uploads a PNB e-FD confirmation document to Firebase Storage (with backend proxy fallback).
+     */
+    suspend fun uploadFdConfirmationDocument(
+        fileBytes: ByteArray,
+        originalFileName: String,
+        mimeType: String?,
+        adminEmail: String
+    ): Result<TreasuryDocumentMeta> = withContext(Dispatchers.IO) {
+        val cleanName = originalFileName.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+        val timestamp = System.currentTimeMillis()
+        val storagePath = "treasury_documents/confirmations/${timestamp}_$cleanName"
+        val resolvedMime = mimeType?.ifBlank { "application/pdf" } ?: "application/pdf"
+
+        // 1. Primary Attempt: Direct Firebase Storage
+        try {
+            val storageRef = FirebaseStorage.getInstance().reference.child(storagePath)
+            val metadata = StorageMetadata.Builder()
+                .setContentType(resolvedMime)
+                .setCustomMetadata("uploadedBy", adminEmail)
+                .setCustomMetadata("originalName", originalFileName)
+                .build()
+
+            storageRef.putBytes(fileBytes, metadata).await()
+            val downloadUrl = storageRef.downloadUrl.await().toString()
+            Log.i(TAG, "Successfully uploaded confirmation document to Firebase Storage: $downloadUrl")
+            return@withContext Result.success(
+                TreasuryDocumentMeta(
+                    url = downloadUrl,
+                    fileName = originalFileName,
+                    storagePath = storagePath,
+                    sizeBytes = fileBytes.size.toLong(),
+                    uploadedBy = adminEmail,
+                    uploadedAt = timestamp
+                )
+            )
+        } catch (storageErr: Exception) {
+            Log.w(TAG, "Firebase Storage direct upload failed/fallback to backend route: ${storageErr.message}")
+        }
+
+        // 2. Secondary Resilient Attempt: Backend Admin Upload Route
+        try {
+            val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: ""
+            val client = OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+
+            val mediaType = resolvedMime.toMediaTypeOrNull()
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "file",
+                    originalFileName,
+                    fileBytes.toRequestBody(mediaType)
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url(TREASURY_DOC_UPLOAD_URL)
+                .addHeader("Authorization", "Bearer $token")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val respBody = response.body?.string() ?: ""
+            if (response.isSuccessful) {
+                val json = JSONObject(respBody)
+                return@withContext Result.success(
+                    TreasuryDocumentMeta(
+                        url = json.optString("url", ""),
+                        fileName = json.optString("fileName", originalFileName),
+                        storagePath = json.optString("storagePath", storagePath),
+                        sizeBytes = json.optLong("sizeBytes", fileBytes.size.toLong()),
+                        uploadedBy = json.optString("uploadedBy", adminEmail),
+                        uploadedAt = json.optLong("uploadedAt", timestamp)
+                    )
+                )
+            } else {
+                return@withContext Result.failure(Exception("Upload failed with HTTP ${response.code}: $respBody"))
+            }
+        } catch (netErr: Exception) {
+            Log.e(TAG, "Both Firebase Storage and backend upload failed", netErr)
+            return@withContext Result.failure(netErr)
+        }
+    }
+
+    /**
+     * Atomically attaches or replaces the confirmation document with an immutable audit log trail.
+     * Prevents ordinary admins from replacing/deleting it without an explicit audit reason.
+     */
+    suspend fun updateTreasuryConfirmationDocument(
+        documentMeta: TreasuryDocumentMeta,
+        reason: String,
+        adminName: String,
+        adminId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (reason.isBlank()) {
+            Log.e(TAG, "Cannot update or replace confirmation document without an audit reason")
+            return@withContext false
+        }
+        try {
+            val configRef = db.collection("admin_config").document("treasury_positions")
+            val auditRef = db.collection("treasury_audit_log").document()
+
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(configRef)
+                val current = if (snapshot.exists()) {
+                    snapshot.toObject(TreasuryPosition::class.java) ?: TreasuryPosition()
+                } else {
+                    TreasuryPosition()
+                }
+
+                val docAction = if (current.documentUrl.isNotBlank()) "REPLACED" else "ATTACHED"
+
+                val updatedPosition = current.copy(
+                    documentUrl = documentMeta.url,
+                    documentFileName = documentMeta.fileName,
+                    documentStoragePath = documentMeta.storagePath,
+                    documentUploadedBy = documentMeta.uploadedBy,
+                    documentUploadedAt = documentMeta.uploadedAt,
+                    documentSizeBytes = documentMeta.sizeBytes,
+                    lastUpdated = System.currentTimeMillis(),
+                    updatedBy = adminName.ifBlank { adminId }
+                )
+
+                transaction.set(configRef, updatedPosition)
+
+                val auditLog = TreasuryAuditLog(
+                    id = auditRef.id,
+                    adminId = adminId.ifBlank { "admin" },
+                    adminName = adminName.ifBlank { "Administrator" },
+                    timestamp = System.currentTimeMillis(),
+                    bankName = current.bankName,
+                    fdReferenceNumber = current.fdReferenceNumber,
+                    previousFdPrincipalPaise = current.fdPrincipalPaise,
+                    newFdPrincipalPaise = current.fdPrincipalPaise,
+                    previousLiquidReservePaise = current.liquidBankReservePaise,
+                    newLiquidReservePaise = current.liquidBankReservePaise,
+                    reason = reason.trim(),
+                    documentAction = docAction,
+                    previousDocumentFileName = current.documentFileName,
+                    newDocumentFileName = documentMeta.fileName,
+                    documentUrl = documentMeta.url
+                )
+                transaction.set(auditRef, auditLog)
+                null
+            }.await()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update treasury confirmation document", e)
+            false
+        }
+    }
+
+    /**
+     * Idempotently synchronizes historical deposit fees from savings_transactions into revenue_records.
+     * Enforces the deterministic namespace: REV_SAVINGS_TXN_<txnId>.
+     */
+    suspend fun syncHistoricalFeesToRevenueLedger(): Int = withContext(Dispatchers.IO) {
+        try {
+            val txnsSnap = db.collection("savings_transactions")
+                .whereEqualTo("type", "deposit")
+                .get()
+                .await()
+
+            var newCount = 0
+            val batch = db.batch()
+
+            for (doc in txnsSnap.documents) {
+                val txn = doc.toObject(SavingsTransaction::class.java) ?: continue
+                val feePaise = txn.effectivePlatformFeePaise
+                if (feePaise <= 0L) continue
+
+                val eventId = "REV_SAVINGS_TXN_${doc.id}"
+                val revRef = db.collection("revenue_records").document(eventId)
+
+                val revRecord = RevenueRecord(
+                    id = eventId,
+                    eventId = eventId,
+                    source = "SAVINGS_TRANSACTION",
+                    sourceTransactionId = doc.id,
+                    type = "FEE",
+                    title = "2% Deposit Platform Fee",
+                    grossAmountPaise = feePaise,
+                    sellerPayablePaise = 0L,
+                    gatewayFeePaise = 0L,
+                    taxPaise = 0L,
+                    netRevenuePaise = feePaise,
+                    coupleId = txn.coupleId,
+                    userId = txn.userId,
+                    userName = txn.userName.ifBlank { "Couple Partner" },
+                    paymentMethod = txn.paymentMethod.ifBlank { "Online" },
+                    referenceId = txn.utrNumber.ifBlank { txn.merchantUtr ?: doc.id },
+                    timestamp = if (txn.timestamp > 0L) txn.timestamp else System.currentTimeMillis()
+                )
+
+                batch.set(revRef, revRecord, com.google.firebase.firestore.SetOptions.merge())
+                newCount++
+            }
+
+            if (newCount > 0) {
+                batch.commit().await()
+                Log.i(TAG, "Idempotently synced $newCount deposit fee records into revenue_records")
+            }
+
+            newCount
+        } catch (e: Exception) {
+            Log.e(TAG, "Error syncing historical fees to revenue ledger", e)
+            0
+        }
+    }
+
+    /**
+     * Records a manual revenue entry (Gift, Subscription, or Adjustment).
+     * Strictly immutable with standardized deterministic namespace: REV_MANUAL_<uuid>.
+     */
+    suspend fun recordManualRevenue(record: RevenueRecord): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val eventId = if (record.eventId.isNotBlank()) {
+                record.eventId
+            } else {
+                "REV_MANUAL_${System.currentTimeMillis()}_${(1000..9999).random()}"
+            }
+            val finalRecord = record.copy(
+                id = eventId,
+                eventId = eventId,
+                source = "MANUAL_ENTRY",
+                timestamp = if (record.timestamp > 0L) record.timestamp else System.currentTimeMillis()
+            )
+            db.collection("revenue_records").document(eventId).set(finalRecord).await()
+            Log.i(TAG, "Recorded manual revenue entry: $eventId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error recording manual revenue", e)
+            false
+        }
     }
 }

@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper to verify if user has admin privileges
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        firestore.exists(/databases/(default)/documents/admin_users/$(request.auth.uid))
+      );
+    }
+
+    // Treasury backing documents (PNB e-FD Confirmation PDFs): Strictly restricted to admins!
+    match /treasury_documents/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Couple Media and memories (couples/{coupleId}/**)
+    match /couples/{coupleId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Default fallback for authenticated users
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

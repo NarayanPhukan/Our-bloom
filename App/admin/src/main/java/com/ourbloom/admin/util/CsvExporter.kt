@@ -98,6 +98,68 @@ object CsvExporter {
         }
     }
 
+    fun exportRevenueToCsv(
+        context: Context,
+        revenueRecords: List<com.ourbloom.admin.data.models.RevenueRecord>,
+        filePrefix: String = "OurBloom_Canonical_Revenue"
+    ) {
+        try {
+            val fileName = "${filePrefix}_${fileTimestamp.format(Date())}.csv"
+            val file = File(context.cacheDir, fileName)
+
+            FileWriter(file).use { writer ->
+                writer.append("Date,Event ID,Source,Type,Title,Gross Amount (INR),Seller Cost (INR),Gateway Fee (INR),Tax (INR),Net Revenue (INR),Couple ID,User,Payment Method,Reference ID\n")
+
+                for (rec in revenueRecords) {
+                    val dateStr = if (rec.timestamp > 0) dateFormat.format(Date(rec.timestamp)) else "N/A"
+                    val eventId = cleanCsv(rec.eventId.ifBlank { rec.id })
+                    val source = cleanCsv(rec.source)
+                    val type = cleanCsv(rec.type)
+                    val title = cleanCsv(rec.title)
+                    val gross = rec.grossAmountPaise / 100.0
+                    val sellerCost = rec.sellerPayablePaise / 100.0
+                    val gatewayFee = rec.gatewayFeePaise / 100.0
+                    val tax = rec.taxPaise / 100.0
+                    val net = rec.netRevenuePaise / 100.0
+                    val coupleId = cleanCsv(rec.coupleId)
+                    val user = cleanCsv(rec.userName.ifBlank { rec.userId })
+                    val method = cleanCsv(rec.paymentMethod)
+                    val ref = cleanCsv(rec.referenceId)
+
+                    writer.append("\"$dateStr\",")
+                    writer.append("\"$eventId\",")
+                    writer.append("\"$source\",")
+                    writer.append("\"$type\",")
+                    writer.append("\"$title\",")
+                    writer.append(String.format(Locale.US, "%.2f,", gross))
+                    writer.append(String.format(Locale.US, "%.2f,", sellerCost))
+                    writer.append(String.format(Locale.US, "%.2f,", gatewayFee))
+                    writer.append(String.format(Locale.US, "%.2f,", tax))
+                    writer.append(String.format(Locale.US, "%.2f,", net))
+                    writer.append("\"$coupleId\",")
+                    writer.append("\"$user\",")
+                    writer.append("\"$method\",")
+                    writer.append("\"$ref\"\n")
+                }
+            }
+
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "$filePrefix Export")
+                putExtra(Intent.EXTRA_TEXT, "Exported ${revenueRecords.size} records from OurBloom Canonical Revenue Ledger.")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            val chooser = Intent.createChooser(shareIntent, "Share Revenue Ledger CSV")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to export CSV: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun cleanCsv(str: String): String {
         return str.replace("\"", "\"\"").replace("\n", " ")
     }

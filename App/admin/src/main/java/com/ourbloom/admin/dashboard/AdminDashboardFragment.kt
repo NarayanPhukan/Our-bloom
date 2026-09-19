@@ -30,6 +30,7 @@ class AdminDashboardFragment : Fragment() {
     private var withListener: ListenerRegistration? = null
     private var txListener: ListenerRegistration? = null
     private var walletListener: ListenerRegistration? = null
+    private var revListener: ListenerRegistration? = null
 
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var tvTotalDeposits: TextView
@@ -40,6 +41,11 @@ class AdminDashboardFragment : Fragment() {
     private lateinit var tvPendingCount: TextView
     private lateinit var tvTotalDisbursed: TextView
     private lateinit var tvDisbursedCount: TextView
+
+    private lateinit var cardRevenueOverview: View
+    private lateinit var tvKpiTotalRevenue: TextView
+    private lateinit var tvDashRevenueBreakdown: TextView
+    private lateinit var tvDashRevenueSolvencyBadge: TextView
 
     private lateinit var layoutUrgentAlert: View
     private lateinit var tvUrgentTitle: TextView
@@ -73,6 +79,15 @@ class AdminDashboardFragment : Fragment() {
         tvPendingCount = root.findViewById(R.id.tv_kpi_pending_count)
         tvTotalDisbursed = root.findViewById(R.id.tv_kpi_total_disbursed)
         tvDisbursedCount = root.findViewById(R.id.tv_kpi_disbursed_count)
+
+        cardRevenueOverview = root.findViewById(R.id.card_revenue_overview)
+        tvKpiTotalRevenue = root.findViewById(R.id.tv_kpi_total_revenue)
+        tvDashRevenueBreakdown = root.findViewById(R.id.tv_dash_revenue_breakdown_label)
+        tvDashRevenueSolvencyBadge = root.findViewById(R.id.tv_dash_revenue_solvency_badge)
+
+        cardRevenueOverview.setOnClickListener {
+            (activity as? com.ourbloom.admin.main.AdminMainActivity)?.openRevenueDashboard()
+        }
 
         layoutUrgentAlert = root.findViewById(R.id.layout_urgent_alert)
         tvUrgentTitle = root.findViewById(R.id.tv_urgent_title)
@@ -254,6 +269,27 @@ class AdminDashboardFragment : Fragment() {
                 layoutUrgentAlert.visibility = View.GONE
             }
         }
+
+        // 4. Observe Revenue Records for real-time company earnings
+        revListener = repository.observeRevenueRecords { records ->
+            if (!isAdded) return@observeRevenueRecords
+            val netRevPaise = records.sumOf { it.netRevenuePaise }
+            val feesPaise = records.filter { it.type.equals("FEE", true) }.sumOf { it.netRevenuePaise }
+            val giftsPaise = records.filter { it.type.equals("GIFT", true) }.sumOf { it.netRevenuePaise }
+            val subsPaise = records.filter { it.type.equals("SUBSCRIPTION", true) }.sumOf { it.netRevenuePaise }
+
+            val totalRupees = netRevPaise / 100.0
+            val cleanTotal = if (netRevPaise % 100L == 0L) "₹${totalRupees.toLong()}" else String.format(Locale.US, "₹%.2f", totalRupees)
+            tvKpiTotalRevenue.text = cleanTotal
+
+            val fRupees = feesPaise / 100.0
+            val gRupees = giftsPaise / 100.0
+            val sRupees = subsPaise / 100.0
+            val cleanF = if (feesPaise % 100L == 0L) "₹${fRupees.toLong()}" else String.format(Locale.US, "₹%.2f", fRupees)
+            val cleanG = if (giftsPaise % 100L == 0L) "₹${gRupees.toLong()}" else String.format(Locale.US, "₹%.2f", gRupees)
+            val cleanS = if (subsPaise % 100L == 0L) "₹${sRupees.toLong()}" else String.format(Locale.US, "₹%.2f", sRupees)
+            tvDashRevenueBreakdown.text = "Fees: $cleanF • Gifts: $cleanG • Subscriptions: $cleanS"
+        }
     }
 
     override fun onDestroyView() {
@@ -261,5 +297,6 @@ class AdminDashboardFragment : Fragment() {
         withListener?.remove()
         txListener?.remove()
         walletListener?.remove()
+        revListener?.remove()
     }
 }
