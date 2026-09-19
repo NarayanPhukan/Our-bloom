@@ -778,6 +778,29 @@ router.post('/success', async (req, res) => {
         timestamp: FieldValue.serverTimestamp()
       });
 
+      // J2. Write to Canonical Revenue Ledger (/revenue_records)
+      if (platformFeePaise > 0) {
+        const revRef = db.collection('revenue_records').doc(`REV_SAVINGS_TXN_${txnid}`);
+        transaction.set(revRef, {
+          eventId: `REV_SAVINGS_TXN_${txnid}`,
+          source: 'SAVINGS_TRANSACTION',
+          sourceTransactionId: txnid,
+          type: 'FEE',
+          title: '2% Deposit Platform Fee',
+          grossAmountPaise: platformFeePaise,
+          sellerPayablePaise: 0,
+          gatewayFeePaise: 0,
+          taxPaise: 0,
+          netRevenuePaise: platformFeePaise,
+          coupleId: targetCoupleId,
+          userId: intent.userId || '',
+          userName: intent.userName || 'Couple Partner',
+          paymentMethod: 'PayU',
+          referenceId: mihpayid || txnid,
+          timestamp: Date.now()
+        }, { merge: true });
+      }
+
       // K. Transition Payment Intent to COMPLETED
       transaction.update(intentRef, {
         status: 'COMPLETED',

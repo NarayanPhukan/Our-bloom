@@ -56,9 +56,10 @@ data class SavingsTransaction(
     val effectivePlatformFeePaise: Long
         get() = if (platformFeePaise > 0L) {
             platformFeePaise
+        } else if (platformFee > 0.0) {
+            Math.round(platformFee * 100.0)
         } else {
-            // Standard 2% platform fee calculation: round-half-up integer division
-            (effectiveVaultPaise * 200L + 5000L) / 10000L
+            0L
         }
 
     val effectiveSettledPaise: Long
