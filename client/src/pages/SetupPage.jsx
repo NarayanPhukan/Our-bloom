@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
 import { createCouple, joinCouple } from '../api';
+import OurBloomLogo from '../components/OurBloomLogo';
 
 export default function SetupPage() {
   const { user, token, setCouple, setUser, logout, loading, couple } = useAuth();
@@ -22,8 +22,8 @@ export default function SetupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-lily-pattern">
-        <span className="material-symbols-outlined text-[48px] text-primary animate-spin">filter_vintage</span>
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <span className="material-symbols-outlined text-[48px] text-[#2563EB] animate-spin">filter_vintage</span>
       </div>
     );
   }
@@ -47,7 +47,7 @@ export default function SetupPage() {
       setUser((prev) => ({ ...prev, coupleId: data._id }));
       setInviteCodeResult(data.inviteCode);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create couple');
+      setError(err.response?.data?.error || 'Failed to initialize couple profile');
     } finally {
       setIsSubmitting(false);
     }
@@ -64,7 +64,7 @@ export default function SetupPage() {
       setUser((prev) => ({ ...prev, coupleId: data._id }));
       navigate(`/c/${data.slug}`);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to join couple');
+      setError(err.response?.data?.error || 'Failed to link with partner invite code');
     } finally {
       setIsSubmitting(false);
     }
@@ -73,34 +73,33 @@ export default function SetupPage() {
   // After creating — show the invite code
   if (inviteCodeResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-lily-pattern px-5">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-5 py-12">
         <div className="w-full max-w-md text-center">
-          <div className="glass-panel p-10 rounded-[32px] shadow-2xl shadow-primary/5 border border-primary/10 space-y-8">
-            <div className="w-20 h-20 rounded-full bg-primary-container flex items-center justify-center text-primary mx-auto shadow-glow-primary">
-              <span className="material-symbols-outlined text-4xl">celebration</span>
+          <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl border border-slate-200 space-y-6">
+            <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-200">
+              <span className="material-symbols-outlined text-3xl">celebration</span>
             </div>
 
             <div>
-              <h2 className="font-headline-md text-2xl text-on-surface mb-2">Your Bloom is Ready!</h2>
-              <p className="text-on-surface-variant font-body-md">
-                Share this invite code with your partner so they can join your garden:
+              <h2 className="text-2xl font-bold text-[#0F2744] mb-2">Your Sanctuary is Created!</h2>
+              <p className="text-xs text-slate-500">
+                Share this private authorization code with your partner to synchronize accounts:
               </p>
             </div>
 
-            <div className="bg-primary-container/40 rounded-2xl p-6 border border-primary/20">
-              <p className="font-display-lg text-3xl text-primary tracking-widest select-all">{inviteCodeResult}</p>
+            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+              <p className="font-mono font-bold text-2xl text-[#2563EB] tracking-widest select-all">{inviteCodeResult}</p>
             </div>
 
-            <p className="text-on-surface-variant text-sm italic">
-              Your partner needs to create an account first, then enter this code to join.
+            <p className="text-xs text-slate-400 italic">
+              Your partner will register their account, then paste this invite code to connect with you.
             </p>
 
             <button
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-label-sm uppercase tracking-widest hover:bg-secondary transition-all"
-              // This will reload and redirect properly via auth context
+              className="w-full bg-[#0F2744] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#1B3B6F] transition-all shadow-md shadow-navy-900/10"
               onClick={() => window.location.href = '/'}
             >
-              Enter Your Garden
+              Enter Sanctuary Dashboard
             </button>
           </div>
         </div>
@@ -109,17 +108,16 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-lily-pattern px-5 relative overflow-hidden">
-      <div className="absolute top-10 left-10 opacity-10 pointer-events-none">
-        <span className="material-symbols-outlined text-[140px] text-primary rotate-6">park</span>
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-5 py-12 relative overflow-hidden">
       <div className="w-full max-w-lg relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <h1 className="font-display-lg text-display-lg-mobile text-primary">Welcome, {user?.name}!</h1>
-          <p className="text-on-surface-variant font-body-md mt-2 italic">
-            Let's set up your garden together
+        {/* Brand Header */}
+        <div className="text-center mb-8 space-y-2">
+          <div className="flex items-center justify-center">
+            <OurBloomLogo variant="primary" iconSize="w-7 h-8" textSize="text-xl" />
+          </div>
+          <h1 className="text-2xl font-bold text-[#0F2744]">Welcome, {user?.name}!</h1>
+          <p className="text-xs text-slate-500">
+            Let's link your relationship profile to begin your timeline &amp; vault.
           </p>
         </div>
 
@@ -128,16 +126,16 @@ export default function SetupPage() {
           <div className="space-y-4">
             <button
               onClick={() => setMode('create')}
-              className="w-full glass-panel p-8 rounded-[24px] border border-primary/10 hover:border-primary/30 transition-all group cursor-pointer text-left"
+              className="w-full bg-white p-6 rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer text-left shadow-sm"
             >
-              <div className="flex items-start gap-5">
-                <div className="w-14 h-14 rounded-full bg-primary-container flex items-center justify-center text-primary shrink-0 group-hover:shadow-glow-primary transition-shadow">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <span className="material-symbols-outlined text-2xl">add_circle</span>
                 </div>
                 <div>
-                  <h3 className="font-headline-md text-xl text-on-surface mb-1">Create a Bloom</h3>
-                  <p className="text-on-surface-variant font-body-md">
-                    Start a new love story. You'll get an invite code to share with your partner.
+                  <h3 className="font-bold text-base text-[#0F2744] mb-1">Create a New Couple Profile</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Set up your anniversary date and generate an invite code for your partner.
                   </p>
                 </div>
               </div>
@@ -145,23 +143,23 @@ export default function SetupPage() {
 
             <button
               onClick={() => setMode('join')}
-              className="w-full glass-panel p-8 rounded-[24px] border border-secondary/10 hover:border-secondary/30 transition-all group cursor-pointer text-left"
+              className="w-full bg-white p-6 rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer text-left shadow-sm"
             >
-              <div className="flex items-start gap-5">
-                <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center text-secondary shrink-0 group-hover:shadow-glow-secondary transition-shadow">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-slate-50 text-slate-700 flex items-center justify-center shrink-0 border border-slate-200 group-hover:bg-[#0F2744] group-hover:text-white transition-colors">
                   <span className="material-symbols-outlined text-2xl">link</span>
                 </div>
                 <div>
-                  <h3 className="font-headline-md text-xl text-on-surface mb-1">Join a Bloom</h3>
-                  <p className="text-on-surface-variant font-body-md">
-                    Your partner already created a garden? Enter their invite code to join.
+                  <h3 className="font-bold text-base text-[#0F2744] mb-1">Join Your Partner</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Partner already created your profile? Enter their invite code to sync.
                   </p>
                 </div>
               </div>
             </button>
 
             <div className="text-center mt-6">
-              <button onClick={logout} className="text-on-surface-variant font-body-sm hover:text-primary transition-colors">
+              <button onClick={logout} className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
                 ← Sign out
               </button>
             </div>
@@ -170,58 +168,69 @@ export default function SetupPage() {
 
         {/* Create Form */}
         {mode === 'create' && (
-          <div className="glass-panel p-8 md:p-10 rounded-[32px] shadow-2xl shadow-primary/5 border border-primary/10">
-            <button onClick={() => { setMode(null); setError(''); }} className="text-on-surface-variant hover:text-primary mb-4 flex items-center gap-1 font-body-sm transition-colors">
+          <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl border border-slate-200 space-y-6">
+            <button 
+              onClick={() => { setMode(null); setError(''); }} 
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors"
+            >
               <span className="material-symbols-outlined text-sm">arrow_back</span> Back
             </button>
 
-            <h2 className="font-headline-md text-2xl text-on-surface mb-6">Plant Your Garden</h2>
+            <div>
+              <h2 className="text-xl font-bold text-[#0F2744]">Initialize Couple Profile</h2>
+              <p className="text-xs text-slate-500">Record your anniversary date and special relationship motto.</p>
+            </div>
 
-            <form onSubmit={handleCreate} className="space-y-6">
+            <form onSubmit={handleCreate} className="space-y-4 text-xs">
               {error && (
-                <div className="bg-error/10 border border-error/20 text-error rounded-2xl px-4 py-3 text-sm">{error}</div>
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3">{error}</div>
               )}
 
               <div>
-                <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Anniversary Date *</label>
+                <label className="block font-semibold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Anniversary Date *
+                </label>
                 <input
                   type="date"
                   required
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-[#0F2744] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2563EB] focus:bg-white transition-all"
                 />
               </div>
 
               <div>
-                <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Special Time (Optional)</label>
+                <label className="block font-semibold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Special Time (Optional)
+                </label>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                  placeholder="e.g. the exact time you said yes"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-[#0F2744] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2563EB] focus:bg-white transition-all"
                 />
-                <p className="text-on-surface-variant text-xs mt-1 italic">The exact moment it all began ✨</p>
+                <p className="text-slate-400 text-[11px] mt-1">The exact moment your story began ✨</p>
               </div>
 
               <div>
-                <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Special Phrase (Optional)</label>
+                <label className="block font-semibold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Special Motto / Phrase (Optional)
+                </label>
                 <input
                   type="text"
                   value={specialPhrase}
                   onChange={(e) => setSpecialPhrase(e.target.value)}
-                  placeholder="e.g. Forever blooming together"
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                  placeholder="e.g. Forever &amp; Always"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-[#0F2744] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2563EB] focus:bg-white transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-label-sm uppercase tracking-widest hover:bg-secondary transition-all shadow-xl shadow-primary/10 disabled:opacity-50"
+                className="w-full bg-[#0F2744] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#1B3B6F] transition-all shadow-md shadow-navy-900/10 disabled:opacity-50 mt-2"
               >
-                {isSubmitting ? 'Creating...' : 'Create Our Bloom 🌸'}
+                {isSubmitting ? 'Creating Profile...' : 'Create Couple Profile'}
               </button>
             </form>
           </div>
@@ -229,36 +238,44 @@ export default function SetupPage() {
 
         {/* Join Form */}
         {mode === 'join' && (
-          <div className="glass-panel p-8 md:p-10 rounded-[32px] shadow-2xl shadow-primary/5 border border-primary/10">
-            <button onClick={() => { setMode(null); setError(''); }} className="text-on-surface-variant hover:text-primary mb-4 flex items-center gap-1 font-body-sm transition-colors">
+          <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl border border-slate-200 space-y-6">
+            <button 
+              onClick={() => { setMode(null); setError(''); }} 
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors"
+            >
               <span className="material-symbols-outlined text-sm">arrow_back</span> Back
             </button>
 
-            <h2 className="font-headline-md text-2xl text-on-surface mb-6">Join Your Partner's Garden</h2>
+            <div>
+              <h2 className="text-xl font-bold text-[#0F2744]">Join Your Partner</h2>
+              <p className="text-xs text-slate-500">Enter the authorization code sent by your partner.</p>
+            </div>
 
-            <form onSubmit={handleJoin} className="space-y-6">
+            <form onSubmit={handleJoin} className="space-y-4 text-xs">
               {error && (
-                <div className="bg-error/10 border border-error/20 text-error rounded-2xl px-4 py-3 text-sm">{error}</div>
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3">{error}</div>
               )}
 
               <div>
-                <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Invite Code</label>
+                <label className="block font-semibold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Partner Invite Code
+                </label>
                 <input
                   type="text"
                   required
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                   placeholder="BLOOM-XXXX"
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-center text-xl tracking-widest uppercase"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base font-mono tracking-widest text-center text-[#0F2744] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2563EB] focus:bg-white transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-label-sm uppercase tracking-widest hover:bg-secondary transition-all shadow-xl shadow-primary/10 disabled:opacity-50"
+                className="w-full bg-[#0F2744] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#1B3B6F] transition-all shadow-md shadow-navy-900/10 disabled:opacity-50 mt-2"
               >
-                {isSubmitting ? 'Joining...' : 'Join the Garden 🌿'}
+                {isSubmitting ? 'Linking Accounts...' : 'Connect to Sanctuary'}
               </button>
             </form>
           </div>

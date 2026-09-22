@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" fill="none">
+  <!-- Navy ground as requested: #0A192F -->
+  <rect width="192" height="192" rx="40" fill="#0A192F" />
+  <!-- Centered Symbol with generous breathing room and strong silhouette -->
+  <g transform="translate(54, 38) scale(3.5)">
+    <path d="M 7.2 24.2 C 5.4 18 5.6 11.5 11.8 4.2" stroke="#FFFFFF" stroke-width="4.4" stroke-linecap="round" />
+    <path d="M 11.8 4.2 C 12.8 3.8 18.4 11.5 16.8 24.2" stroke="#38BDF8" stroke-width="4.4" stroke-linecap="round" />
+  </g>
+</svg>

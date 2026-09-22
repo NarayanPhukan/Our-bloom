@@ -16,6 +16,7 @@ import SetupPage from './pages/SetupPage';
 import { initializeNotifications } from './utils/notificationScheduler';
 
 // Lazy-load heavy pages for better performance
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const JourneyPage = lazy(() => import('./pages/JourneyPage'));
 const MemoriesPage = lazy(() => import('./pages/MemoriesPage'));
 const LoveNotesPage = lazy(() => import('./pages/LoveNotesPage'));
@@ -31,7 +32,7 @@ const AboutUs = lazy(() => import('./pages/legal/AboutUs'));
 function PageLoader() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <span className="material-symbols-outlined text-[48px] text-primary animate-spin">filter_vintage</span>
+      <span className="material-symbols-outlined text-[48px] text-[#2563EB] animate-spin">filter_vintage</span>
     </div>
   );
 }
@@ -75,6 +76,18 @@ function AppRedirect() {
   if (!user) return <Navigate to="/login" replace />;
   if (!couple) return <Navigate to="/setup" replace />;
   return <Navigate to={`/c/${couple.slug}`} replace />;
+}
+
+function RootRoute() {
+  const isNative = Capacitor.isNativePlatform();
+  if (isNative) {
+    return <AppRedirect />;
+  }
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <LandingPage />
+    </Suspense>
+  );
 }
 
 function BackButtonHandler() {
@@ -179,9 +192,9 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Root redirect */}
-            <Route path="/" element={<AppRedirect />} />
-            <Route path="*" element={<AppRedirect />} />
+            {/* Root & Fallback */}
+            <Route path="/" element={<RootRoute />} />
+            <Route path="*" element={<RootRoute />} />
           </Routes>
         </NotificationProvider>
       </AuthProvider>

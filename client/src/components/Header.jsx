@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { isNativeApp } from '../utils/capacitorPlugins';
 import { APP_DOWNLOADS } from '../utils/appDownloads';
-import logoImage from '../assets/logo.jpg';
+import OurBloomLogo from './OurBloomLogo';
 
 export default function Header() {
   const location = useLocation();
@@ -80,16 +80,15 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md shadow-[0_20px_40px_rgba(222,191,194,0.08)] transition-all duration-300" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-      <nav className={`flex justify-between items-center gap-8 px-6 md:px-margin-desktop max-w-container-max mx-auto transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
+    <header className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all duration-300" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <nav className={`flex justify-between items-center gap-8 px-6 md:px-margin-desktop max-w-container-max mx-auto transition-all duration-300 ${isScrolled ? 'py-2' : 'py-3.5'}`}>
         {/* Logo */}
         <div className="flex-shrink-0">
           <Link
             to={`/c/${slug}`}
-            className="flex items-center gap-2 font-headline-md text-headline-md text-primary hover:opacity-80 transition-opacity duration-300 whitespace-nowrap"
+            className="flex items-center hover:opacity-90 transition-opacity whitespace-nowrap"
           >
-            <img src={logoImage} alt="Our Bloom Logo" className="w-8 h-8 rounded-full object-cover shadow-sm" />
-            Our Bloom
+            <OurBloomLogo variant="primary" iconSize="w-6 h-7" textSize="text-lg" />
           </Link>
         </div>
 
@@ -99,10 +98,10 @@ export default function Header() {
             <Link
               key={link.to}
               to={link.to}
-              className={`font-body-md text-body-md transition-all duration-300 ease-in-out whitespace-nowrap ${
+              className={`text-sm transition-all duration-200 whitespace-nowrap ${
                 isActive(link)
-                  ? 'text-primary border-b-2 border-primary pb-1'
-                  : 'text-on-surface-variant hover:text-secondary'
+                  ? 'text-[#2563EB] font-bold border-b-2 border-[#2563EB] pb-1'
+                  : 'text-slate-600 hover:text-[#0F2744] font-medium'
               }`}
             >
               {link.label}

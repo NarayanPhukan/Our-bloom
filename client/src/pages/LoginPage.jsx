@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { APP_DOWNLOADS } from '../utils/appDownloads';
+import OurBloomLogo from '../components/OurBloomLogo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -19,134 +20,139 @@ export default function LoginPage() {
     try {
       const data = await login(email, password);
       if (data.user.coupleId) {
-        // User has a couple — redirect will happen via App routing
         navigate('/');
       } else {
         navigate('/setup');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-lily-pattern px-5 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-20 left-10 opacity-10 pointer-events-none">
-        <span className="material-symbols-outlined text-[180px] text-primary rotate-12">local_florist</span>
-      </div>
-      <div className="absolute bottom-20 right-10 opacity-10 pointer-events-none">
-        <span className="material-symbols-outlined text-[140px] text-secondary -rotate-12">favorite</span>
-      </div>
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-between text-[#0A192F] relative selection:bg-blue-100 selection:text-blue-900">
+      {/* Background Decor */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-blue-50/70 to-transparent pointer-events-none -z-10"></div>
 
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-primary">Our Bloom</h1>
-          <p className="text-on-surface-variant font-body-md mt-2 italic">Welcome back to your garden</p>
-        </div>
+      {/* Header */}
+      <header className="px-6 py-5 max-w-6xl mx-auto w-full flex items-center justify-between">
+        <Link to="/" className="flex items-center">
+          <OurBloomLogo variant="primary" iconSize="w-6 h-7" textSize="text-lg" />
+        </Link>
+        <Link to="/" className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          Back to Home
+        </Link>
+      </header>
 
-        {/* Login Card */}
-        <div className="glass-panel p-8 md:p-10 rounded-[32px] shadow-2xl shadow-primary/5 border border-primary/10">
-          <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Main Login Card */}
+      <main className="flex-1 flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 p-8 md:p-10 space-y-6">
+            {/* Header / Brand */}
+            <div className="text-center space-y-1.5">
+              <h1 className="text-2xl font-bold text-[#0F2744]">Partner Sign In</h1>
+              <p className="text-xs text-slate-500">Access your private couple sanctuary and mutual vault.</p>
+            </div>
+
             {error && (
-              <div className="bg-error/10 border border-error/20 text-error rounded-2xl px-4 py-3 text-sm font-medium">
-                {error}
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl p-3.5 flex items-start gap-2">
+                <span className="material-symbols-outlined text-[16px] text-rose-500 mt-0.5">error</span>
+                <span className="flex-1 font-medium">{error}</span>
               </div>
             )}
 
-            <div>
-              <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full bg-surface border border-outline-variant rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-[#0F2744] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2563EB] focus:bg-white transition-all"
+                />
+              </div>
 
-            <div>
-              <label className="block font-label-sm text-primary uppercase tracking-wider mb-2">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-surface border border-outline-variant rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-              />
-            </div>
+              <div>
+                <label className="block font-semibold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-[#0F2744] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2563EB] focus:bg-white transition-all"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-label-sm uppercase tracking-widest hover:bg-secondary transition-all duration-300 shadow-xl shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="material-symbols-outlined animate-spin text-lg">autorenew</span>
-                  Entering garden...
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#0F2744] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#1B3B6F] transition-all shadow-md shadow-navy-900/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              >
+                {loading ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-[16px]">autorenew</span>
+                    Signing In...
+                  </>
+                ) : (
+                  'Sign In to Sanctuary'
+                )}
+              </button>
+            </form>
+
+            <div className="pt-4 border-t border-slate-100 text-center space-y-4">
+              <p className="text-xs text-slate-600">
+                Don't have an account yet?{' '}
+                <Link to="/register" className="text-[#2563EB] font-bold hover:underline">
+                  Create Sanctuary
+                </Link>
+              </p>
+
+              {/* Native App Direct Download CTA */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Have an Android device?
                 </span>
-              ) : (
-                'Enter Your Garden'
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center">
-            <div className="w-full h-[1px] bg-outline-variant/30 mb-6"></div>
-            <p className="text-on-surface-variant font-body-md">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary font-semibold hover:text-secondary transition-colors">
-                Plant Your Seed
-              </Link>
-            </p>
-            
-            <div className="mt-8 pt-6 border-t border-outline-variant/20">
-              <p className="text-label-sm uppercase tracking-widest text-on-surface-variant mb-4">Experience it Natively</p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <a 
-                  href={APP_DOWNLOADS.android} 
+                <a
+                  href={APP_DOWNLOADS.android}
                   download
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-secondary/10 text-secondary hover:bg-secondary/20 hover:scale-105 transition-all rounded-full font-label-sm uppercase tracking-wider w-full sm:w-auto min-h-[44px]"
-                  title="Download Our Bloom for Android (.apk)"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold w-full transition-all"
                 >
-                  <span className="material-symbols-outlined text-[20px]">android</span>
-                  Android (.apk)
-                </a>
-                <a 
-                  href={APP_DOWNLOADS.windows} 
-                  download
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all rounded-full font-label-sm uppercase tracking-wider w-full sm:w-auto min-h-[44px]"
-                  title="Download Our Bloom for Windows PC (.exe)"
-                >
-                  <span className="material-symbols-outlined text-[20px]">desktop_windows</span>
-                  Windows (.exe)
+                  <span className="material-symbols-outlined text-[16px] text-blue-600">android</span>
+                  Download Native Android App (.apk)
                 </a>
               </div>
             </div>
           </div>
         </div>
+      </main>
 
-        {/* Legal & Compliance Footer */}
-        <div className="mt-8 text-center text-xs text-on-surface-variant/70 flex flex-wrap justify-center gap-3">
-          <Link to="/about" className="hover:text-primary transition-colors">About</Link>
-          <span>•</span>
-          <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
-          <span>•</span>
-          <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
-          <span>•</span>
-          <Link to="/refund-policy" className="hover:text-primary transition-colors">Refunds</Link>
-          <span>•</span>
-          <Link to="/shipping-policy" className="hover:text-primary transition-colors">Delivery</Link>
-          <span>•</span>
-          <Link to="/contact" className="hover:text-primary transition-colors">Contact Support</Link>
+      {/* Footer */}
+      <footer className="py-6 px-4 text-center text-xs text-slate-500 border-t border-slate-200/60 bg-white/50">
+        <div className="max-w-md mx-auto space-y-2">
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link to="/about" className="hover:text-slate-800">About</Link>
+            <span>•</span>
+            <Link to="/privacy" className="hover:text-slate-800">Privacy</Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-slate-800">Terms</Link>
+            <span>•</span>
+            <Link to="/refund-policy" className="hover:text-slate-800">Refunds</Link>
+            <span>•</span>
+            <Link to="/contact" className="hover:text-slate-800">Contact</Link>
+          </div>
+          <p>© 2026 Our Bloom. All rights reserved.</p>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

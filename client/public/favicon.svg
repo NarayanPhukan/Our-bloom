@@ -1,14 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <!-- Bloom favicon matching brand colors -->
-  <circle cx="24" cy="24" r="24" fill="#fbf9f8"/>
-  <!-- Outer petals -->
-  <path d="M24 8 C28 12, 34 14, 36 20 C38 26, 34 32, 24 36 C14 32, 10 26, 12 20 C14 14, 20 12, 24 8Z" fill="#debfc2" stroke="#70585b" stroke-width="1.5"/>
-  <!-- Left petal -->
-  <path d="M24 36 C18 30, 10 28, 8 22 C10 26, 14 30, 24 36Z" fill="#d4a8ac" stroke="#70585b" stroke-width="1"/>
-  <!-- Right petal -->
-  <path d="M24 36 C30 30, 38 28, 40 22 C38 26, 34 30, 24 36Z" fill="#d4a8ac" stroke="#70585b" stroke-width="1"/>
-  <!-- Inner petals -->
-  <path d="M24 14 C27 18, 30 20, 30 24 C30 28, 27 30, 24 32 C21 30, 18 28, 18 24 C18 20, 21 18, 24 14Z" fill="#f0d4d7" stroke="#70585b" stroke-width="1"/>
-  <!-- Heart in center -->
-  <path d="M24 22 C22.5 19.5, 19 19, 19 21.5 C19 23.5, 24 27, 24 27 C24 27, 29 23.5, 29 21.5 C29 19, 25.5 19.5, 24 22Z" fill="#70585b"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    .stroke-left { stroke: #0A192F; }
+    .stroke-right { stroke: #2563EB; }
+    @media (prefers-color-scheme: dark) {
+      .stroke-left { stroke: #FFFFFF; }
+      .stroke-right { stroke: #38BDF8; }
+    }
+  </style>
+  <!-- OurBloom Refined Two-Path Shared Apex Mark (32px Favicon Spec) -->
+  <path
+    class="stroke-left"
+    d="M 10 27 C 8.2 20.5 8.4 13.5 15.8 5"
+    stroke-width="4.6"
+    stroke-linecap="round"
+  />
+  <path
+    class="stroke-right"
+    d="M 15.8 5 C 16.8 4.6 23.2 13.5 21.6 27"
+    stroke-width="4.6"
+    stroke-linecap="round"
+  />
 </svg>
