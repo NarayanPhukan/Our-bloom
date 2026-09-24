@@ -193,6 +193,29 @@ html {
   animation: slideInFromRight 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
+/* Floating Love Reaction Animation */
+@keyframes floatUpFade {
+  0% {
+    transform: translateY(0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1.1) rotate(-6deg);
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-280px) scale(1.3) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+.animate-float-up-fade {
+  animation: floatUpFade 3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
 /* Safe Area Inset Variables for Native & CSS Theme Variables */
 :root {
   color-scheme: light;

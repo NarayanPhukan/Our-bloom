@@ -38,10 +38,10 @@ function PageLoader() {
 }
 function CoupleLayout() {
   return (
-    <div className="bg-lily-pattern text-on-background min-h-screen flex flex-col relative overflow-x-hidden">
+    <div className="bg-[#F8FAFC] text-[#0A192F] min-h-screen flex flex-col relative overflow-x-hidden selection:bg-blue-100 selection:text-blue-900">
       <Header />
       <PetalEffect />
-      <main className="pt-32 pb-20 flex-1">
+      <main className="pt-20 sm:pt-24 pb-16 flex-1">
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route index element={<JourneyPage />} />
