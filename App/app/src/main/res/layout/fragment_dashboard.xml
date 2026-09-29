@@ -160,11 +160,15 @@
                 android:fontFamily="sans-serif-medium"
                 android:visibility="gone" />
 
-            <!-- 3. Hero Memory Photograph ("Our Story") - Compact 200dp with strong bottom text safe area -->
+            <!-- 3. Hero Memory Photograph ("Our Story") - 320dp height with full view tap support -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_first_milestone"
                 android:layout_width="match_parent"
-                android:layout_height="200dp"
+                android:layout_height="320dp"
                 android:layout_marginTop="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardCornerRadius="20dp"
                 app:cardElevation="2dp"
                 app:strokeWidth="1dp"
@@ -184,9 +188,26 @@
                     <!-- Deep Gradient Scrim Overlay for guaranteed text legibility -->
                     <View
                         android:layout_width="match_parent"
-                        android:layout_height="150dp"
+                        android:layout_height="110dp"
                         android:layout_gravity="bottom"
                         android:background="@drawable/gradient_bottom_up" />
+
+                    <!-- Tap to view full photo icon badge in top right -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/bg_circle_translucent"
+                        android:padding="8dp">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/ic_photo_library_rounded"
+                            app:tint="@android:color/white" />
+                    </LinearLayout>
 
                     <!-- Fixed Text Safe Area Container -->
                     <LinearLayout
@@ -197,7 +218,7 @@
                         android:paddingStart="18dp"
                         android:paddingEnd="18dp"
                         android:paddingBottom="16dp"
-                        android:paddingTop="12dp">
+                        android:paddingTop="8dp">
 
                         <TextView
                             android:layout_width="wrap_content"

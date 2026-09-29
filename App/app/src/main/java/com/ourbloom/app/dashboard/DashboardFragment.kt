@@ -248,6 +248,27 @@ class DashboardFragment : Fragment() {
             }
         }
 
+        // Tap to open full image in fullscreen Lightbox with pinch-to-zoom
+        val cardFirstMilestone = view.findViewById<View>(R.id.card_first_milestone)
+        val openHeroLightbox = {
+            val couple = viewModel.couple.value
+            val milestone = viewModel.firstMilestone.value
+            val currentHeroUrl = couple?.heroImageUrl?.takeIf { it.isNotEmpty() }
+                ?: milestone?.imageUrl?.takeIf { it.isNotEmpty() }
+            
+            if (!currentHeroUrl.isNullOrEmpty()) {
+                val memory = com.ourbloom.app.data.models.Memory(
+                    id = milestone?.id?.takeIf { it.isNotEmpty() } ?: "hero_memory",
+                    title = tvFirstMilestoneTitle.text.toString(),
+                    dateStr = milestone?.label?.takeIf { it.isNotEmpty() } ?: "Where it all started",
+                    imageUrl = currentHeroUrl
+                )
+                showLightbox(memory)
+            }
+        }
+        cardFirstMilestone?.setOnClickListener { openHeroLightbox() }
+        ivFirstMilestone?.setOnClickListener { openHeroLightbox() }
+
         viewModel.dailyLoveNote.observe(viewLifecycleOwner) { note ->
             if (note != null && note.content.isNotBlank()) {
                 tvDailyNoteText.text = "\"${note.content}\""
@@ -461,7 +482,7 @@ class DashboardFragment : Fragment() {
     fun getMyDisplayNameForPartner(): String {
         return viewModel.partnerUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
             ?: viewModel.currentUser.value?.name?.takeIf { it.isNotBlank() }
-            ?: "You"
+            ?: "my Love"
     }
 
     private fun showHeartbeatConfirmation(message: String = "Heartbeat sent ❤️") {
@@ -504,7 +525,7 @@ class DashboardFragment : Fragment() {
         val myDisplayName = getMyDisplayNameForPartner()
 
         val tvHeaderTitle = view?.findViewById<TextView>(R.id.tv_header_title)
-        tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $partnerDisplayName."
+        tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $myDisplayName."
 
         val tvDaysAsNames = view?.findViewById<TextView>(R.id.tv_days_as_names)
         tvDaysAsNames?.text = "DAYS AS ${myDisplayName.uppercase()} & ${partnerDisplayName.uppercase()}"

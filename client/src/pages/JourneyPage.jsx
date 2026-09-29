@@ -593,7 +593,7 @@ export default function JourneyPage() {
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-300">
                     <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
                   </span>
-                  <span>Happy {monthText} together</span>
+                  <span>Happy {monthText}, my beautiful {partnerNicknameForMe}</span>
                 </div>
 
                 <div className="flex items-center gap-3">
