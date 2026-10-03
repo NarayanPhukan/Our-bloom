@@ -381,9 +381,32 @@ class FirestoreRepository {
     suspend fun getUser(userId: String): User? {
         return try {
             val doc = db.collection("users").document(userId).get().await()
+            if (!doc.exists()) return null
             val user = doc.toObject(User::class.java)
-            // Fallback: if uid field was not stored in the document, use the document ID
-            if (user != null && user.uid.isBlank()) user.copy(uid = doc.id) else user
+
+            // Direct field fallback to ensure coupleId and other core attributes are never lost
+            val resolvedUid = user?.uid?.takeIf { it.isNotBlank() } ?: doc.getString("uid")?.takeIf { it.isNotBlank() } ?: doc.id
+            val resolvedCoupleId = user?.coupleId?.takeIf { it.isNotBlank() && it != "null" }
+                ?: doc.getString("coupleId")?.takeIf { it.isNotBlank() && it != "null" } ?: ""
+            val resolvedName = user?.name?.takeIf { it.isNotBlank() } ?: doc.getString("name") ?: ""
+            val resolvedEmail = user?.email?.takeIf { it.isNotBlank() } ?: doc.getString("email") ?: ""
+            val resolvedNickname = user?.nicknameForPartner?.takeIf { it.isNotBlank() } ?: doc.getString("nicknameForPartner") ?: ""
+            val resolvedAvatar = user?.avatarUrl?.takeIf { it.isNotBlank() } ?: doc.getString("avatarUrl") ?: ""
+            val resolvedFcm = user?.fcmToken?.takeIf { it.isNotBlank() } ?: doc.getString("fcmToken") ?: ""
+            val resolvedGoogleEmail = user?.connectedGoogleEmail?.takeIf { it.isNotBlank() } ?: doc.getString("connectedGoogleEmail") ?: ""
+            val resolvedPremium = user?.isPremium ?: doc.getBoolean("isPremium") ?: false
+
+            User(
+                uid = resolvedUid,
+                name = resolvedName,
+                email = resolvedEmail,
+                coupleId = resolvedCoupleId,
+                isPremium = resolvedPremium,
+                avatarUrl = resolvedAvatar,
+                nicknameForPartner = resolvedNickname,
+                connectedGoogleEmail = resolvedGoogleEmail,
+                fcmToken = resolvedFcm
+            )
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error fetching user $userId", e)
             null
@@ -420,9 +443,36 @@ class FirestoreRepository {
     suspend fun getCouple(coupleId: String): Couple? {
         return try {
             val doc = db.collection("couples").document(coupleId).get().await()
+            if (!doc.exists()) return null
             val couple = doc.toObject(Couple::class.java)
-            // Fallback: if id field was not stored in the document, use the document ID
-            if (couple != null && couple.id.isBlank()) couple.copy(id = doc.id) else couple
+
+            val resolvedId = couple?.id?.takeIf { it.isNotBlank() } ?: doc.id
+            val resolvedUser1 = couple?.user1?.takeIf { it.isNotBlank() } ?: doc.getString("user1") ?: ""
+            val resolvedUser2 = couple?.user2?.takeIf { it.isNotBlank() } ?: doc.getString("user2") ?: ""
+            val resolvedStartDate = couple?.startDate?.takeIf { it.isNotBlank() } ?: doc.getString("startDate") ?: ""
+            val resolvedStartTime = couple?.startTime?.takeIf { it.isNotBlank() } ?: doc.getString("startTime") ?: "00:00"
+            val resolvedCode = couple?.joinCode?.takeIf { it.isNotBlank() }
+                ?: doc.getString("inviteCode")?.takeIf { it.isNotBlank() }
+                ?: doc.getString("joinCode") ?: ""
+            val resolvedHero = couple?.heroImageUrl?.takeIf { it.isNotBlank() } ?: doc.getString("heroImageUrl") ?: ""
+            val resolvedSlug = couple?.slug?.takeIf { it.isNotBlank() } ?: doc.getString("slug") ?: ""
+            val resolvedChatBg = couple?.chatBackgroundUrl?.takeIf { it.isNotBlank() } ?: doc.getString("chatBackgroundUrl") ?: ""
+            val resolvedSpotify = couple?.spotifyTrackId?.takeIf { it.isNotBlank() } ?: doc.getString("spotifyTrackId") ?: "4O2N861eOnF9q8EtpH8IJu"
+            val resolvedPhrase = couple?.specialPhrase?.takeIf { it.isNotBlank() } ?: doc.getString("specialPhrase") ?: ""
+
+            Couple(
+                id = resolvedId,
+                user1 = resolvedUser1,
+                user2 = resolvedUser2,
+                startDate = resolvedStartDate,
+                startTime = resolvedStartTime,
+                joinCode = resolvedCode,
+                spotifyTrackId = resolvedSpotify,
+                heroImageUrl = resolvedHero,
+                slug = resolvedSlug,
+                chatBackgroundUrl = resolvedChatBg,
+                specialPhrase = resolvedPhrase
+            )
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error fetching couple", e)
             null

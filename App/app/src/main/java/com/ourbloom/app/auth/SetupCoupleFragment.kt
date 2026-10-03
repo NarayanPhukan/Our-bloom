@@ -67,17 +67,7 @@ class SetupCoupleFragment : Fragment() {
 
         repository = FirestoreRepository()
 
-        // Safety auto-redirect: if user already belongs to a garden, immediately go to dashboard
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val currentUser = repository.getCurrentUser()
-                if (!currentUser?.coupleId.isNullOrEmpty()) {
-                    findNavController().navigate(R.id.action_setupCoupleFragment_to_dashboardFragment)
-                }
-            } catch (e: Exception) {
-                Log.w("SetupCoupleFragment", "Error checking existing garden", e)
-            }
-        }
+        checkExistingAndRedirect()
 
         toggleMode = view.findViewById(R.id.toggle_setup_mode)
         layoutCreateForm = view.findViewById(R.id.layout_create_form)
@@ -230,6 +220,30 @@ class SetupCoupleFragment : Fragment() {
         layoutJoinForm.visibility = View.GONE
         layoutCelebration.visibility = View.VISIBLE
         tvCelebrationCode.text = code
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkExistingAndRedirect()
+    }
+
+    private fun checkExistingAndRedirect() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val currentUser = repository.getCurrentUser()
+                if (!currentUser?.coupleId.isNullOrEmpty() && isAdded) {
+                    try {
+                        findNavController().navigate(R.id.action_setupCoupleFragment_to_dashboardFragment)
+                    } catch (_: Exception) {
+                        try {
+                            findNavController().navigate(R.id.dashboardFragment)
+                        } catch (_: Exception) {}
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("SetupCoupleFragment", "Error checking existing garden", e)
+            }
+        }
     }
 
     private fun setLoading(loading: Boolean) {

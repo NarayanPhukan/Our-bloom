@@ -4,13 +4,13 @@ import com.google.firebase.firestore.IgnoreExtraProperties
 
 @IgnoreExtraProperties
 data class User(
-    val uid: String = "",
-    val name: String = "",
-    val email: String = "",
-    val coupleId: String? = null,
-    val isPremium: Boolean = false,
-    val avatarUrl: String = "",
-    val nicknameForPartner: String = "",
-    val connectedGoogleEmail: String = "",
-    val fcmToken: String = ""
+    var uid: String = "",
+    var name: String = "",
+    var email: String = "",
+    var coupleId: String = "",
+    var isPremium: Boolean = false,
+    var avatarUrl: String = "",
+    var nicknameForPartner: String = "",
+    var connectedGoogleEmail: String = "",
+    var fcmToken: String = ""
 )

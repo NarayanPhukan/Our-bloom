@@ -53,7 +53,10 @@ service cloud.firestore {
     // =========================================================================
     match /users/{userId} {
       // User themselves, their active partner, or admin can read
-      allow read: if isUser(userId) || isCoupleMemberOfUser(userId) || isAdmin();
+      allow read: if isUser(userId) 
+        || isCoupleMemberOfUser(userId) 
+        || (isSignedIn() && request.auth.token.email != null && resource.data.email == request.auth.token.email)
+        || isAdmin();
       
       allow create: if isUser(userId) && request.resource.data.uid == userId;
       

@@ -123,3 +123,6 @@ client/public/*.apk
 client/public/OurBloomAdmin.apk
 !updates/admin/OurBloomAdmin.apk
 
+# Gradle root cache & builds
+.gradle/
+build/

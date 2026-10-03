@@ -73,7 +73,12 @@ class DashboardViewModel : ViewModel() {
                 return@launch
             }
 
-            val user = repository.getCurrentUser()
+            var user = repository.getCurrentUser()
+            if (user == null || user.coupleId.isNullOrEmpty()) {
+                // Brief pause to allow Firestore offline cache / auth state to settle on cold launch
+                delay(600)
+                user = repository.getCurrentUser()
+            }
             if (user == null || user.coupleId.isNullOrEmpty()) {
                 _error.value = "User not found or not linked to a partner"
                 _isLoading.value = false
@@ -81,7 +86,7 @@ class DashboardViewModel : ViewModel() {
             }
 
             _currentUser.value = user
-            val cId = user.coupleId
+            val cId = user.coupleId ?: return@launch
 
             // Fetch all required data safely
             try {
