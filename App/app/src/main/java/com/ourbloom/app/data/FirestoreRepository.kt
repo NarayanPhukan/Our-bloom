@@ -412,6 +412,45 @@ class FirestoreRepository {
             null
         }
     }
+
+    fun observeUser(userId: String, onUpdate: (User?) -> Unit): ListenerRegistration {
+        return db.collection("users").document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.w("FirestoreRepo", "Error observing user $userId: ${error.message}")
+                    return@addSnapshotListener
+                }
+                if (snapshot == null || !snapshot.exists()) {
+                    onUpdate(null)
+                    return@addSnapshotListener
+                }
+                val user = snapshot.toObject(User::class.java)
+                val resolvedUid = user?.uid?.takeIf { it.isNotBlank() } ?: snapshot.getString("uid")?.takeIf { it.isNotBlank() } ?: snapshot.id
+                val resolvedCoupleId = user?.coupleId?.takeIf { it.isNotBlank() && it != "null" }
+                    ?: snapshot.getString("coupleId")?.takeIf { it.isNotBlank() && it != "null" } ?: ""
+                val resolvedName = user?.name?.takeIf { it.isNotBlank() } ?: snapshot.getString("name") ?: ""
+                val resolvedEmail = user?.email?.takeIf { it.isNotBlank() } ?: snapshot.getString("email") ?: ""
+                val resolvedNickname = user?.nicknameForPartner?.takeIf { it.isNotBlank() } ?: snapshot.getString("nicknameForPartner") ?: ""
+                val resolvedAvatar = user?.avatarUrl?.takeIf { it.isNotBlank() } ?: snapshot.getString("avatarUrl") ?: ""
+                val resolvedFcm = user?.fcmToken?.takeIf { it.isNotBlank() } ?: snapshot.getString("fcmToken") ?: ""
+                val resolvedGoogleEmail = user?.connectedGoogleEmail?.takeIf { it.isNotBlank() } ?: snapshot.getString("connectedGoogleEmail") ?: ""
+                val resolvedPremium = user?.isPremium ?: snapshot.getBoolean("isPremium") ?: false
+
+                onUpdate(
+                    User(
+                        uid = resolvedUid,
+                        name = resolvedName,
+                        email = resolvedEmail,
+                        coupleId = resolvedCoupleId,
+                        isPremium = resolvedPremium,
+                        avatarUrl = resolvedAvatar,
+                        nicknameForPartner = resolvedNickname,
+                        connectedGoogleEmail = resolvedGoogleEmail,
+                        fcmToken = resolvedFcm
+                    )
+                )
+            }
+    }
     
     // Fetch milestones for a specific couple, ordered by day
     suspend fun getMilestones(coupleId: String): List<Milestone> {
@@ -2117,6 +2156,167 @@ class FirestoreRepository {
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error recording deposit", e)
+            false
+        }
+    }
+
+    /**
+     * Immediately credits a confirmed payment gateway deposit to the couple's vault in Firestore.
+     * Guaranteed idempotent by checking for existence of LEDGER_$txnid or utrNumber == txnid.
+     */
+    suspend fun recordDepositDirectly(
+        context: Context,
+        coupleId: String,
+        txnid: String,
+        vaultAmount: Double,
+        payableAmount: Double,
+        note: String = "Online Contribution",
+        goalId: String? = null,
+        goalTitle: String? = null
+    ): Boolean {
+        val cleanTxn = txnid.trim()
+        if (cleanTxn.isBlank() || vaultAmount <= 0.0) return false
+
+        return try {
+            val user = getCurrentUser() ?: return false
+            val uid = user.uid
+            val userName = user.name.ifBlank { "Partner" }
+
+            // 1. Idempotency check: don't double count if LEDGER_{txnid} or utrNumber already exists
+            val ledgerDoc = db.collection("savings_transactions").document("LEDGER_$cleanTxn").get().await()
+            if (ledgerDoc.exists()) {
+                Log.d("FirestoreRepo", "Transaction LEDGER_$cleanTxn already exists, skipping duplicate write.")
+                return true
+            }
+
+            val queryExisting = db.collection("savings_transactions")
+                .whereEqualTo("coupleId", coupleId)
+                .whereEqualTo("utrNumber", cleanTxn)
+                .get()
+                .await()
+            if (!queryExisting.isEmpty) {
+                Log.d("FirestoreRepo", "Transaction $cleanTxn already recorded by utrNumber, skipping duplicate write.")
+                return true
+            }
+
+            // 2. Atomically update wallet
+            val walletRef = db.collection("savings_wallets").document(coupleId)
+            val walletDoc = walletRef.get().await()
+            val wallet = if (walletDoc.exists()) {
+                walletDoc.toObject(SavingsWallet::class.java)
+            } else {
+                getOrCreateSavingsWallet(coupleId)
+            } ?: return false
+
+            val isUser1 = uid == wallet.user1Id || wallet.user1Id.isBlank()
+            val newTotal = wallet.totalBalance + vaultAmount
+            val newUser1Total = if (isUser1) wallet.user1Total + vaultAmount else wallet.user1Total
+            val newUser2Total = if (!isUser1) wallet.user2Total + vaultAmount else wallet.user2Total
+
+            val updateMap = mutableMapOf<String, Any>(
+                "totalBalance" to newTotal,
+                "user1Total" to newUser1Total,
+                "user2Total" to newUser2Total,
+                "totalBalancePaise" to Math.round(newTotal * 100),
+                "availableBalancePaise" to Math.round(newTotal * 100),
+                "lastUpdated" to System.currentTimeMillis()
+            )
+            if (wallet.user1Id.isBlank()) {
+                updateMap["user1Id"] = uid
+                updateMap["user1Name"] = userName
+            } else if (!isUser1 && wallet.user2Id.isBlank()) {
+                updateMap["user2Id"] = uid
+                updateMap["user2Name"] = userName
+            }
+
+            walletRef.update(updateMap).await()
+
+            // 3. Update goal if provided
+            if (!goalId.isNullOrBlank()) {
+                try {
+                    val goalRef = db.collection("savings_goals").document(goalId)
+                    val gDoc = goalRef.get().await()
+                    if (gDoc.exists()) {
+                        val cur = gDoc.getDouble("currentAmount") ?: 0.0
+                        val target = gDoc.getDouble("targetAmount") ?: 0.0
+                        val newG = cur + vaultAmount
+                        goalRef.update(
+                            mapOf(
+                                "currentAmount" to newG,
+                                "isCompleted" to (newG >= target && target > 0)
+                            )
+                        ).await()
+                    }
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Error updating goal: ${e.message}")
+                }
+            }
+
+            // 4. Write immutable ledger entry into savings_transactions
+            val vaultPaise = Math.round(vaultAmount * 100)
+            val payPaise = Math.round(payableAmount * 100)
+            val feePaise = (payPaise - vaultPaise).coerceAtLeast(0)
+
+            val txnMap = hashMapOf<String, Any?>(
+                "id" to "LEDGER_$cleanTxn",
+                "coupleId" to coupleId,
+                "userId" to uid,
+                "userName" to userName,
+                "type" to "deposit",
+                "amount" to vaultAmount,
+                "vaultAmountPaise" to vaultPaise,
+                "payableAmountPaise" to payPaise,
+                "grossAmountPaise" to payPaise,
+                "platformFeePaise" to feePaise,
+                "netVaultCreditPaise" to vaultPaise,
+                "pricingModel" to "FEE_ON_TOP",
+                "utrNumber" to cleanTxn,
+                "goalId" to (goalId ?: ""),
+                "goalTitle" to (goalTitle ?: ""),
+                "note" to note.trim().ifBlank { "Online Contribution" },
+                "category" to "Savings",
+                "paymentMethod" to "Online",
+                "settlementStatus" to "PENDING",
+                "status" to "COMPLETED",
+                "timestamp" to System.currentTimeMillis()
+            )
+            db.collection("savings_transactions").document("LEDGER_$cleanTxn").set(txnMap).await()
+
+            // 5. Post admin alert
+            val adminAlert = mapOf(
+                "type" to "deposit",
+                "coupleId" to coupleId,
+                "userId" to uid,
+                "userName" to userName,
+                "amount" to vaultAmount,
+                "utrNumber" to cleanTxn,
+                "note" to note.trim(),
+                "timestamp" to System.currentTimeMillis(),
+                "status" to "VERIFIED"
+            )
+            try {
+                db.collection("admin_alerts").add(adminAlert)
+            } catch (_: Exception) {}
+
+            // 6. Push notification to partner
+            val partnerToken = getPartnerFcmToken(coupleId, uid)
+            if (!partnerToken.isNullOrBlank()) {
+                val cleanAmount = if (vaultAmount % 1.0 == 0.0) vaultAmount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", vaultAmount)
+                val cleanGoal = if (!goalTitle.isNullOrBlank()) " for $goalTitle" else ""
+                val pushTitle = "$userName added ₹$cleanAmount to Vault 🌸"
+                val pushBody = if (note.isNotBlank()) "\"$note\"" else "New contribution recorded$cleanGoal!"
+                DirectFcmSender.sendPush(
+                    context,
+                    partnerToken,
+                    pushTitle,
+                    pushBody,
+                    mapOf("type" to "savings", "action" to "open_vault")
+                )
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error recording deposit directly: ${e.message}", e)
             false
         }
     }

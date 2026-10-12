@@ -523,12 +523,13 @@ class DashboardFragment : Fragment() {
         val months = viewModel.getMonthsTogether()
         val partnerDisplayName = getPartnerDisplayName()
         val myDisplayName = getMyDisplayNameForPartner()
+        val myName = viewModel.currentUser.value?.name?.takeIf { it.isNotBlank() } ?: myDisplayName
 
         val tvHeaderTitle = view?.findViewById<TextView>(R.id.tv_header_title)
-        tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $myDisplayName."
+        tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $partnerDisplayName."
 
         val tvDaysAsNames = view?.findViewById<TextView>(R.id.tv_days_as_names)
-        tvDaysAsNames?.text = "DAYS AS ${myDisplayName.uppercase()} & ${partnerDisplayName.uppercase()}"
+        tvDaysAsNames?.text = "DAYS AS ${myName.uppercase()} & ${partnerDisplayName.uppercase()}"
 
         val tvHeartbeatSubtitle = view?.findViewById<TextView>(R.id.tv_heartbeat_subtitle)
         tvHeartbeatSubtitle?.text = "Send a live tactile heartbeat pulse to $partnerDisplayName ❤️"

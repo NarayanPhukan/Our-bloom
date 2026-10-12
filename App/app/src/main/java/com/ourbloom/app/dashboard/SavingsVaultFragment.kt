@@ -66,10 +66,32 @@ class SavingsVaultFragment : Fragment() {
 
     private val payuLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val txnid = result.data?.getStringExtra("txnid")
-            if (!txnid.isNullOrBlank()) {
+            val txnid = result.data?.getStringExtra("txnid") ?: ""
+            val payableAmt = result.data?.getDoubleExtra("amount", 0.0) ?: 0.0
+            val rawVaultAmt = result.data?.getDoubleExtra("vaultAmount", 0.0) ?: 0.0
+            val vaultAmt = if (rawVaultAmt > 0) rawVaultAmt else (Math.round((payableAmt / 1.02) * 100.0) / 100.0).coerceAtLeast(1.0)
+            val note = result.data?.getStringExtra("note") ?: "Online Contribution"
+            val goalId = result.data?.getStringExtra("goalId")
+            val goalTitle = result.data?.getStringExtra("goalTitle")
+
+            if (txnid.isNotBlank() && vaultAmt > 0) {
                 activeTxnId = txnid
-                pollPaymentStatus(txnid)
+                lifecycleScope.launch {
+                    val success = repository.recordDepositDirectly(
+                        context = requireContext(),
+                        coupleId = coupleId,
+                        txnid = txnid,
+                        vaultAmount = vaultAmt,
+                        payableAmount = payableAmt,
+                        note = note,
+                        goalId = goalId,
+                        goalTitle = goalTitle
+                    )
+                    if (success) {
+                        Toast.makeText(requireContext(), "${formatRupees((vaultAmt * 100).toLong())} added to your Vault 🌸", Toast.LENGTH_LONG).show()
+                    }
+                    pollPaymentStatus(txnid)
+                }
             }
         }
     }
@@ -535,8 +557,9 @@ class SavingsVaultFragment : Fragment() {
             val note = etNote.text.toString().trim()
             val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
             val payableAmountDouble = BigDecimal.valueOf(payableAmountPaise, 2).toDouble()
+            val vaultAmountDouble = BigDecimal.valueOf(vaultAmountPaise, 2).toDouble()
 
-            launchPayUCheckout(payableAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
+            launchPayUCheckout(payableAmountDouble, vaultAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
             dialog.dismiss()
         }
 
@@ -544,7 +567,8 @@ class SavingsVaultFragment : Fragment() {
     }
 
     private fun launchPayUCheckout(
-        amount: Double,
+        payableAmount: Double,
+        vaultAmount: Double,
         note: String,
         goalId: String?,
         goalTitle: String?
@@ -568,7 +592,7 @@ class SavingsVaultFragment : Fragment() {
 
         val intent = com.ourbloom.app.payment.PayUCheckoutActivity.createIntent(
             context = requireContext(),
-            amount = amount,
+            amount = payableAmount,
             coupleId = coupleId,
             userId = currentUserId,
             userName = currentUserName,
@@ -576,7 +600,8 @@ class SavingsVaultFragment : Fragment() {
             userPhone = currentUserPhone,
             note = note,
             goalId = goalId,
-            goalTitle = goalTitle
+            goalTitle = goalTitle,
+            vaultAmount = vaultAmount
         )
         payuLauncher.launch(intent)
     }

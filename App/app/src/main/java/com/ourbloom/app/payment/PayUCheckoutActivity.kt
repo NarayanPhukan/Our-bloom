@@ -44,6 +44,8 @@ class PayUCheckoutActivity : AppCompatActivity() {
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+        private const val EXTRA_VAULT_AMOUNT = "extra_vault_amount"
+
         fun createIntent(
             context: Context,
             amount: Double,
@@ -54,10 +56,12 @@ class PayUCheckoutActivity : AppCompatActivity() {
             userPhone: String,
             note: String,
             goalId: String?,
-            goalTitle: String?
+            goalTitle: String?,
+            vaultAmount: Double = 0.0
         ): Intent {
             return Intent(context, PayUCheckoutActivity::class.java).apply {
                 putExtra(EXTRA_AMOUNT, amount)
+                putExtra(EXTRA_VAULT_AMOUNT, vaultAmount)
                 putExtra(EXTRA_COUPLE_ID, coupleId)
                 putExtra(EXTRA_USER_ID, userId)
                 putExtra(EXTRA_USER_NAME, userName)
@@ -80,6 +84,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
     private var isDesktopMode = false
 
     private var amount: Double = 0.0
+    private var vaultAmount: Double = 0.0
     private var coupleId: String = ""
     private var userId: String = ""
     private var userName: String = ""
@@ -98,6 +103,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
         setContentView(R.layout.activity_payu_checkout)
 
         amount = intent.getDoubleExtra(EXTRA_AMOUNT, 0.0)
+        vaultAmount = intent.getDoubleExtra(EXTRA_VAULT_AMOUNT, 0.0)
         coupleId = intent.getStringExtra(EXTRA_COUPLE_ID) ?: ""
         userId = intent.getStringExtra(EXTRA_USER_ID) ?: ""
         userName = intent.getStringExtra(EXTRA_USER_NAME) ?: "Partner"
@@ -553,11 +559,19 @@ class PayUCheckoutActivity : AppCompatActivity() {
         Toast.makeText(this, "Payment successful! Updating couple's vault 🌸", Toast.LENGTH_SHORT).show()
 
         val generatedRef = ref?.ifBlank { null } ?: currentTxnId.ifBlank { "PAYU_${System.currentTimeMillis()}" }
+        val exactVaultCredit = if (vaultAmount > 0.0) vaultAmount else (Math.round((amount / 1.02) * 100.0) / 100.0).coerceAtLeast(1.0)
 
         val resultIntent = Intent().apply {
             putExtra("txnid", currentTxnId)
             putExtra("reference", generatedRef)
             putExtra("amount", amount)
+            putExtra("vaultAmount", exactVaultCredit)
+            putExtra("coupleId", coupleId)
+            putExtra("userId", userId)
+            putExtra("userName", userName)
+            putExtra("note", note)
+            putExtra("goalId", goalId)
+            putExtra("goalTitle", goalTitle)
         }
         setResult(Activity.RESULT_OK, resultIntent)
         finish()

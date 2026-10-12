@@ -18,10 +18,14 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ListenerRegistration
 
 class DashboardViewModel : ViewModel() {
 
     private val repository = FirestoreRepository()
+
+    private var currentUserListener: ListenerRegistration? = null
+    private var partnerUserListener: ListenerRegistration? = null
 
     private val _couple = MutableLiveData<Couple?>()
     val couple: LiveData<Couple?> = _couple
@@ -88,15 +92,33 @@ class DashboardViewModel : ViewModel() {
             _currentUser.value = user
             val cId = user.coupleId ?: return@launch
 
+            // Attach realtime listener for current user
+            currentUserListener?.remove()
+            currentUserListener = repository.observeUser(user.uid) { updatedUser ->
+                if (updatedUser != null) {
+                    _currentUser.postValue(updatedUser)
+                }
+            }
+
             // Fetch all required data safely
             try {
                 val fetchedCouple = repository.getCouple(cId)
                 _couple.value = fetchedCouple
                 
                 if (fetchedCouple != null) {
-                    val partnerId = if (fetchedCouple.user1 == user.uid) fetchedCouple.user2 else fetchedCouple.user1
+                    val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: user.uid
+                    val partnerId = if (fetchedCouple.user1 == myUid || fetchedCouple.user1 == user.uid) fetchedCouple.user2 else fetchedCouple.user1
                     if (partnerId.isNotEmpty()) {
-                        _partnerUser.value = repository.getUser(partnerId)
+                        partnerUserListener?.remove()
+                        partnerUserListener = repository.observeUser(partnerId) { updatedPartner ->
+                            if (updatedPartner != null) {
+                                _partnerUser.postValue(updatedPartner)
+                            }
+                        }
+                        val immediatePartner = repository.getUser(partnerId)
+                        if (immediatePartner != null) {
+                            _partnerUser.value = immediatePartner
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -243,13 +265,19 @@ class DashboardViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        currentUserListener?.remove()
+        partnerUserListener?.remove()
     }
     
     fun updateNicknameForPartner(nickname: String) {
         viewModelScope.launch {
+            // Immediate local update for zero-latency UI refresh
+            val cur = _currentUser.value
+            if (cur != null) {
+                _currentUser.value = cur.copy(nicknameForPartner = nickname)
+            }
             val success = repository.updateNicknameForPartner(nickname)
             if (success) {
-                // Refresh current user to update the UI
                 val updatedUser = repository.getCurrentUser()
                 if (updatedUser != null) {
                     _currentUser.postValue(updatedUser)
