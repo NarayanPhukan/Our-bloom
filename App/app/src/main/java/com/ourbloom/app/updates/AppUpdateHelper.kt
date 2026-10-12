@@ -509,10 +509,14 @@ class AppUpdateHelper(private val activity: Activity) {
             var finalApkFile: File? = null
 
             try {
-                val updatesDir = File(activity.cacheDir, "updates")
-                if (!updatesDir.exists()) updatesDir.mkdirs()
+                val updatesDir = activity.externalCacheDir?.let { File(it, "updates") } ?: File(activity.cacheDir, "updates")
+                if (!updatesDir.exists()) {
+                    updatesDir.mkdirs()
+                } else {
+                    updatesDir.listFiles()?.forEach { try { it.delete() } catch (_: Exception) {} }
+                }
 
-                val tempFile = File(updatesDir, "OurBloom_download.tmp")
+                val tempFile = File(updatesDir, "OurBloom_v${info.versionCode}_tmp.apk")
                 val destinationFile = File(updatesDir, "OurBloom_v${info.versionCode}.apk")
 
                 val cacheBusterUrl = if (info.apkUrl.contains("?")) {
@@ -672,6 +676,19 @@ class AppUpdateHelper(private val activity: Activity) {
                 setDataAndType(contentUri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            try {
+                val resolveInfos = activity.packageManager.queryIntentActivities(installIntent, 0)
+                for (resolveInfo in resolveInfos) {
+                    activity.grantUriPermission(
+                        resolveInfo.activityInfo.packageName,
+                        contentUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not grant explicit URI permission: ${e.message}")
             }
 
             activity.startActivity(installIntent)
