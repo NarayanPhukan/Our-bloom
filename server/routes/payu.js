@@ -777,7 +777,6 @@ async function processSuccessfulPaymentCredit(db, params) {
     // I. Write Immutable Audit Ledger Entry
     transaction.set(ledgerRef, {
       ledgerId: `LEDGER_${txnid}`,
-      id: `LEDGER_${txnid}`,
       requestId: txnid,
       coupleId: targetCoupleId,
       userId: targetUserId || 'payu_gateway',

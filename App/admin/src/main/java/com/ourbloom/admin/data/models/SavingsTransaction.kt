@@ -5,7 +5,7 @@ import com.google.firebase.firestore.IgnoreExtraProperties
 
 @IgnoreExtraProperties
 data class SavingsTransaction(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val coupleId: String = "",
     val userId: String = "",
     val userName: String = "",

@@ -349,7 +349,15 @@ class AdminFirestoreRepository {
                     Log.e(TAG, "Error observing transactions", error)
                     return@addSnapshotListener
                 }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsTransaction::class.java) } ?: emptyList()
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val txn = doc.toObject(SavingsTransaction::class.java)
+                        txn?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error deserializing transaction ${doc.id}", e)
+                        null
+                    }
+                } ?: emptyList()
                 val sorted = list.sortedByDescending { it.timestamp }
                 onUpdate(sorted)
             }
@@ -557,7 +565,15 @@ class AdminFirestoreRepository {
                     Log.e(TAG, "Error observing couple transactions for $coupleId", error)
                     return@addSnapshotListener
                 }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsTransaction::class.java) } ?: emptyList()
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val txn = doc.toObject(SavingsTransaction::class.java)
+                        txn?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error deserializing couple transaction ${doc.id}", e)
+                        null
+                    }
+                } ?: emptyList()
                 onUpdate(list.sortedByDescending { it.timestamp })
             }
     }

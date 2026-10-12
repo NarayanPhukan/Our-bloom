@@ -1,8 +1,8 @@
 {
-  "versionCode": 66,
-  "versionName": "1.65",
+  "versionCode": 67,
+  "versionName": "1.66",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix couple dream savings goals visibility and real-time syncing",
+  "changelog": "• Fix vault transaction crash and couple dream goals display",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

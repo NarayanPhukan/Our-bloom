@@ -1942,7 +1942,15 @@ class FirestoreRepository {
                     Log.e("FirestoreRepo", "Error listening to savings transactions", error)
                     return@addSnapshotListener
                 }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsTransaction::class.java) } ?: emptyList()
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val txn = doc.toObject(SavingsTransaction::class.java)
+                        txn?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e("FirestoreRepo", "Error deserializing transaction ${doc.id}", e)
+                        null
+                    }
+                } ?: emptyList()
                 // Filter out internal administrative adjustments so couples only see their own contributions & payouts
                 val userVisible = list.filterNot {
                     it.paymentMethod.contains("Admin", ignoreCase = true) ||
