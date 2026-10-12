@@ -200,28 +200,24 @@ class AdminDashboardFragment : Fragment() {
             if (!isAdded) return@observeTransactions
             currentTransactions = transactions
 
-            val settledDeposits = transactions.filter {
-                it.type.equals("deposit", ignoreCase = true) &&
-                it.isSettled
+            val allDeposits = transactions.filter {
+                it.type.equals("deposit", ignoreCase = true)
             }
-            val pendingPayUDeposits = transactions.filter {
-                it.type.equals("deposit", ignoreCase = true) &&
-                !it.isSettled &&
-                (it.paymentMethod.contains("PayU", ignoreCase = true) ||
-                 it.paymentMethod.equals("Online", ignoreCase = true) ||
-                 it.utrNumber.startsWith("OB_")) &&
-                !it.paymentMethod.contains("Admin", ignoreCase = true) &&
-                it.category != "Audit Correction"
+            val totalInflowSum = allDeposits.sumOf {
+                if (it.vaultAmountPaise > 0L) it.vaultAmountPaise / 100.0
+                else if (it.netVaultCreditPaise > 0L) it.netVaultCreditPaise / 100.0
+                else if (it.grossAmountPaise > 0L) it.grossAmountPaise / 100.0
+                else it.amount
             }
-
-            val totalSettledSum = settledDeposits.sumOf { it.settledAmount }
-            val cleanDep = if (totalSettledSum % 1.0 == 0.0) totalSettledSum.toInt().toString() else String.format(Locale.US, "%.2f", totalSettledSum)
+            val cleanDep = if (totalInflowSum % 1.0 == 0.0) totalInflowSum.toInt().toString() else String.format(Locale.US, "%.2f", totalInflowSum)
             tvTotalDeposits.text = "₹$cleanDep"
 
-            val countText = if (pendingPayUDeposits.isNotEmpty()) {
-                "${settledDeposits.size} settled (${pendingPayUDeposits.size} pending)"
+            val settledCount = allDeposits.count { it.isSettled }
+            val pendingCount = allDeposits.size - settledCount
+            val countText = if (pendingCount > 0) {
+                "${allDeposits.size} deposits (${settledCount} settled, ${pendingCount} pending)"
             } else {
-                "${settledDeposits.size} settled deposits"
+                "${allDeposits.size} deposits (all settled)"
             }
             tvDepositsCount.text = countText
 

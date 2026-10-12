@@ -226,10 +226,6 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 super.onPageStarted(view, url, favicon)
                 Log.d("PayUCheckout", "onPageStarted: $url")
                 if (url != null) {
-                    if (isSuccessUrl(url)) {
-                        onPaymentApproved()
-                        return
-                    }
                     if (isFailureUrl(url)) {
                         onPaymentDeclined()
                         return
@@ -244,7 +240,12 @@ class PayUCheckoutActivity : AppCompatActivity() {
                 Log.d("PayUCheckout", "onPageFinished: $url")
                 if (url != null) {
                     if (isSuccessUrl(url)) {
-                        onPaymentApproved()
+                        // Allow user to see the success receipt briefly, then complete
+                        view?.postDelayed({
+                            if (!isFinishing && !isDestroyed) {
+                                onPaymentApproved()
+                            }
+                        }, 1200)
                         return
                     }
                     if (isFailureUrl(url)) {
@@ -307,16 +308,18 @@ class PayUCheckoutActivity : AppCompatActivity() {
     private fun handleUrl(url: String): Boolean {
         Log.d("PayUCheckout", "Navigation URL: $url")
 
-        // Intercept Success Callback
-        if (isSuccessUrl(url)) {
+        // Intercept Return to App link from success receipt
+        if (url.startsWith("intent://vault", ignoreCase = true) ||
+            url.startsWith("ourbloom://", ignoreCase = true)
+        ) {
             onPaymentApproved()
             return true
         }
 
-        // Intercept Failure Callback
-        if (isFailureUrl(url)) {
-            onPaymentDeclined()
-            return true
+        // For HTTP/HTTPS URLs (including /api/payu/success and /api/payu/failure),
+        // let the WebView load the page so Render processes the payment webhook and returns HTML
+        if (url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)) {
+            return false
         }
 
         // Handle standard UPI URL (upi://pay?...)
@@ -547,7 +550,7 @@ class PayUCheckoutActivity : AppCompatActivity() {
         isCompleted = true
 
         progressBar.visibility = View.VISIBLE
-        Toast.makeText(this, "Payment received. Vault credit is pending verification.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Payment successful! Updating couple's vault 🌸", Toast.LENGTH_SHORT).show()
 
         val generatedRef = ref?.ifBlank { null } ?: currentTxnId.ifBlank { "PAYU_${System.currentTimeMillis()}" }
 

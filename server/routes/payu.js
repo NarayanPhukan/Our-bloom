@@ -502,8 +502,400 @@ router.post('/create-payment', authMiddleware, async (req, res) => {
 });
 
 /**
+ * Helper to query PayU PostService command verify_payment
+ */
+async function verifyPayUTransactionWithGateway(txnid) {
+  if (!PAYU_KEY || !PAYU_SALT || !txnid) return null;
+  const postServiceUrl = PAYU_MODE === 'live'
+    ? 'https://info.payu.in/merchant/postservice.php?form=2'
+    : 'https://test.payu.in/merchant/postservice.php?form=2';
+
+  try {
+    const command = 'verify_payment';
+    const hash = crypto.createHash('sha512').update(`${PAYU_KEY}|${command}|${txnid}|${PAYU_SALT}`).digest('hex');
+    const form = new URLSearchParams();
+    form.append('key', PAYU_KEY);
+    form.append('command', command);
+    form.append('var1', txnid);
+    form.append('hash', hash);
+
+    const res = await fetch(postServiceUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString()
+    });
+    const data = await res.json();
+    if (data && data.status === 1 && data.transaction_details && data.transaction_details[txnid]) {
+      return data.transaction_details[txnid];
+    }
+  } catch (err) {
+    console.warn(`✿ Error verifying txnid ${txnid} with PayU gateway:`, err.message);
+  }
+  return null;
+}
+
+/**
+ * Atomic multi-document Firestore transaction to credit the couple's vault immediately on successful payment
+ */
+async function processSuccessfulPaymentCredit(db, params) {
+  const {
+    txnid,
+    amountStr,
+    amount: rawAmount,
+    mihpayid,
+    bank_ref_num,
+    udf1: rawCoupleId,
+    udf2: rawUserId,
+    udf3: rawUserName,
+    udf4: rawGoalId,
+    udf5: rawNote,
+    productinfo: rawProductInfo,
+    firstname: rawFirstName,
+    email: rawEmail,
+    paymentMode: rawPaymentMode
+  } = params;
+
+  const effectiveAmountStr = amountStr || (rawAmount != null ? String(rawAmount) : '0');
+  const callbackAmountPaise = parseRupeesToPaise(effectiveAmountStr);
+
+  let outcome = 'SUCCESS';
+  let creditedPaise = 0;
+  let netPaise = 0;
+  let feePaise = 0;
+  let finalCoupleId = rawCoupleId || '';
+
+  await db.runTransaction(async (transaction) => {
+    // A. Check gateway event deduplication
+    const eventRef = db.collection('gateway_events').doc(txnid);
+    const eventDoc = await transaction.get(eventRef);
+    if (eventDoc.exists && eventDoc.data().status === 'PROCESSED') {
+      outcome = 'ALREADY_PROCESSED';
+      return;
+    }
+
+    // B. Check immutable ledger existence
+    const ledgerRef = db.collection('savings_transactions').doc(`LEDGER_${txnid}`);
+    const ledgerDoc = await transaction.get(ledgerRef);
+    if (ledgerDoc.exists) {
+      outcome = 'LEDGER_EXISTS';
+      return;
+    }
+
+    // C. Read payment intent (if pre-created)
+    const intentRef = db.collection('payment_intents').doc(txnid);
+    const intentDoc = await transaction.get(intentRef);
+
+    let vaultAmountPaise = 0;
+    let platformFeePaise = 0;
+    let payableAmountPaise = 0;
+    let pricingModel = 'FEE_ON_TOP';
+    let targetCoupleId = rawCoupleId;
+    let targetUserId = rawUserId;
+    let targetUserName = rawUserName || rawFirstName || 'Partner';
+    let targetGoalId = rawGoalId || null;
+    let targetNote = rawNote || null;
+    let productinfo = rawProductInfo || 'Our Bloom Vault';
+
+    if (!intentDoc.exists) {
+      // Intent was not pre-created (e.g. mobile app initiated PayU directly)
+      if (!targetCoupleId) {
+        outcome = 'MISSING_COUPLE_ID';
+        return;
+      }
+
+      payableAmountPaise = Number(callbackAmountPaise);
+      // Fee-on-Top model: payable = vault + round(vault * 0.02)
+      // Reverse calculation: vault = round(payable / 1.02)
+      vaultAmountPaise = Math.round(payableAmountPaise / 1.02);
+      platformFeePaise = payableAmountPaise - vaultAmountPaise;
+
+      // Invariant check
+      if (payableAmountPaise !== vaultAmountPaise + platformFeePaise) {
+        throw new Error('FINANCIAL_INVARIANT_VIOLATION: payableAmountPaise !== vaultAmountPaise + platformFeePaise');
+      }
+
+      // Create payment_intent atomically
+      transaction.set(intentRef, {
+        txnid,
+        coupleId: targetCoupleId,
+        userId: targetUserId || 'payu_gateway',
+        userName: targetUserName,
+        vaultAmountPaise,
+        platformFeePaise,
+        payableAmountPaise,
+        expectedAmountPaise: payableAmountPaise,
+        platformFeeBps: Number(CONFIG.PLATFORM_FEE_BPS),
+        currency: 'INR',
+        pricingModel: 'FEE_ON_TOP',
+        productinfo,
+        firstname: targetUserName,
+        email: rawEmail || 'support@ourbloom.app',
+        goalId: targetGoalId,
+        note: targetNote,
+        status: 'COMPLETED',
+        createdAt: FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    } else {
+      const intent = intentDoc.data();
+      const now = Timestamp.now();
+
+      // Check intent status & expiration
+      if (intent.status !== 'INITIATED' && intent.status !== 'PROCESSING') {
+        if (intent.status === 'COMPLETED') {
+          outcome = 'ALREADY_PROCESSED';
+          return;
+        }
+      }
+
+      if (intent.expiresAt && intent.expiresAt.toMillis() <= now.toMillis() && intent.status === 'INITIATED') {
+        transaction.update(intentRef, {
+          status: 'EXPIRED',
+          updatedAt: FieldValue.serverTimestamp()
+        });
+        outcome = 'INTENT_EXPIRED';
+        return;
+      }
+
+      // Exact Amount Invariant Check
+      const expectedPayablePaise = BigInt(intent.payableAmountPaise || intent.expectedAmountPaise);
+      if (callbackAmountPaise !== expectedPayablePaise) {
+        outcome = 'PARAM_MISMATCH';
+        return;
+      }
+
+      pricingModel = intent.pricingModel || (intent.vaultAmountPaise ? 'FEE_ON_TOP' : 'FEE_DEDUCTED');
+      if (pricingModel === 'FEE_ON_TOP' || intent.vaultAmountPaise) {
+        vaultAmountPaise = intent.vaultAmountPaise;
+        platformFeePaise = intent.platformFeePaise;
+        payableAmountPaise = intent.payableAmountPaise || (vaultAmountPaise + platformFeePaise);
+      } else {
+        const breakdown = calculateDeposit(callbackAmountPaise);
+        vaultAmountPaise = breakdown.netVaultCreditPaise;
+        platformFeePaise = breakdown.platformFeePaise;
+        payableAmountPaise = breakdown.grossAmountPaise;
+      }
+
+      targetCoupleId = intent.coupleId;
+      targetUserId = intent.userId || targetUserId;
+      targetUserName = intent.userName || targetUserName;
+      targetGoalId = intent.goalId || targetGoalId;
+      targetNote = intent.note || targetNote;
+      productinfo = intent.productinfo || productinfo;
+
+      // Invariant check
+      if (payableAmountPaise !== vaultAmountPaise + platformFeePaise) {
+        throw new Error('FINANCIAL_INVARIANT_VIOLATION: payableAmountPaise !== vaultAmountPaise + platformFeePaise');
+      }
+
+      transaction.update(intentRef, {
+        status: 'COMPLETED',
+        vaultAmountPaise,
+        platformFeePaise,
+        payableAmountPaise,
+        netVaultCreditPaise: vaultAmountPaise,
+        completedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    }
+
+    finalCoupleId = targetCoupleId;
+
+    // G. Read and Validate Wallet Balances
+    const walletRef = db.collection('savings_wallets').doc(targetCoupleId);
+    const walletDoc = await transaction.get(walletRef);
+    const wData = walletDoc.exists ? walletDoc.data() : {};
+
+    const currentTotalPaise = readSafePaise(wData.totalBalancePaise ?? Math.round((Number(wData.totalBalance) || 0) * 100), 'totalBalancePaise');
+    const currentAvailablePaise = readSafePaise(wData.availableBalancePaise ?? currentTotalPaise, 'availableBalancePaise');
+    const currentReservedPaise = readSafePaise(wData.reservedBalancePaise || 0, 'reservedBalancePaise');
+    const currentPlatformFeesPaise = readSafePaise(wData.totalPlatformFeesPaise || 0, 'totalPlatformFeesPaise');
+
+    const nextTotalPaise = currentTotalPaise + vaultAmountPaise;
+    const nextAvailablePaise = currentAvailablePaise + vaultAmountPaise;
+    const nextPlatformFeesPaise = currentPlatformFeesPaise + platformFeePaise;
+
+    assertSafePaise(nextTotalPaise);
+    assertSafePaise(nextAvailablePaise);
+    assertSafePaise(nextPlatformFeesPaise);
+
+    if (nextTotalPaise < nextAvailablePaise || nextTotalPaise < 0 || nextAvailablePaise < 0 || nextPlatformFeesPaise < 0) {
+      throw new Error('TRANSACTION_INVARIANT_VIOLATION: Balances cannot be negative or total < available');
+    }
+
+    // User split calculation
+    const userDepositRupees = vaultAmountPaise / 100;
+    const isUser1 = targetUserId && (targetUserId === wData.user1Id || !wData.user1Id);
+    const currentUser1Total = Number(wData.user1Total) || 0;
+    const currentUser2Total = Number(wData.user2Total) || 0;
+    const nextUser1Total = isUser1 ? currentUser1Total + userDepositRupees : currentUser1Total;
+    const nextUser2Total = !isUser1 ? currentUser2Total + userDepositRupees : currentUser2Total;
+
+    const walletUpdate = {
+      coupleId: targetCoupleId,
+      totalBalancePaise: nextTotalPaise,
+      availableBalancePaise: nextAvailablePaise,
+      reservedBalancePaise: currentReservedPaise,
+      totalPlatformFeesPaise: nextPlatformFeesPaise,
+      totalBalance: nextTotalPaise / 100,
+      user1Total: nextUser1Total,
+      user2Total: nextUser2Total,
+      currency: '₹',
+      version: (wData.version || 0) + 1,
+      lastUpdated: Date.now(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    if (!wData.user1Id && targetUserId) {
+      walletUpdate.user1Id = targetUserId;
+      walletUpdate.user1Name = targetUserName;
+    } else if (!isUser1 && !wData.user2Id && targetUserId) {
+      walletUpdate.user2Id = targetUserId;
+      walletUpdate.user2Name = targetUserName;
+    }
+
+    transaction.set(walletRef, walletUpdate, { merge: true });
+
+    // Update Goal if attached
+    if (targetGoalId) {
+      const goalRef = db.collection('savings_goals').doc(targetGoalId);
+      const goalDoc = await transaction.get(goalRef);
+      if (goalDoc.exists) {
+        const gData = goalDoc.data();
+        const currentGAmount = Number(gData.currentAmount) || 0;
+        const targetGAmount = Number(gData.targetAmount) || 0;
+        const newGAmount = currentGAmount + userDepositRupees;
+        transaction.update(goalRef, {
+          currentAmount: newGAmount,
+          isCompleted: (targetGAmount > 0 && newGAmount >= targetGAmount),
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      }
+    }
+
+    // I. Write Immutable Audit Ledger Entry
+    transaction.set(ledgerRef, {
+      ledgerId: `LEDGER_${txnid}`,
+      id: `LEDGER_${txnid}`,
+      requestId: txnid,
+      coupleId: targetCoupleId,
+      userId: targetUserId || 'payu_gateway',
+      userName: targetUserName,
+      actorId: targetUserId || 'payu_gateway',
+      actorRole: 'gateway_webhook',
+      type: 'deposit',
+      vaultAmountPaise,
+      platformFeePaise,
+      payableAmountPaise,
+      platformFeeBps: Number(CONFIG.PLATFORM_FEE_BPS),
+      pricingModel,
+      currency: 'INR',
+      providerTxnId: mihpayid || null,
+      providerBankReference: bank_ref_num || null,
+      providerRefundId: null,
+      providerReference: mihpayid || null,
+      status: 'COMPLETED',
+      grossAmountPaise: payableAmountPaise,
+      netVaultCreditPaise: vaultAmountPaise,
+      gatewayFeePaise: null,
+      gatewaySettlementAmountPaise: null,
+      settlementStatus: 'PENDING',
+      amountPaise: vaultAmountPaise,
+      amount: vaultAmountPaise / 100,
+      grossAmount: payableAmountPaise / 100,
+      platformFee: platformFeePaise / 100,
+      netVaultCredit: vaultAmountPaise / 100,
+      previousBusinessStatus: 'INITIATED',
+      newBusinessStatus: 'COMPLETED',
+      previousGatewayStatus: 'PROCESSING',
+      newGatewayStatus: 'COMPLETED',
+      txnid: txnid,
+      platformTransactionId: txnid,
+      utrNumber: mihpayid || bank_ref_num || txnid,
+      goalId: targetGoalId || '',
+      goalTitle: productinfo ? productinfo.replace(/^Vault\s*/i, '') : '',
+      note: targetNote || '',
+      category: 'Savings',
+      paymentMethod: rawPaymentMode || 'PayU',
+      timestamp: Date.now(),
+      createdAt: FieldValue.serverTimestamp(),
+      serverTimestamp: FieldValue.serverTimestamp(),
+      idempotencyKey: txnid
+    });
+
+    // J. Write Platform Fee Record
+    const feeRef = db.collection('platform_fees').doc(`FEE_${txnid}`);
+    transaction.set(feeRef, {
+      feeId: `FEE_${txnid}`,
+      txnid,
+      coupleId: targetCoupleId,
+      vaultAmountPaise,
+      platformFeePaise,
+      payableAmountPaise,
+      pricingModel,
+      grossAmountPaise: payableAmountPaise,
+      platformFeeBps: Number(CONFIG.PLATFORM_FEE_BPS),
+      providerReference: mihpayid || null,
+      timestamp: FieldValue.serverTimestamp()
+    });
+
+    // J2. Write Canonical Revenue Ledger
+    if (platformFeePaise > 0) {
+      const revRef = db.collection('revenue_records').doc(`REV_SAVINGS_TXN_${txnid}`);
+      transaction.set(revRef, {
+        eventId: `REV_SAVINGS_TXN_${txnid}`,
+        source: 'SAVINGS_TRANSACTION',
+        sourceTransactionId: txnid,
+        type: 'FEE',
+        title: '2% Deposit Platform Fee',
+        grossAmountPaise: platformFeePaise,
+        sellerPayablePaise: 0,
+        gatewayFeePaise: 0,
+        taxPaise: 0,
+        netRevenuePaise: platformFeePaise,
+        coupleId: targetCoupleId,
+        userId: targetUserId || '',
+        userName: targetUserName,
+        paymentMethod: rawPaymentMode || 'PayU',
+        referenceId: mihpayid || txnid,
+        timestamp: Date.now()
+      }, { merge: true });
+    }
+
+    // L. Mark Gateway Event PROCESSED
+    transaction.set(eventRef, {
+      eventId: `EVENT_${txnid}`,
+      providerTxnId: mihpayid || null,
+      txnid,
+      coupleId: targetCoupleId,
+      vaultAmountPaise,
+      platformFeePaise,
+      payableAmountPaise,
+      grossAmountPaise: payableAmountPaise,
+      netVaultCreditPaise: vaultAmountPaise,
+      status: 'PROCESSED',
+      processedAt: FieldValue.serverTimestamp()
+    });
+
+    creditedPaise = vaultAmountPaise;
+    netPaise = payableAmountPaise;
+    feePaise = platformFeePaise;
+  });
+
+  return {
+    outcome,
+    creditedPaise,
+    netPaise,
+    feePaise,
+    coupleId: finalCoupleId
+  };
+}
+
+/**
  * GET /api/payu/payment-status/:txnid
  * Sanitized client payment intent polling endpoint (strictly strips sensitive gateway keys/hashes)
+ * Automatically falls back to PayU verification if webhook was delayed
  */
 router.get('/payment-status/:txnid', authMiddleware, async (req, res) => {
   try {
@@ -518,25 +910,71 @@ router.get('/payment-status/:txnid', authMiddleware, async (req, res) => {
     }
 
     const intentDoc = await db.collection('payment_intents').doc(txnid).get();
-    if (!intentDoc.exists) {
+    let data = intentDoc.exists ? intentDoc.data() : null;
+
+    if (!data) {
+      // Check savings_transactions ledger fallback
+      const ledgerDoc = await db.collection('savings_transactions').doc(`LEDGER_${txnid}`).get();
+      if (ledgerDoc.exists) {
+        data = ledgerDoc.data();
+      }
+    }
+
+    // If still not found or not completed, check with gateway directly
+    if (!data || data.status !== 'COMPLETED') {
+      try {
+        const gatewayTxn = await verifyPayUTransactionWithGateway(txnid);
+        if (gatewayTxn && gatewayTxn.status === 'success') {
+          const creditResult = await processSuccessfulPaymentCredit(db, {
+            txnid,
+            amountStr: gatewayTxn.amt || gatewayTxn.amount,
+            mihpayid: gatewayTxn.mihpayid,
+            bank_ref_num: gatewayTxn.bank_ref_num,
+            udf1: gatewayTxn.udf1 || req.user.coupleId,
+            udf2: gatewayTxn.udf2 || req.user.userId,
+            udf3: gatewayTxn.udf3 || gatewayTxn.firstname,
+            udf4: gatewayTxn.udf4,
+            udf5: gatewayTxn.udf5,
+            productinfo: gatewayTxn.productinfo,
+            firstname: gatewayTxn.firstname,
+            email: gatewayTxn.email,
+            paymentMode: gatewayTxn.mode
+          });
+
+          return res.json({
+            txnid,
+            coupleId: creditResult.coupleId || req.user.coupleId,
+            status: 'COMPLETED',
+            vaultAmountPaise: creditResult.creditedPaise,
+            platformFeePaise: creditResult.feePaise,
+            payableAmountPaise: creditResult.netPaise,
+            pricingModel: 'FEE_ON_TOP',
+            netVaultCreditPaise: creditResult.creditedPaise,
+            updatedAt: Date.now()
+          });
+        }
+      } catch (gwErr) {
+        console.warn('✿ Gateway status check note:', gwErr.message);
+      }
+    }
+
+    if (!data) {
       return res.status(404).json({ error: 'Payment intent not found' });
     }
 
-    const data = intentDoc.data();
-
     // Verify user belongs to couple
-    if (req.user.coupleId && req.user.coupleId.toString() !== data.coupleId.toString()) {
+    if (req.user.coupleId && req.user.coupleId.toString() !== (data.coupleId || '').toString()) {
       return res.status(403).json({ error: 'Access denied to this payment intent' });
     }
 
     // Return sanitized DTO only (never exposes secrets, salt, raw hashes, customer PII, or internal reconciliation notes)
-    const vaultAmountPaise = data.vaultAmountPaise ?? data.netVaultCreditPaise ?? null;
+    const vaultAmountPaise = data.vaultAmountPaise ?? data.netVaultCreditPaise ?? data.amountPaise ?? null;
     const platformFeePaise = data.platformFeePaise ?? null;
-    const payableAmountPaise = data.payableAmountPaise ?? data.expectedAmountPaise ?? null;
+    const payableAmountPaise = data.payableAmountPaise ?? data.expectedAmountPaise ?? data.grossAmountPaise ?? null;
     const pricingModel = data.pricingModel || (data.netVaultCreditPaise ? 'FEE_DEDUCTED' : 'FEE_ON_TOP');
 
     res.json({
-      txnid: data.txnid,
+      txnid: data.txnid || txnid,
       coupleId: data.coupleId,
       status: data.status, // INITIATED | PROCESSING | COMPLETED | FAILED | EXPIRED | REFUNDED
       vaultAmountPaise,
@@ -544,11 +982,94 @@ router.get('/payment-status/:txnid', authMiddleware, async (req, res) => {
       payableAmountPaise,
       pricingModel,
       netVaultCreditPaise: vaultAmountPaise, // backward-compat field
-      updatedAt: data.updatedAt || data.completedAt || data.createdAt
+      updatedAt: data.updatedAt || data.completedAt || data.createdAt || data.timestamp
     });
   } catch (err) {
     console.error('✿ Error in /api/payu/payment-status:', err);
     res.status(500).json({ error: 'Failed to retrieve payment status' });
+  }
+});
+
+/**
+ * POST /api/payu/verify-and-credit
+ * Authenticated endpoint for the mobile app to verify an in-flight or completed transaction with PayU PostService
+ * and immediately credit the couple's vault if PayU reports payment success.
+ */
+router.post('/verify-and-credit', authMiddleware, async (req, res) => {
+  try {
+    const { txnid } = req.body;
+    if (!txnid) {
+      return res.status(400).json({ error: 'Missing transaction ID' });
+    }
+
+    const db = getFirestore();
+    if (!db) {
+      return res.status(500).json({ error: 'Database unavailable' });
+    }
+
+    // 1. Check if ledger already exists
+    const ledgerDoc = await db.collection('savings_transactions').doc(`LEDGER_${txnid}`).get();
+    if (ledgerDoc.exists) {
+      const data = ledgerDoc.data();
+      if (req.user.coupleId && req.user.coupleId.toString() !== data.coupleId.toString()) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      return res.json({
+        txnid: data.txnid || txnid,
+        coupleId: data.coupleId,
+        status: data.status || 'COMPLETED',
+        vaultAmountPaise: data.vaultAmountPaise || data.amountPaise,
+        platformFeePaise: data.platformFeePaise || 0,
+        payableAmountPaise: data.payableAmountPaise || data.grossAmountPaise,
+        pricingModel: data.pricingModel || 'FEE_ON_TOP',
+        netVaultCreditPaise: data.vaultAmountPaise || data.amountPaise,
+        updatedAt: data.timestamp || Date.now()
+      });
+    }
+
+    // 2. Query PayU PostService to verify status
+    const gatewayTxn = await verifyPayUTransactionWithGateway(txnid);
+    if (!gatewayTxn) {
+      return res.status(200).json({ status: 'PENDING', message: 'Transaction pending at gateway' });
+    }
+
+    if (gatewayTxn.status !== 'success') {
+      return res.status(200).json({ status: gatewayTxn.status ? gatewayTxn.status.toUpperCase() : 'PENDING' });
+    }
+
+    // 3. Gateway confirms success! Credit vault immediately
+    const coupleId = gatewayTxn.udf1 || req.user.coupleId;
+    const userId = gatewayTxn.udf2 || req.user.userId;
+    const creditResult = await processSuccessfulPaymentCredit(db, {
+      txnid,
+      amountStr: gatewayTxn.amt || gatewayTxn.amount,
+      mihpayid: gatewayTxn.mihpayid,
+      bank_ref_num: gatewayTxn.bank_ref_num,
+      udf1: coupleId,
+      udf2: userId,
+      udf3: gatewayTxn.udf3 || gatewayTxn.firstname,
+      udf4: gatewayTxn.udf4,
+      udf5: gatewayTxn.udf5,
+      productinfo: gatewayTxn.productinfo,
+      firstname: gatewayTxn.firstname,
+      email: gatewayTxn.email,
+      paymentMode: gatewayTxn.mode
+    });
+
+    return res.json({
+      txnid,
+      coupleId,
+      status: 'COMPLETED',
+      vaultAmountPaise: creditResult.creditedPaise,
+      platformFeePaise: creditResult.feePaise,
+      payableAmountPaise: creditResult.netPaise,
+      pricingModel: 'FEE_ON_TOP',
+      netVaultCreditPaise: creditResult.creditedPaise,
+      updatedAt: Date.now()
+    });
+  } catch (err) {
+    console.error('✿ Error in /api/payu/verify-and-credit:', err);
+    res.status(500).json({ error: 'Failed to verify and credit transaction', message: err.message });
   }
 });
 
@@ -564,9 +1085,7 @@ router.post('/success', async (req, res) => {
       txnid,
       amount: amountStr,
       mihpayid,
-      bank_ref_num,
-      udf1: coupleId,
-      udf2: userId
+      bank_ref_num
     } = req.body;
 
     // 1. Validate Merchant Key
@@ -593,240 +1112,14 @@ router.post('/success', async (req, res) => {
       return res.status(400).json({ error: 'INVALID_CURRENCY' });
     }
 
-    const callbackAmountPaise = parseRupeesToPaise(amountStr);
     const db = getFirestore();
-
     if (!db || !txnid) {
       return res.status(500).json({ error: 'INTERNAL_ERROR' });
     }
 
     // 5. Atomic Multi-Document Firestore Transaction
-    let outcome = 'SUCCESS';
-    let creditedPaise = 0;
-    let netPaise = 0;
-    let feePaise = 0;
-
-    await db.runTransaction(async (transaction) => {
-      // A. Check gateway event deduplication
-      const eventRef = db.collection('gateway_events').doc(txnid);
-      const eventDoc = await transaction.get(eventRef);
-      if (eventDoc.exists && eventDoc.data().status === 'PROCESSED') {
-        outcome = 'ALREADY_PROCESSED';
-        return;
-      }
-
-      // B. Check immutable ledger existence
-      const ledgerRef = db.collection('savings_transactions').doc(`LEDGER_${txnid}`);
-      const ledgerDoc = await transaction.get(ledgerRef);
-      if (ledgerDoc.exists) {
-        outcome = 'LEDGER_EXISTS';
-        return;
-      }
-
-      // C. Read and validate payment intent
-      const intentRef = db.collection('payment_intents').doc(txnid);
-      const intentDoc = await transaction.get(intentRef);
-      if (!intentDoc.exists) {
-        outcome = 'INTENT_NOT_FOUND';
-        return;
-      }
-
-      const intent = intentDoc.data();
-      const now = Timestamp.now();
-
-      // D. Check intent expiration
-      if (
-        intent.status !== 'INITIATED' ||
-        !intent.expiresAt ||
-        intent.expiresAt.toMillis() <= now.toMillis()
-      ) {
-        if (intent.status === 'INITIATED') {
-          transaction.update(intentRef, {
-            status: 'EXPIRED',
-            updatedAt: FieldValue.serverTimestamp()
-          });
-        }
-        outcome = 'INTENT_EXPIRED';
-        return;
-      }
-
-      // E. Exact Amount Invariant Check
-      const expectedPayablePaise = BigInt(intent.payableAmountPaise || intent.expectedAmountPaise);
-      if (callbackAmountPaise !== expectedPayablePaise) {
-        outcome = 'PARAM_MISMATCH';
-        return;
-      }
-
-      // F. Calculate Authoritative Fee Breakdown based on Pricing Model
-      let vaultAmountPaise = 0;
-      let platformFeePaise = 0;
-      let payableAmountPaise = 0;
-      let pricingModel = intent.pricingModel || (intent.vaultAmountPaise ? 'FEE_ON_TOP' : 'FEE_DEDUCTED');
-
-      if (pricingModel === 'FEE_ON_TOP' || intent.vaultAmountPaise) {
-        vaultAmountPaise = intent.vaultAmountPaise;
-        platformFeePaise = intent.platformFeePaise;
-        payableAmountPaise = intent.payableAmountPaise || (vaultAmountPaise + platformFeePaise);
-      } else {
-        // Historical FEE_DEDUCTED fallback
-        const breakdown = calculateDeposit(callbackAmountPaise);
-        vaultAmountPaise = breakdown.netVaultCreditPaise;
-        platformFeePaise = breakdown.platformFeePaise;
-        payableAmountPaise = breakdown.grossAmountPaise;
-      }
-
-      // Invariant: payableAmountPaise === vaultAmountPaise + platformFeePaise
-      if (payableAmountPaise !== vaultAmountPaise + platformFeePaise) {
-        throw new Error('FINANCIAL_INVARIANT_VIOLATION: payableAmountPaise !== vaultAmountPaise + platformFeePaise');
-      }
-
-      // Destination couple derived strictly from intent
-      const targetCoupleId = intent.coupleId;
-
-      // G. Read and Validate Wallet Balances
-      const walletRef = db.collection('savings_wallets').doc(targetCoupleId);
-      const walletDoc = await transaction.get(walletRef);
-      const wData = walletDoc.exists ? walletDoc.data() : {};
-
-      const currentTotalPaise = readSafePaise(wData.totalBalancePaise ?? Math.round((Number(wData.totalBalance) || 0) * 100), 'totalBalancePaise');
-      const currentAvailablePaise = readSafePaise(wData.availableBalancePaise ?? currentTotalPaise, 'availableBalancePaise');
-      const currentReservedPaise = readSafePaise(wData.reservedBalancePaise || 0, 'reservedBalancePaise');
-      const currentPlatformFeesPaise = readSafePaise(wData.totalPlatformFeesPaise || 0, 'totalPlatformFeesPaise');
-
-      // Credit Vault atomically with intent.vaultAmountPaise ONLY
-      const nextTotalPaise = currentTotalPaise + vaultAmountPaise;
-      const nextAvailablePaise = currentAvailablePaise + vaultAmountPaise;
-      const nextPlatformFeesPaise = currentPlatformFeesPaise + platformFeePaise;
-
-      // Assert write-boundary & transaction invariants
-      assertSafePaise(nextTotalPaise);
-      assertSafePaise(nextAvailablePaise);
-      assertSafePaise(nextPlatformFeesPaise);
-
-      if (nextTotalPaise < nextAvailablePaise || nextTotalPaise < 0 || nextAvailablePaise < 0 || nextPlatformFeesPaise < 0) {
-        throw new Error('TRANSACTION_INVARIANT_VIOLATION: Balances cannot be negative or total < available');
-      }
-
-      // H. Update Wallet
-      transaction.set(walletRef, {
-        coupleId: targetCoupleId,
-        totalBalancePaise: nextTotalPaise,
-        availableBalancePaise: nextAvailablePaise,
-        reservedBalancePaise: currentReservedPaise,
-        totalPlatformFeesPaise: nextPlatformFeesPaise,
-        totalBalance: nextTotalPaise / 100, // @Deprecated display compatibility only
-        currency: 'INR',
-        version: (wData.version || 0) + 1,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      // I. Write Immutable Audit Ledger Entry
-      transaction.set(ledgerRef, {
-        ledgerId: `LEDGER_${txnid}`,
-        id: `LEDGER_${txnid}`,
-        requestId: txnid,
-        coupleId: targetCoupleId,
-        userId: intent.userId || 'payu_gateway',
-        actorId: intent.userId || 'payu_gateway',
-        actorRole: 'gateway_webhook',
-        type: 'DEPOSIT',
-        vaultAmountPaise,
-        platformFeePaise,
-        payableAmountPaise,
-        platformFeeBps: Number(CONFIG.PLATFORM_FEE_BPS),
-        pricingModel,
-        currency: 'INR',
-        providerTxnId: mihpayid || null,
-        providerBankReference: bank_ref_num || null,
-        providerRefundId: null,
-        providerReference: mihpayid || null,
-        status: 'COMPLETED',
-        // Backward compatibility fields
-        grossAmountPaise: payableAmountPaise,
-        netVaultCreditPaise: vaultAmountPaise,
-        gatewayFeePaise: null,
-        gatewaySettlementAmountPaise: null,
-        settlementStatus: 'PENDING',
-        amountPaise: vaultAmountPaise,
-        amount: vaultAmountPaise / 100,
-        grossAmount: payableAmountPaise / 100,
-        platformFee: platformFeePaise / 100,
-        netVaultCredit: vaultAmountPaise / 100,
-        previousBusinessStatus: 'INITIATED',
-        newBusinessStatus: 'COMPLETED',
-        previousGatewayStatus: 'PROCESSING',
-        newGatewayStatus: 'COMPLETED',
-        txnid: txnid,
-        platformTransactionId: txnid,
-        serverTimestamp: FieldValue.serverTimestamp(),
-        idempotencyKey: txnid
-      });
-
-      // J. Write Platform Fee Record
-      const feeRef = db.collection('platform_fees').doc(`FEE_${txnid}`);
-      transaction.set(feeRef, {
-        feeId: `FEE_${txnid}`,
-        txnid,
-        coupleId: targetCoupleId,
-        vaultAmountPaise,
-        platformFeePaise,
-        payableAmountPaise,
-        pricingModel,
-        grossAmountPaise: payableAmountPaise,
-        platformFeeBps: Number(CONFIG.PLATFORM_FEE_BPS),
-        providerReference: mihpayid || null,
-        timestamp: FieldValue.serverTimestamp()
-      });
-
-      // J2. Write to Canonical Revenue Ledger (/revenue_records)
-      if (platformFeePaise > 0) {
-        const revRef = db.collection('revenue_records').doc(`REV_SAVINGS_TXN_${txnid}`);
-        transaction.set(revRef, {
-          eventId: `REV_SAVINGS_TXN_${txnid}`,
-          source: 'SAVINGS_TRANSACTION',
-          sourceTransactionId: txnid,
-          type: 'FEE',
-          title: '2% Deposit Platform Fee',
-          grossAmountPaise: platformFeePaise,
-          sellerPayablePaise: 0,
-          gatewayFeePaise: 0,
-          taxPaise: 0,
-          netRevenuePaise: platformFeePaise,
-          coupleId: targetCoupleId,
-          userId: intent.userId || '',
-          userName: intent.userName || 'Couple Partner',
-          paymentMethod: 'PayU',
-          referenceId: mihpayid || txnid,
-          timestamp: Date.now()
-        }, { merge: true });
-      }
-
-      // K. Transition Payment Intent to COMPLETED
-      transaction.update(intentRef, {
-        status: 'COMPLETED',
-        vaultAmountPaise,
-        platformFeePaise,
-        payableAmountPaise,
-        netVaultCreditPaise: vaultAmountPaise,
-        completedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      });
-
-      // L. Mark Gateway Event PROCESSED
-      transaction.set(eventRef, {
-        eventId: `EVENT_${txnid}`,
-        providerTxnId: mihpayid || null,
-        txnid,
-        coupleId: targetCoupleId,
-        vaultAmountPaise,
-        platformFeePaise,
-        payableAmountPaise,
-        grossAmountPaise: payableAmountPaise,
-        netVaultCreditPaise: vaultAmountPaise,
-        status: 'PROCESSED',
-        processedAt: FieldValue.serverTimestamp()
-      });
-    });
+    const result = await processSuccessfulPaymentCredit(db, req.body);
+    const { outcome, creditedPaise, netPaise, feePaise } = result;
 
     // Deterministic HTTP response handling
     if (outcome === 'ALREADY_PROCESSED') {
@@ -838,8 +1131,8 @@ router.post('/success', async (req, res) => {
     if (outcome === 'INTENT_EXPIRED') {
       return res.status(200).json({ status: 'INTENT_EXPIRED' });
     }
-    if (outcome === 'INTENT_NOT_FOUND') {
-      return res.status(400).json({ error: 'INTENT_NOT_FOUND' });
+    if (outcome === 'MISSING_COUPLE_ID') {
+      return res.status(400).json({ error: 'MISSING_COUPLE_ID' });
     }
     if (outcome === 'PARAM_MISMATCH' || outcome === 'AMOUNT_MISMATCH') {
       return res.status(400).json({ error: 'PARAM_MISMATCH' });
@@ -867,6 +1160,16 @@ router.post('/success', async (req, res) => {
             .val { font-weight: bold; color: #2D2D2D; }
             .btn { display: inline-block; background: #E85D75; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 14px rgba(232, 93, 117, 0.3); }
           </style>
+          <script>
+            // Notify native Android bridge immediately
+            try {
+              if (window.PayUBridge && typeof window.PayUBridge.onPaymentSuccess === 'function') {
+                window.PayUBridge.onPaymentSuccess('${bank_ref_num || mihpayid || txnid}');
+              }
+            } catch (e) {
+              console.log('Bridge error:', e);
+            }
+          </script>
         </head>
         <body>
           <div class="card">
@@ -888,12 +1191,12 @@ router.post('/success', async (req, res) => {
     return res.status(200).json({
       status: 'COMPLETED',
       txnid,
-      vaultAmountPaise,
-      platformFeePaise,
-      payableAmountPaise,
-      pricingModel,
-      grossAmountPaise: payableAmountPaise,
-      netVaultCreditPaise: vaultAmountPaise
+      vaultAmountPaise: creditedPaise,
+      platformFeePaise: feePaise,
+      payableAmountPaise: netPaise,
+      pricingModel: 'FEE_ON_TOP',
+      grossAmountPaise: netPaise,
+      netVaultCreditPaise: creditedPaise
     });
   } catch (err) {
     console.error('✿ Error in PayU success webhook:', err);

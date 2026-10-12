@@ -118,7 +118,13 @@ class SavingsVaultFragment : Fragment() {
             while (isActive && attempts < maxAttempts) {
                 delay(2000)
                 attempts++
-                val statusDto = repository.getPaymentStatus(txnid)
+                var statusDto = repository.getPaymentStatus(txnid)
+                if ((statusDto == null || statusDto.status != "COMPLETED") && attempts >= 2 && attempts % 2 == 0) {
+                    val verified = repository.verifyAndCreditPayment(txnid)
+                    if (verified != null) {
+                        statusDto = verified
+                    }
+                }
                 if (statusDto != null && statusDto.txnid == activeTxnId) {
                     if (statusDto.status == "COMPLETED") {
                         val creditedPaise = statusDto.vaultAmountPaise ?: statusDto.netVaultCreditPaise ?: 0L
