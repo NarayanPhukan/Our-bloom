@@ -1945,10 +1945,7 @@ class FirestoreRepository {
                 val jsonPayload = org.json.JSONObject().apply {
                     put("txnid", txnid)
                 }
-                val body = okhttp3.RequestBody.create(
-                    okhttp3.MediaType.parse("application/json; charset=utf-8"),
-                    jsonPayload.toString()
-                )
+                val body = jsonPayload.toString().toRequestBody("application/json".toMediaTypeOrNull())
                 val request = okhttp3.Request.Builder()
                     .url("$baseUrl/api/payu/verify-and-credit")
                     .addHeader("Authorization", "Bearer $token")

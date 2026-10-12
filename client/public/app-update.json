@@ -1,8 +1,8 @@
 {
-  "versionCode": 63,
-  "versionName": "1.62",
+  "versionCode": 64,
+  "versionName": "1.63",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Instant dashboard restore for existing couples\n• Display partner's given nickname in greetings\n• Interactive memory cards and photo lightbox\n• Performance, stability, and authentication fixes 🌸",
+  "changelog": "• Real-time couple vault balance updates on payment success\n• Instant PayU webhook payment intent reconciliation\n• Fallback verification polling for deposit credits\n• Stability and performance optimizations 🌸",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
-  "forceUpdate": true
+  "forceUpdate": false
 }

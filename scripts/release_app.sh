@@ -77,9 +77,10 @@ if [ ! -f "$RELEASE_APK_SRC" ]; then
     exit 1
 fi
 
-# 5. Copy APK to client/public/OurBloom.apk
-echo "Copying release APK to $CLIENT_APK_DEST..."
+# 5. Copy APK to client/public/OurBloom.apk and root OurBloom.apk
+echo "Copying release APK to $CLIENT_APK_DEST and $ROOT_DIR/OurBloom.apk..."
 cp "$RELEASE_APK_SRC" "$CLIENT_APK_DEST"
+cp "$RELEASE_APK_SRC" "$ROOT_DIR/OurBloom.apk"
 
 # 6. Rebuild web client
 echo "Rebuilding web client..."
