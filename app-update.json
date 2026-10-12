@@ -1,8 +1,8 @@
 {
-  "versionCode": 65,
-  "versionName": "1.64",
+  "versionCode": 66,
+  "versionName": "1.65",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix dashboard greeting and subtitle to correctly address partner and display custom nicknames\n• Real-time nickname and profile synchronization across devices\n• Instant vault balance and transaction history update upon payment success\n• Credited all recent PayU payments into couple vault",
+  "changelog": "• Fix couple dream savings goals visibility and real-time syncing",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

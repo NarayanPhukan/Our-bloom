@@ -64,9 +64,11 @@ class SavingsGoalsAdapter(
             val percent = if (target > 0) ((current / target) * 100).toInt().coerceIn(0, 100) else 0
 
             progressGoal.progress = percent
-            tvAmounts.text = "₹${current.toInt()} of ₹${target.toInt()} ($percent%)"
+            val currentStr = if (current % 1.0 == 0.0) current.toInt().toString() else String.format(Locale.US, "%.2f", current)
+            val targetStr = if (target % 1.0 == 0.0) target.toInt().toString() else String.format(Locale.US, "%.2f", target)
+            tvAmounts.text = "₹$currentStr of ₹$targetStr ($percent%)"
 
-            if (percent >= 100 || goal.isCompleted) {
+            if (percent >= 100 || goal.isGoalCompleted) {
                 tvCompletedBadge.visibility = View.VISIBLE
             } else {
                 tvCompletedBadge.visibility = View.GONE

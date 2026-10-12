@@ -1899,7 +1899,37 @@ class FirestoreRepository {
                     Log.e("FirestoreRepo", "Error listening to savings goals", error)
                     return@addSnapshotListener
                 }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsGoal::class.java) } ?: emptyList()
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val g = doc.toObject(SavingsGoal::class.java)
+                        g?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e("FirestoreRepo", "Error deserializing goal ${doc.id}, attempting fallback parse", e)
+                        try {
+                            val data = doc.data ?: return@mapNotNull null
+                            val target = (data["targetAmount"] as? Number)?.toDouble() ?: 0.0
+                            val current = (data["currentAmount"] as? Number)?.toDouble() ?: 0.0
+                            val isComp = (data["isCompleted"] as? Boolean)
+                                ?: (data["completed"] as? Boolean)
+                                ?: (target > 0 && current >= target)
+                            SavingsGoal(
+                                id = doc.id,
+                                coupleId = data["coupleId"] as? String ?: "",
+                                title = data["title"] as? String ?: "",
+                                targetAmount = target,
+                                currentAmount = current,
+                                icon = data["icon"] as? String ?: "savings",
+                                category = data["category"] as? String ?: "General",
+                                targetDate = data["targetDate"] as? String ?: "",
+                                createdAt = (data["createdAt"] as? Number)?.toLong() ?: 0L,
+                                isCompleted = isComp
+                            )
+                        } catch (ex: Exception) {
+                            Log.e("FirestoreRepo", "Fallback parsing failed for goal ${doc.id}", ex)
+                            null
+                        }
+                    }
+                } ?: emptyList()
                 onUpdate(list.sortedByDescending { it.createdAt })
             }
     }

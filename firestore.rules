@@ -269,6 +269,19 @@ service cloud.firestore {
       allow write, delete: if false; // Only Server Admin SDK can append immutable transactions
     }
 
+    // Savings goals: Couple members can view and manage their goals
+    match /savings_goals/{goalId} {
+      allow read: if (isSignedIn() && isExistingCoupleMember(resource.data.coupleId)) || isAdmin();
+      allow create: if isSignedIn()
+        && isExistingCoupleMember(request.resource.data.coupleId)
+        && request.resource.data.targetAmount is number
+        && request.resource.data.targetAmount > 0;
+      allow update: if (isSignedIn()
+        && isExistingCoupleMember(resource.data.coupleId)
+        && request.resource.data.coupleId == resource.data.coupleId) || isAdmin();
+      allow delete: if (isSignedIn() && isExistingCoupleMember(resource.data.coupleId)) || isAdmin();
+    }
+
     // Withdrawal requests
     match /withdrawal_requests/{requestId} {
       allow read: if (isSignedIn() && isExistingCoupleMember(resource.data.coupleId)) || isAdmin();

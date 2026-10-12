@@ -15,4 +15,7 @@ data class SavingsGoal(
     val targetDate: String = "",
     val createdAt: Long = 0L,
     val isCompleted: Boolean = false
-)
+) {
+    val isGoalCompleted: Boolean
+        get() = isCompleted || (targetAmount > 0 && currentAmount >= targetAmount)
+}
