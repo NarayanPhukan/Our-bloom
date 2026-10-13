@@ -36,7 +36,7 @@ class LoveNoteWidgetProvider : AppWidgetProvider() {
                     val user = repo.getCurrentUser()
                     if (user != null && !user.coupleId.isNullOrBlank()) {
                         val senderName = user.name.ifBlank { "Your Love" }
-                        repo.sendHeartbeat(user.coupleId!!, senderName)
+                        repo.sendHeartbeat(user.coupleId ?: "", senderName)
                         CoroutineScope(Dispatchers.Main).launch {
                             Toast.makeText(context, "Heartbeat sent to your partner ❤️", Toast.LENGTH_SHORT).show()
                         }

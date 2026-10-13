@@ -1,8 +1,8 @@
 {
-  "versionCode": 67,
-  "versionName": "1.66",
+  "versionCode": 68,
+  "versionName": "1.67",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix vault transaction crash and couple dream goals display",
+  "changelog": "Fix null attribute deserialization and crash on startup",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

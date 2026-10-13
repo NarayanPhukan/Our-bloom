@@ -33,7 +33,7 @@ class LoveNotesViewModel : ViewModel() {
             try {
                 val user = repository.getCurrentUser()
                 if (user != null && !user.coupleId.isNullOrEmpty()) {
-                    val coupleNotes = repository.getAllLoveNotes(user.coupleId!!)
+                    val coupleNotes = repository.getAllLoveNotes(user.coupleId ?: "")
                     _notes.value = coupleNotes
                 } else {
                     _error.value = "Couple info not found."
@@ -91,7 +91,7 @@ class LoveNotesViewModel : ViewModel() {
 
                     val newNote = LoveNote(
                         id = "", // Let Firestore assign it
-                        coupleId = user.coupleId!!,
+                        coupleId = user.coupleId ?: "",
                         content = content.ifBlank { if (uploadedAudioUrl.isNotBlank()) "🎙️ Voice Love Letter" else "A sweet love note" },
                         author = user.name?.ifEmpty { "With love" } ?: "With love",
                         isDailyAi = false,

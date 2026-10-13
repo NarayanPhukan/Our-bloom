@@ -56,7 +56,7 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
     if (isUnregistered) {
       console.warn(`✿ Stale FCM token for user ${userId} is unregistered/expired. Clearing from database.`);
       try {
-        await db.collection('users').doc(userId).update({ fcmToken: null });
+        await db.collection('users').doc(userId).update({ fcmToken: '' });
       } catch (_) {}
     } else {
       console.error(`✿ Error sending push notification to user ${userId}:`, err?.message || err);

@@ -150,7 +150,7 @@ class FirestoreRepository {
                         .get()
                         .await()
                     for (d in query.documents) {
-                        val u = d.toObject(User::class.java)
+                        val u = try { d.toObject(User::class.java) } catch (e: Exception) { null }
                         if (u != null) {
                             if (!u.coupleId.isNullOrBlank() && u.coupleId != "null") {
                                 mongoDoc = u
@@ -382,7 +382,12 @@ class FirestoreRepository {
         return try {
             val doc = db.collection("users").document(userId).get().await()
             if (!doc.exists()) return null
-            val user = doc.toObject(User::class.java)
+            val user = try {
+                doc.toObject(User::class.java)
+            } catch (e: Exception) {
+                Log.w("FirestoreRepo", "User deserialization error in getUser $userId, using manual fallback: ${e.message}")
+                null
+            }
 
             // Direct field fallback to ensure coupleId and other core attributes are never lost
             val resolvedUid = user?.uid?.takeIf { it.isNotBlank() } ?: doc.getString("uid")?.takeIf { it.isNotBlank() } ?: doc.id
@@ -424,7 +429,12 @@ class FirestoreRepository {
                     onUpdate(null)
                     return@addSnapshotListener
                 }
-                val user = snapshot.toObject(User::class.java)
+                val user = try {
+                    snapshot.toObject(User::class.java)
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "User deserialization error in observeUser $userId, using manual fallback: ${e.message}")
+                    null
+                }
                 val resolvedUid = user?.uid?.takeIf { it.isNotBlank() } ?: snapshot.getString("uid")?.takeIf { it.isNotBlank() } ?: snapshot.id
                 val resolvedCoupleId = user?.coupleId?.takeIf { it.isNotBlank() && it != "null" }
                     ?: snapshot.getString("coupleId")?.takeIf { it.isNotBlank() && it != "null" } ?: ""
@@ -483,7 +493,12 @@ class FirestoreRepository {
         return try {
             val doc = db.collection("couples").document(coupleId).get().await()
             if (!doc.exists()) return null
-            val couple = doc.toObject(Couple::class.java)
+            val couple = try {
+                doc.toObject(Couple::class.java)
+            } catch (e: Exception) {
+                Log.w("FirestoreRepo", "Error deserializing couple $coupleId, falling back: ${e.message}")
+                null
+            }
 
             val resolvedId = couple?.id?.takeIf { it.isNotBlank() } ?: doc.id
             val resolvedUser1 = couple?.user1?.takeIf { it.isNotBlank() } ?: doc.getString("user1") ?: ""

@@ -38,8 +38,8 @@ class MemoriesViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 val user = repository.getCurrentUser()
-                if (user != null && user.coupleId != null) {
-                    val cid = user.coupleId
+                val cid = user?.coupleId
+                if (!cid.isNullOrBlank()) {
                     coupleId = cid
                     val allMemories = repository.getAllMemories(cid).toMutableList()
                     val stories = repository.getStoryEntries(cid)

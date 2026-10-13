@@ -135,7 +135,7 @@ async function broadcastAppUpdate(updateData) {
             const userIds = tokenMap.get(token) || [];
             for (const uid of userIds) {
               try {
-                await db.collection('users').doc(uid).update({ fcmToken: null });
+                await db.collection('users').doc(uid).update({ fcmToken: '' });
                 cleanedTokens++;
                 console.log(`✿ Cleaned stale FCM token for user ${uid}`);
               } catch (_) {}

@@ -578,7 +578,7 @@ class SavingsVaultFragment : Fragment() {
             lifecycleScope.launch {
                 val user = repository.getCurrentUser()
                 if (user != null && !user.coupleId.isNullOrBlank()) {
-                    coupleId = user.coupleId
+                    coupleId = user.coupleId ?: ""
                     currentUserId = user.uid
                     currentUserName = user.name
                     currentUserEmail = user.email.ifBlank {
