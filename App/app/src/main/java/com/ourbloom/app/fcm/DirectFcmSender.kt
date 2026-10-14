@@ -40,7 +40,24 @@ object DirectFcmSender {
         body: String,
         data: Map<String, String> = emptyMap()
     ): Boolean = withContext(Dispatchers.IO) {
-        if (token.isBlank()) {
+        var targetToken = token
+        if (targetToken.isBlank()) {
+            val coupleId = data["coupleId"] ?: ""
+            val senderId = data["senderId"] ?: ""
+            if (coupleId.isNotBlank() && senderId.isNotBlank()) {
+                try {
+                    val resolved = com.ourbloom.app.data.FirestoreRepository().getPartnerFcmToken(coupleId, senderId)
+                    if (!resolved.isNullOrBlank()) {
+                        targetToken = resolved
+                        Log.d(TAG, "Recovered partner FCM token from Firestore for couple $coupleId")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Fallback token resolution error: ${e.message}")
+                }
+            }
+        }
+
+        if (targetToken.isBlank()) {
             Log.w(TAG, "Cannot send push: partner token is blank")
             return@withContext false
         }
@@ -49,7 +66,7 @@ object DirectFcmSender {
 
         try {
             val payload = JSONObject().apply {
-                put("token", token)
+                put("token", targetToken)
                 put("title", title)
                 put("body", body)
                 val dataObj = JSONObject()

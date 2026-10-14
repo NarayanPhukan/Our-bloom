@@ -1,8 +1,8 @@
 {
-  "versionCode": 69,
-  "versionName": "1.68",
+  "versionCode": 70,
+  "versionName": "1.69",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Fix nickname synchronization, permission errors, and dynamic naming display",
+  "changelog": "Fix FCM push notification payload delivery and auto-token sync",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

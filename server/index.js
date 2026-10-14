@@ -38,12 +38,60 @@ const messaging = getMessaging();
 const bucket = getBucket();
 
 const sendPushNotification = async (userId, title, body, data = {}) => {
-  if (!db) return;
+  if (!db || !userId) return;
   try {
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (userDoc.exists && userDoc.data().fcmToken) {
-      await sendPushToToken(userDoc.data().fcmToken, title, body, data);
+    const uidStr = String(userId);
+    let fcmToken = null;
+
+    // 1. Check Firestore direct doc lookup
+    const userDoc = await db.collection('users').doc(uidStr).get();
+    if (userDoc.exists && userDoc.data()?.fcmToken) {
+      fcmToken = userDoc.data().fcmToken;
+    }
+
+    // 2. Query Firestore where uid == uidStr
+    if (!fcmToken) {
+      try {
+        const qUid = await db.collection('users').where('uid', '==', uidStr).limit(1).get();
+        if (!qUid.empty && qUid.docs[0].data()?.fcmToken) {
+          fcmToken = qUid.docs[0].data().fcmToken;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Query Firestore where _id == uidStr
+    if (!fcmToken) {
+      try {
+        const qId = await db.collection('users').where('_id', '==', uidStr).limit(1).get();
+        if (!qId.empty && qId.docs[0].data()?.fcmToken) {
+          fcmToken = qId.docs[0].data().fcmToken;
+        }
+      } catch (_) {}
+    }
+
+    // 4. Fallback to MongoDB User
+    if (!fcmToken) {
+      try {
+        const User = require('./models/User');
+        const mongoose = require('mongoose');
+        let mUser = null;
+        if (mongoose.Types.ObjectId.isValid(uidStr)) {
+          mUser = await User.findById(uidStr);
+        }
+        if (!mUser) {
+          mUser = await User.findOne({ email: uidStr });
+        }
+        if (mUser && mUser.fcmToken) {
+          fcmToken = mUser.fcmToken;
+        }
+      } catch (_) {}
+    }
+
+    if (fcmToken) {
+      await sendPushToToken(fcmToken, title, body, data);
       console.log(`✿ Push notification sent to user ${userId}`);
+    } else {
+      console.warn(`✿ No active FCM token found for user ${userId}`);
     }
   } catch (err) {
     const isUnregistered = 
@@ -56,7 +104,14 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
     if (isUnregistered) {
       console.warn(`✿ Stale FCM token for user ${userId} is unregistered/expired. Clearing from database.`);
       try {
-        await db.collection('users').doc(userId).update({ fcmToken: '' });
+        await db.collection('users').doc(String(userId)).update({ fcmToken: '' });
+      } catch (_) {}
+      try {
+        const User = require('./models/User');
+        const mongoose = require('mongoose');
+        if (mongoose.Types.ObjectId.isValid(String(userId))) {
+          await User.findByIdAndUpdate(String(userId), { fcmToken: '' });
+        }
       } catch (_) {}
     } else {
       console.error(`✿ Error sending push notification to user ${userId}:`, err?.message || err);

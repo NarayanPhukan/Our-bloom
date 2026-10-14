@@ -23,6 +23,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.util.ErrorReporter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -118,6 +119,13 @@ class RegisterFragment : Fragment() {
                     }
 
                     if (registered) {
+                        launch(Dispatchers.IO) {
+                            try {
+                                repository.syncFcmToken()
+                            } catch (e: Exception) {
+                                Log.w("RegisterFragment", "FCM token sync notice: ${e.message}")
+                            }
+                        }
                         Toast.makeText(context, "Welcome to Our Bloom, $name!", Toast.LENGTH_SHORT).show()
                         findNavController().navigate(R.id.action_registerFragment_to_setupCoupleFragment)
                     }

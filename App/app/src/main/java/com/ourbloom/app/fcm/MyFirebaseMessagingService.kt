@@ -38,6 +38,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         Log.d(TAG, "Refreshed token: $token")
         
+        try {
+            val prefs = getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("cached_fcm_token", token)
+                .putLong("fcm_token_cached_at", System.currentTimeMillis())
+                .apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed caching FCM token in prefs: ${e.message}")
+        }
+
         CoroutineScope(Dispatchers.IO).launch {
             val repository = FirestoreRepository()
             repository.updateFcmToken(token)

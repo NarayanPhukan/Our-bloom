@@ -59,8 +59,24 @@ async function broadcastAppUpdate(updateData) {
     }
   });
 
+  // Also collect tokens from MongoDB User records
+  try {
+    const User = require('../models/User');
+    const mUsers = await User.find({ fcmToken: { $exists: true, $ne: '' } });
+    mUsers.forEach(u => {
+      const token = u.fcmToken;
+      if (token && typeof token === 'string' && token.trim().length > 10) {
+        const trimmed = token.trim();
+        if (!tokenMap.has(trimmed)) {
+          tokenMap.set(trimmed, []);
+        }
+        tokenMap.get(trimmed).push(u._id.toString());
+      }
+    });
+  } catch (_) {}
+
   const uniqueTokens = Array.from(tokenMap.keys());
-  console.log(`✿ Found ${usersSnapshot.size} users, ${uniqueTokens.length} active device FCM token(s)`);
+  console.log(`✿ Found ${usersSnapshot.size} Firestore users, ${uniqueTokens.length} active device FCM token(s)`);
 
   if (uniqueTokens.length === 0) {
     console.log('✿ No FCM tokens registered. Skipping push broadcast.');

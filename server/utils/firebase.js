@@ -83,17 +83,25 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
   try {
     const isHeartbeat = data.type === 'heartbeat';
     const isChat = data.type === 'chat';
-    const isVideoCall = data.type === 'video_call';
+    const isVideoCall = data.type === 'video_call' || data.type === 'call' || data.type === 'audio_call';
+    const isSavings = data.type === 'savings' || data.type === 'vault';
     const channelId = isHeartbeat 
       ? 'ourbloom_heartbeat_channel' 
-      : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : 'ourbloom_fcm_channel'));
+      : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : (isSavings ? 'ourbloom_savings_channel' : 'ourbloom_fcm_channel')));
 
-    // Pure DATA-ONLY FCM payload (WhatsApp/Signal pattern):
-    // Prevents Google Play Services from showing duplicate tray notifications in background,
-    // and guarantees MyFirebaseMessagingService.onMessageReceived() executes on Android
-    // even when the screen is locked/backgrounded to instantly commit delivery receipts.
+    // For video calls, maintain pure data-only payload so MyFirebaseMessagingService can launch
+    // IncomingCallActivity with fullScreenIntent and high-priority ringing.
+    // For all other notifications (chat, heartbeat, note, savings, broadcast, update), include both
+    // `notification` and `data` blocks + high priority. This guarantees Google Play Services displays
+    // the heads-up notification on Android 12-15 even when the app process is terminated or in deep Doze.
     const message = {
       token: fcmToken,
+      ...(isVideoCall ? {} : {
+        notification: {
+          title: String(title),
+          body: String(body)
+        }
+      }),
       data: {
         title: String(title),
         body: String(body),
@@ -101,7 +109,16 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
         ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]))
       },
       android: {
-        priority: 'high'
+        priority: 'high',
+        ...(!isVideoCall ? {
+          notification: {
+            channelId: channelId,
+            priority: 'max',
+            sound: 'default',
+            defaultSound: true,
+            defaultVibrateTimings: true
+          }
+        } : {})
       }
     };
     

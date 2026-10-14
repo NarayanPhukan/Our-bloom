@@ -12,6 +12,7 @@ import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.LoveNote
 import com.ourbloom.app.data.models.Memory
 import com.ourbloom.app.data.models.Milestone
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -75,6 +76,15 @@ class DashboardViewModel : ViewModel() {
                 _error.value = "SESSION_EXPIRED"
                 _isLoading.value = false
                 return@launch
+            }
+
+            // Keep FCM registration token synchronized across Firestore and MongoDB
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    repository.syncFcmToken()
+                } catch (e: Exception) {
+                    Log.w("DashboardViewModel", "FCM token sync notice: ${e.message}")
+                }
             }
 
             var user = repository.getCurrentUser()

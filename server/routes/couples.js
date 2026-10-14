@@ -354,10 +354,23 @@ router.post('/:slug/heartbeat', authMiddleware, coupleMiddleware, async (req, re
     }
 
     // 2. Dispatch FCM push notification to partner
-    if (partner && partner.fcmToken) {
+    let token = partner?.fcmToken;
+    if (!token && partner) {
+      try {
+        const { getFirestore } = require('../utils/firebase');
+        const db = getFirestore();
+        if (db) {
+          const uDoc = await db.collection('users').doc(partner._id.toString()).get();
+          if (uDoc.exists && uDoc.data()?.fcmToken) {
+            token = uDoc.data().fcmToken;
+          }
+        }
+      } catch (_) {}
+    }
+    if (token) {
       const { sendPushNotification } = require('../utils/firebase');
       sendPushNotification(
-        partner.fcmToken,
+        token,
         `${senderName} sent you a Heartbeat ❤️`,
         'Thinking of you right now... tap to send one back!',
         {

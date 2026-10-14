@@ -347,12 +347,26 @@ class MainActivity : AppCompatActivity() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.w("MainActivity", "Fetching FCM registration token failed", task.exception)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val repository = FirestoreRepository()
+                    repository.syncFcmToken()
+                }
                 return@addOnCompleteListener
             }
             val token = task.result
-            CoroutineScope(Dispatchers.IO).launch {
-                val repository = FirestoreRepository()
-                repository.updateFcmToken(token)
+            if (!token.isNullOrBlank()) {
+                try {
+                    val prefs = getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putString("cached_fcm_token", token)
+                        .putLong("fcm_token_cached_at", System.currentTimeMillis())
+                        .apply()
+                } catch (_: Exception) {}
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    val repository = FirestoreRepository()
+                    repository.updateFcmToken(token)
+                }
             }
         }
     }

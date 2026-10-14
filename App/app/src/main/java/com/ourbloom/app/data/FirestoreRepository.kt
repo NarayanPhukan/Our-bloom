@@ -254,8 +254,18 @@ class FirestoreRepository {
     }
 
     suspend fun updateFcmToken(token: String) {
+        if (token.isBlank()) return
         val fbUser = auth.currentUser ?: return
         try {
+            // 0. Cache in SharedPreferences
+            try {
+                val prefs = OurBloomApp.instance.getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putString("cached_fcm_token", token)
+                    .putLong("fcm_token_cached_at", System.currentTimeMillis())
+                    .apply()
+            } catch (_: Exception) {}
+
             // 1. Primary write to users/{uid}
             db.collection("users").document(fbUser.uid).set(
                 mapOf(
@@ -286,8 +296,58 @@ class FirestoreRepository {
                     }
                 }
             }
+
+            // 3. Dual-sync to backend API so MongoDB stays synchronized
+            withContext(Dispatchers.IO) {
+                try {
+                    val idToken = fbUser.getIdToken(false).await().token
+                    if (!idToken.isNullOrBlank()) {
+                        val json = JSONObject().apply {
+                            put("fcmToken", token)
+                        }
+                        val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                        val req = Request.Builder()
+                            .url("$baseUrl/api/auth/me/fcm-token")
+                            .addHeader("Authorization", "Bearer $idToken")
+                            .put(body)
+                            .build()
+                        client.newCall(req).execute().close()
+                        Log.d("FirestoreRepo", "Synced FCM token to backend MongoDB successfully")
+                    }
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Backend sync for FCM token warning: ${e.message}")
+                }
+            }
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error updating FCM token", e)
+        }
+    }
+
+    suspend fun syncFcmToken() {
+        val fbUser = auth.currentUser ?: return
+        try {
+            val prefs = OurBloomApp.instance.getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+            var token = prefs.getString("cached_fcm_token", null)
+
+            val cachedAt = prefs.getLong("fcm_token_cached_at", 0L)
+            val isStale = (System.currentTimeMillis() - cachedAt) > (24 * 60 * 60 * 1000L)
+
+            if (token.isNullOrBlank() || isStale) {
+                try {
+                    val freshToken = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+                    if (!freshToken.isNullOrBlank()) {
+                        token = freshToken
+                    }
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Failed fetching fresh FCM token: ${e.message}")
+                }
+            }
+
+            if (!token.isNullOrBlank()) {
+                updateFcmToken(token)
+            }
+        } catch (e: Exception) {
+            Log.w("FirestoreRepo", "syncFcmToken error: ${e.message}")
         }
     }
 
@@ -672,7 +732,7 @@ class FirestoreRepository {
     // Add a new love note
     suspend fun createLoveNote(note: com.ourbloom.app.data.models.LoveNote): Boolean {
         return try {
-            db.collection("loveNotes").add(note).await()
+            val docRef = db.collection("loveNotes").add(note).await()
             if (note.coupleId.isNotBlank()) {
                 val story = com.ourbloom.app.data.models.StoryEntry(
                     coupleId = note.coupleId,
@@ -686,6 +746,41 @@ class FirestoreRepository {
                     createdAt = System.currentTimeMillis()
                 )
                 saveToStory(story)
+
+                // Dispatch direct high-priority FCM push to partner
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val uid = auth.currentUser?.uid ?: ""
+                        val partnerToken = getPartnerFcmToken(note.coupleId, uid)
+                        if (!partnerToken.isNullOrBlank()) {
+                            val pushTitle = "${note.author} left you a Love Note 💌"
+                            val pushBody = if (note.isScratchSecret) {
+                                "Tap to scratch and reveal a secret love note! ✨"
+                            } else if (note.content.isNotBlank()) {
+                                note.content
+                            } else if (note.audioUrl.isNotBlank()) {
+                                "🎙️ Voice Love Letter"
+                            } else {
+                                "Your partner left you a sweet love note."
+                            }
+                            DirectFcmSender.sendPush(
+                                context = OurBloomApp.instance,
+                                token = partnerToken,
+                                title = pushTitle,
+                                body = pushBody,
+                                data = mapOf(
+                                    "type" to "daily_note",
+                                    "action" to "open_love_notes",
+                                    "coupleId" to note.coupleId,
+                                    "noteId" to docRef.id,
+                                    "author" to note.author
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e("FirestoreRepo", "Error dispatching push for love note: ${e.message}")
+                    }
+                }
             }
             true
         } catch (e: Exception) {

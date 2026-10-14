@@ -149,9 +149,22 @@ router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio',
         const partnerId = couple.user1.toString() === req.user.userId.toString() ? couple.user2 : couple.user1;
         if (partnerId) {
           const partner = await User.findById(partnerId);
-          if (partner && partner.fcmToken) {
+          let token = partner?.fcmToken;
+          if (!token) {
+            try {
+              const { getFirestore } = require('../utils/firebase');
+              const db = getFirestore();
+              if (db) {
+                const uDoc = await db.collection('users').doc(partnerId.toString()).get();
+                if (uDoc.exists && uDoc.data()?.fcmToken) {
+                  token = uDoc.data().fcmToken;
+                }
+              }
+            } catch (_) {}
+          }
+          if (token) {
             await sendPushNotification(
-              partner.fcmToken,
+              token,
               "New Love Note 💌",
               `Your partner just dropped a love note for you!`,
               { type: 'note', id: savedNote._id.toString() }

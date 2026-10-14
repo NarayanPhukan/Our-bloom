@@ -15,6 +15,10 @@ class AppUpdateWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            try {
+                com.ourbloom.app.data.FirestoreRepository().syncFcmToken()
+            } catch (_: Exception) {}
+
             val client = OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)

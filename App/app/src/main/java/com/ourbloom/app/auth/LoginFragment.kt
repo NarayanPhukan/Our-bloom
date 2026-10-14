@@ -23,6 +23,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.util.ErrorReporter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -43,6 +44,15 @@ class LoginFragment : Fragment() {
     private fun checkCoupleAndNavigate() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
+                // Ensure FCM token is immediately registered and synced to both Firestore and MongoDB
+                launch(Dispatchers.IO) {
+                    try {
+                        repository.syncFcmToken()
+                    } catch (e: Exception) {
+                        Log.w("LoginFragment", "FCM token sync notice: ${e.message}")
+                    }
+                }
+
                 val user = repository.getCurrentUser()
                 if (user?.coupleId.isNullOrEmpty()) {
                     findNavController().navigate(R.id.action_loginFragment_to_setupCoupleFragment)
