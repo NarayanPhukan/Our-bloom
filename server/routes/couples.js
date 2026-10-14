@@ -334,7 +334,24 @@ router.post('/:slug/heartbeat', authMiddleware, coupleMiddleware, async (req, re
       partner = await User.findById(partnerId);
     }
 
-    const senderName = (partner && partner.nicknameForPartner) ? partner.nicknameForPartner : (sender ? sender.name : 'Your love');
+    let senderName = (partner && partner.nicknameForPartner) ? partner.nicknameForPartner : null;
+    if (!senderName && partnerId) {
+      try {
+        const { getFirestore } = require('../utils/firebase');
+        const db = getFirestore();
+        if (db) {
+          const pDoc = await db.collection('users').doc(partnerId.toString()).get();
+          if (pDoc.exists && pDoc.data()?.nicknameForPartner) {
+            senderName = pDoc.data().nicknameForPartner;
+          }
+        }
+      } catch (e) {
+        console.warn('couples.js: Error fetching partner nickname from Firestore:', e);
+      }
+    }
+    if (!senderName) {
+      senderName = sender ? sender.name : 'Your love';
+    }
     const timestamp = Date.now();
 
     // 1. Broadcast via Socket.io to the couple room

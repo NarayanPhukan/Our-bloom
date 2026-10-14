@@ -67,6 +67,12 @@ class ChatAdapter(
             notifyDataSetChanged()
         }
 
+    var partnerDisplayName: String = "My Love"
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+
     var selectedMessageId: String? = null
         private set
 
@@ -872,7 +878,7 @@ class ChatAdapter(
             if (message.isReply) {
                 layoutQuote?.visibility = View.VISIBLE
                 val isSenderYou = message.replyToSenderName.isNullOrBlank() || message.replyToSenderName == "You"
-                val senderLabel = if (isSenderYou) "You" else message.replyToSenderName ?: "Partner"
+                val senderLabel = if (isSenderYou) "You" else partnerDisplayName.ifBlank { message.replyToSenderName ?: "Partner" }
                 tvQuoteSender?.text = senderLabel
                 tvQuoteText?.text = message.replyToText ?: ""
 
@@ -1077,7 +1083,7 @@ class ChatAdapter(
                 tvSender.visibility = View.GONE
             } else {
                 tvSender.visibility = View.VISIBLE
-                tvSender.text = message.senderName.ifBlank { "My Love" }
+                tvSender.text = partnerDisplayName.ifBlank { message.senderName.ifBlank { "My Love" } }
             }
 
             val longClickListener = View.OnLongClickListener {
@@ -1109,7 +1115,7 @@ class ChatAdapter(
             if (message.isReply) {
                 layoutQuote?.visibility = View.VISIBLE
                 val isSenderYou = message.replyToSenderName == "You"
-                val senderLabel = if (isSenderYou) "You" else message.replyToSenderName ?: "Partner"
+                val senderLabel = if (isSenderYou) "You" else partnerDisplayName.ifBlank { message.replyToSenderName ?: "Partner" }
                 tvQuoteSender?.text = senderLabel
                 tvQuoteText?.text = message.replyToText ?: ""
 

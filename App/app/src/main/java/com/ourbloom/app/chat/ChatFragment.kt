@@ -342,7 +342,7 @@ class ChatFragment : Fragment() {
             else "Message"
         }
         val replySenderName = replyingToMessage?.let {
-            if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
+            if (it.senderId == currentUid) "You" else getPartnerDisplayName()
         }
         val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
@@ -506,13 +506,19 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun getPartnerDisplayName(): String {
+        return tvPartnerName?.text?.toString()?.takeIf { it.isNotBlank() }
+            ?: partnerUser?.name?.takeIf { it.isNotBlank() }
+            ?: "My Love"
+    }
+
     private fun launchCall(isAudioOnly: Boolean) {
         val coupleId = currentCouple?.id ?: run {
             Toast.makeText(requireContext(), "Couple connection not loaded yet", Toast.LENGTH_SHORT).show()
             return
         }
         val pUser = partnerUser
-        val partnerName = tvPartnerName?.text?.toString()?.takeIf { it.isNotBlank() } ?: pUser?.name ?: "My Love"
+        val partnerName = getPartnerDisplayName()
         val partnerAvatar = pUser?.avatarUrl ?: ""
         val partnerId = pUser?.uid ?: (if (currentCouple?.user1 == FirebaseAuth.getInstance().currentUser?.uid) currentCouple?.user2 else currentCouple?.user1) ?: ""
 
@@ -650,7 +656,7 @@ class ChatFragment : Fragment() {
             val url = message.imageUrl
             if (!url.isNullOrBlank()) {
                 val timeStr = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(message.timestamp))
-                val senderLabel = if (message.senderId == currentUid) "You" else message.senderName.ifBlank { "My Love" }
+                val senderLabel = if (message.senderId == currentUid) "You" else getPartnerDisplayName()
                 showChatImageLightbox(url, senderLabel, timeStr)
             }
         }
@@ -660,7 +666,7 @@ class ChatFragment : Fragment() {
             val initialMsg = albumMessages.getOrNull(clickedIndex) ?: albumMessages.firstOrNull()
             if (urls.isNotEmpty() && initialMsg != null) {
                 val timeStr = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(initialMsg.timestamp))
-                val senderLabel = if (initialMsg.senderId == currentUid) "You" else initialMsg.senderName.ifBlank { "My Love" }
+                val senderLabel = if (initialMsg.senderId == currentUid) "You" else getPartnerDisplayName()
                 showChatAlbumLightbox(urls, clickedIndex.coerceIn(0, urls.size - 1), senderLabel, timeStr)
             }
         }
@@ -1216,6 +1222,11 @@ class ChatFragment : Fragment() {
                         ?: partnerUser?.name?.takeIf { it.isNotBlank() }
                         ?: "My Love"
                     tvPartnerName.text = partnerDisplayName
+                    chatAdapter.partnerDisplayName = partnerDisplayName
+                    context?.getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+                        ?.edit()
+                        ?.putString("partner_nickname", partnerDisplayName)
+                        ?.apply()
                     etInput.hint = "Type a message"
 
                     // What the partner calls me
@@ -1661,7 +1672,7 @@ class ChatFragment : Fragment() {
 
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         val isSenderYou = message.senderId == currentUid
-        val senderLabel = if (isSenderYou) "You" else message.senderName.ifBlank { "My Love" }
+        val senderLabel = if (isSenderYou) "You" else getPartnerDisplayName()
         tvReplyPreviewName.text = "Replying to $senderLabel"
 
         // Dynamic WhatsApp accent colors:
@@ -1745,7 +1756,7 @@ class ChatFragment : Fragment() {
                 else "Message"
             }
             val replySenderName = replyingToMessage?.let {
-                if (it.senderId == uid) "You" else it.senderName.ifBlank { "My Love" }
+                if (it.senderId == uid) "You" else getPartnerDisplayName()
             }
             val replyImageUrl = replyingToMessage?.imageUrl
             clearReplyMode()
@@ -1808,7 +1819,7 @@ class ChatFragment : Fragment() {
             else "Message"
         }
         val replySenderName = replyingToMessage?.let {
-            if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
+            if (it.senderId == currentUid) "You" else getPartnerDisplayName()
         }
         val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()
@@ -1852,7 +1863,7 @@ class ChatFragment : Fragment() {
             return
         }
 
-        val senderName = currentUser?.name?.ifBlank { "Me" } ?: "Me"
+        val senderName = mySenderName.ifBlank { currentUser?.name?.ifBlank { "Me" } ?: "Me" }
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -1891,7 +1902,7 @@ class ChatFragment : Fragment() {
             else "Message"
         }
         val replySenderName = replyingToMessage?.let {
-            if (it.senderId == currentUid) "You" else it.senderName.ifBlank { "My Love" }
+            if (it.senderId == currentUid) "You" else getPartnerDisplayName()
         }
         val replyImageUrl = replyingToMessage?.imageUrl
         clearReplyMode()

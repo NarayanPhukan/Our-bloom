@@ -197,7 +197,12 @@ class VideoCallActivity : AppCompatActivity() {
         setContentView(R.layout.activity_video_call)
 
         coupleId = intent.getStringExtra(EXTRA_COUPLE_ID) ?: ""
-        partnerName = intent.getStringExtra(EXTRA_PARTNER_NAME) ?: "My Love"
+        val cachedNick = getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+            .getString("partner_nickname", null)?.takeIf { it.isNotBlank() }
+        partnerName = cachedNick
+            ?: intent.getStringExtra(EXTRA_PARTNER_NAME)?.takeIf { it.isNotBlank() && it != "Your Partner" }
+            ?: intent.getStringExtra(EXTRA_PARTNER_NAME)
+            ?: "My Love"
         partnerAvatar = intent.getStringExtra(EXTRA_PARTNER_AVATAR) ?: ""
         partnerId = intent.getStringExtra(EXTRA_PARTNER_ID) ?: ""
         isCaller = intent.getBooleanExtra(EXTRA_IS_CALLER, true)

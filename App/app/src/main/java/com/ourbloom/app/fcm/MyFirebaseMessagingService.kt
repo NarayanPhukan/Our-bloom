@@ -126,14 +126,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
+        val cachedPartnerNick = getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+            .getString("partner_nickname", null)?.takeIf { it.isNotBlank() }
+
         val title = if (isHeartbeat) {
-            val sender = remoteMessage.data["senderName"] ?: "Your Love"
+            val sender = cachedPartnerNick ?: remoteMessage.data["senderName"] ?: "Your Love"
             "$sender sent you a Heartbeat ❤️"
         } else if (isVideoCall) {
-            remoteMessage.data["callerName"] ?: "Your Love"
+            cachedPartnerNick ?: remoteMessage.data["callerName"] ?: "Your Love"
         } else if (isChat) {
             // WhatsApp style: Partner's name is the title
-            remoteMessage.data["senderName"] ?: remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Your Love"
+            cachedPartnerNick ?: remoteMessage.data["senderName"] ?: remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Your Love"
         } else if (isDailyNote) {
             remoteMessage.data["title"] ?: remoteMessage.notification?.title ?: "Daily Love Note Has Bloomed 🌸"
         } else if (isSavings) {

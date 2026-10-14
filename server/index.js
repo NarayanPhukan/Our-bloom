@@ -129,7 +129,30 @@ const notifyPartner = async (coupleId, authorUid, title, body, data = {}) => {
       const { user1, user2 } = coupleDoc.data();
       const partner = authorUid === user1 ? user2 : (authorUid === user2 ? user1 : user2);
       if (partner) {
-        await sendPushNotification(partner, title, body, data);
+        let finalTitle = title;
+        let finalBody = body;
+        try {
+          const recipientDoc = await db.collection('users').doc(partner).get();
+          if (recipientDoc.exists) {
+            const nick = recipientDoc.data()?.nicknameForPartner;
+            if (nick && typeof nick === 'string' && nick.trim().length > 0) {
+              const cleanNick = nick.trim();
+              if (data.type === 'heartbeat') {
+                finalTitle = `${cleanNick} sent you a Heartbeat ❤️`;
+                data.senderName = cleanNick;
+              } else if (data.type === 'chat') {
+                finalTitle = cleanNick;
+                data.senderName = cleanNick;
+              } else if (data.type === 'note') {
+                finalBody = `${cleanNick} left you a sweet note.`;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Error fetching recipient nickname for push notification:', e);
+        }
+
+        await sendPushNotification(partner, finalTitle, finalBody, data);
         return true;
       }
     }

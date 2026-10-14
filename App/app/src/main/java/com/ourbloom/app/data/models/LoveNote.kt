@@ -9,6 +9,7 @@ data class LoveNote(
     val coupleId: String = "",
     val content: String = "",
     val author: String = "",
+    val authorId: String = "",
     val isDailyAi: Boolean = false,
     val dateStr: String = "",
     val imageUrl: String = "",

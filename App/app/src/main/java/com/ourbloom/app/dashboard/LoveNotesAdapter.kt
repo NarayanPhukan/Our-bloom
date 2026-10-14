@@ -39,6 +39,22 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
 
     var onNoteRevealed: ((LoveNote) -> Unit)? = null
     var onNoteLongClick: ((LoveNote) -> Unit)? = null
+    var partnerDisplayName: String = "My Love"
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+    var currentUserName: String = ""
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+    var currentUserId: String = ""
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+
     private var mediaPlayer: android.media.MediaPlayer? = null
     private var currentPlayingNoteId: String? = null
     private var currentPlayingButton: android.widget.ImageButton? = null
@@ -52,7 +68,14 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         if (holder is ImageNoteViewHolder) {
             holder.bind(note, onAudioClick = { btn -> toggleAudioPlayback(note, btn) }, onRevealed = { onNoteRevealed?.invoke(note) })
         } else if (holder is TextNoteViewHolder) {
-            holder.bind(note, onAudioClick = { btn -> toggleAudioPlayback(note, btn) }, onRevealed = { onNoteRevealed?.invoke(note) })
+            holder.bind(
+                note = note,
+                partnerDisplayName = partnerDisplayName,
+                currentUserName = currentUserName,
+                currentUserId = currentUserId,
+                onAudioClick = { btn -> toggleAudioPlayback(note, btn) },
+                onRevealed = { onNoteRevealed?.invoke(note) }
+            )
         }
     }
 
@@ -118,13 +141,32 @@ class LoveNotesAdapter : ListAdapter<LoveNote, RecyclerView.ViewHolder>(LoveNote
         private val tvAudioDuration: TextView? = itemView.findViewById(R.id.tv_audio_duration)
         private val viewScratchOverlay: com.ourbloom.app.ui.ScratchCardView? = itemView.findViewById(R.id.view_scratch_overlay)
 
-        fun bind(note: LoveNote, onAudioClick: (android.widget.ImageButton) -> Unit, onRevealed: () -> Unit) {
+        fun bind(
+            note: LoveNote,
+            partnerDisplayName: String,
+            currentUserName: String,
+            currentUserId: String,
+            onAudioClick: (android.widget.ImageButton) -> Unit,
+            onRevealed: () -> Unit
+        ) {
             tvDate.text = formatDate(note.createdAt ?: note.dateStr)
             
             // Basic HTML strip since content might contain basic HTML from ReactQuill
             val cleanContent = note.content.replace(Regex("<.*?>"), "").replace("&nbsp;", " ")
             tvContent.text = cleanContent
-            tvAuthor.text = "— ${note.author}"
+
+            val isWrittenByMe = (note.authorId.isNotBlank() && currentUserId.isNotBlank() && note.authorId == currentUserId) ||
+                (currentUserName.isNotBlank() && note.author.isNotBlank() && note.author.equals(currentUserName, ignoreCase = true)) ||
+                note.author.equals("You", ignoreCase = true)
+
+            val displayAuthor = when {
+                isWrittenByMe -> "Written by You"
+                note.isDailyAi -> "Daily Ritual"
+                partnerDisplayName.isNotBlank() -> partnerDisplayName
+                note.author.isNotBlank() -> note.author
+                else -> "My Love"
+            }
+            tvAuthor.text = "— $displayAuthor"
 
             if (!note.audioUrl.isNullOrBlank()) {
                 layoutAudio?.visibility = View.VISIBLE

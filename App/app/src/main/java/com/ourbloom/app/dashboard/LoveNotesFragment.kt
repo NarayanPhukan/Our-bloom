@@ -63,6 +63,15 @@ class LoveNotesFragment : Fragment() {
             adapter.submitList(notes)
         }
 
+        viewModel.partnerDisplayName.observe(viewLifecycleOwner) { nick ->
+            adapter.partnerDisplayName = nick
+        }
+
+        viewModel.currentUser.observe(viewLifecycleOwner) { user ->
+            adapter.currentUserName = user?.name ?: ""
+            adapter.currentUserId = user?.uid ?: ""
+        }
+
         viewModel.error.observe(viewLifecycleOwner) { errorMsg ->
             if (errorMsg != null) {
                 Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_SHORT).show()

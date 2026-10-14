@@ -178,7 +178,9 @@ class TruthOrDareFragment : Fragment() {
                     partnerId = if (couple?.user1 == currentUserId) couple?.user2 ?: "" else couple?.user1 ?: ""
                     if (partnerId.isNotBlank()) {
                         val pUser = repository.getUser(partnerId)
-                        partnerName = pUser?.name?.ifBlank { "Sweetheart" } ?: "Sweetheart"
+                        partnerName = user.nicknameForPartner?.takeIf { it.isNotBlank() }
+                            ?: pUser?.name?.ifBlank { "Sweetheart" }
+                            ?: "Sweetheart"
                     }
                     isOnlineMode = true
                     tvTodOnlineBadge.text = "● Online & Synced with $partnerName 🌐"

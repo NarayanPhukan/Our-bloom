@@ -273,14 +273,22 @@ class DashboardFragment : Fragment() {
             if (note != null && note.content.isNotBlank()) {
                 tvDailyNoteText.text = "\"${note.content}\""
                 val partnerDisplayName = getPartnerDisplayName()
-                val authorName = if (note.isDailyAi || note.author.contains("Kuchupuchu", ignoreCase = true) || note.author.isBlank()) {
-                    partnerDisplayName
-                } else {
-                    note.author
+                val currentUserName = viewModel.currentUser.value?.name ?: ""
+                val currentUid = viewModel.currentUser.value?.uid ?: ""
+
+                val isWrittenByMe = (note.authorId.isNotBlank() && currentUid.isNotBlank() && note.authorId == currentUid) ||
+                    (note.author.isNotBlank() && currentUserName.isNotBlank() && note.author.equals(currentUserName, ignoreCase = true)) ||
+                    note.author.equals("You", ignoreCase = true)
+
+                val authorLabel = when {
+                    isWrittenByMe -> "— Written by You"
+                    note.isDailyAi -> "— Today's Ritual"
+                    else -> "— From $partnerDisplayName"
                 }
-                tvDailyNoteAuthor.text = "— From $authorName"
+                tvDailyNoteAuthor.text = authorLabel
                 context?.let { ctx ->
-                    com.ourbloom.app.widget.LoveNoteWidgetProvider.saveWidgetData(ctx, note.content, authorName)
+                    val widgetAuthor = if (isWrittenByMe) "You" else partnerDisplayName
+                    com.ourbloom.app.widget.LoveNoteWidgetProvider.saveWidgetData(ctx, note.content, widgetAuthor)
                 }
             } else {
                 tvDailyNoteText.text = "What is one small thing your partner did this week that made you smile? 🌸"
@@ -379,8 +387,14 @@ class DashboardFragment : Fragment() {
         }
 
         viewModel.currentUser.observe(viewLifecycleOwner) { user ->
+            user?.nicknameForPartner?.takeIf { it.isNotBlank() }?.let { nick ->
+                context?.getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putString("partner_nickname", nick)
+                    ?.apply()
+            }
             val tvSpecialNoteAuthor = view.findViewById<TextView>(R.id.tv_special_note_author)
-            val nickname = user?.nicknameForPartner?.takeIf { it.isNotBlank() } ?: "Your Love"
+            val nickname = getPartnerDisplayName()
             tvSpecialNoteAuthor?.text = "— Forever Yours, $nickname"
 
             val ivDashboardAvatar = view.findViewById<ImageView>(R.id.iv_dashboard_avatar)
@@ -785,6 +799,10 @@ class DashboardFragment : Fragment() {
         btnSaveNickname.setOnClickListener {
             val newNick = etPartnerNickname.text.toString().trim()
             viewModel.updateNicknameForPartner(newNick)
+            context?.getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+                ?.edit()
+                ?.putString("partner_nickname", newNick)
+                ?.apply()
             if (newNick.isNotEmpty()) {
                 Toast.makeText(requireContext(), "Nickname saved as $newNick! ❤️", Toast.LENGTH_SHORT).show()
             } else {

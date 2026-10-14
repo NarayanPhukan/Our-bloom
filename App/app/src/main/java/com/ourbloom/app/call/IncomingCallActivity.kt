@@ -95,7 +95,9 @@ class IncomingCallActivity : AppCompatActivity() {
 
         // Extract intent extras
         coupleId = intent.getStringExtra(EXTRA_COUPLE_ID) ?: ""
-        callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "My Love"
+        val cachedNick = getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+            .getString("partner_nickname", null)?.takeIf { it.isNotBlank() }
+        callerName = cachedNick ?: intent.getStringExtra(EXTRA_CALLER_NAME) ?: "My Love"
         callerAvatar = intent.getStringExtra(EXTRA_CALLER_AVATAR) ?: ""
         callerId = intent.getStringExtra(EXTRA_CALLER_ID) ?: ""
         offerSdp = intent.getStringExtra(EXTRA_OFFER_SDP)

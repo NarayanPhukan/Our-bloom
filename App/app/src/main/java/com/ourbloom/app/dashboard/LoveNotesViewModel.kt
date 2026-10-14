@@ -20,6 +20,12 @@ class LoveNotesViewModel : ViewModel() {
     private val _notes = MutableLiveData<List<LoveNote>>()
     val notes: LiveData<List<LoveNote>> = _notes
 
+    private val _currentUser = MutableLiveData<com.ourbloom.app.data.models.User?>()
+    val currentUser: LiveData<com.ourbloom.app.data.models.User?> = _currentUser
+
+    private val _partnerDisplayName = MutableLiveData<String>("My Love")
+    val partnerDisplayName: LiveData<String> = _partnerDisplayName
+
     private val _isLoading = MutableLiveData<Boolean>(false)
     val isLoading: LiveData<Boolean> = _isLoading
 
@@ -32,8 +38,28 @@ class LoveNotesViewModel : ViewModel() {
             _error.value = null
             try {
                 val user = repository.getCurrentUser()
+                _currentUser.value = user
                 if (user != null && !user.coupleId.isNullOrEmpty()) {
-                    val coupleNotes = repository.getAllLoveNotes(user.coupleId ?: "")
+                    val cId = user.coupleId ?: ""
+                    try {
+                        val couple = repository.getCouple(cId)
+                        var partnerName: String? = null
+                        if (couple != null) {
+                            val partnerId = if (couple.user1 == user.uid) couple.user2 else couple.user1
+                            if (partnerId.isNotBlank()) {
+                                val partner = repository.getUser(partnerId)
+                                partnerName = partner?.name
+                            }
+                        }
+                        val nick = user.nicknameForPartner?.takeIf { it.isNotBlank() }
+                            ?: partnerName?.takeIf { it.isNotBlank() }
+                            ?: "My Love"
+                        _partnerDisplayName.value = nick
+                    } catch (e: Exception) {
+                        // Keep fallback
+                    }
+
+                    val coupleNotes = repository.getAllLoveNotes(cId)
                     _notes.value = coupleNotes
                 } else {
                     _error.value = "Couple info not found."
@@ -94,6 +120,7 @@ class LoveNotesViewModel : ViewModel() {
                         coupleId = user.coupleId ?: "",
                         content = content.ifBlank { if (uploadedAudioUrl.isNotBlank()) "🎙️ Voice Love Letter" else "A sweet love note" },
                         author = user.name?.ifEmpty { "With love" } ?: "With love",
+                        authorId = user.uid,
                         isDailyAi = false,
                         dateStr = isoString,
                         imageUrl = uploadedImageUrl,

@@ -60,6 +60,12 @@ class ThumbKissActivity : AppCompatActivity() {
     private var wasLocalTouching = false
     private var lastWriteTime = 0L
 
+    private fun getPartnerDisplayName(): String {
+        val cached = getSharedPreferences("ourbloom_fcm_prefs", Context.MODE_PRIVATE)
+            .getString("partner_nickname", null)?.takeIf { it.isNotBlank() }
+        return cached ?: partnerUser?.name?.takeIf { it.isNotBlank() } ?: "Your Love"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -140,7 +146,7 @@ class ThumbKissActivity : AppCompatActivity() {
                     tvPartnerStatus.text = "Partner is touching the screen! Place your thumb to connect 💓"
                     tvConnectionStatus.text = "Partner Active"
                 } else {
-                    val partnerName = partnerUser?.name?.ifBlank { "partner" } ?: "partner"
+                    val partnerName = getPartnerDisplayName()
                     tvPartnerStatus.text = "Waiting for $partnerName to touch..."
                     tvConnectionStatus.text = "Synchronous Touch Active"
                 }
@@ -180,7 +186,7 @@ class ThumbKissActivity : AppCompatActivity() {
                 partnerUid = if (couple.user1 == myUid) couple.user2 else couple.user1
                 if (partnerUid.isNotBlank()) {
                     partnerUser = repository.getUser(partnerUid)
-                    val partnerName = partnerUser?.name?.ifBlank { "Your Love" } ?: "Your Love"
+                    val partnerName = getPartnerDisplayName()
                     val avatarUrl = partnerUser?.avatarUrl ?: ""
 
                     if (avatarUrl.isNotBlank()) {
@@ -204,7 +210,7 @@ class ThumbKissActivity : AppCompatActivity() {
         connectionTimeoutJob = lifecycleScope.launch {
             delay(30000L) // 30-second gentle timeout
             if (!isFinishing && !isDestroyed && !touchCanvas.isPartnerTouching) {
-                val partnerName = partnerUser?.name?.ifBlank { "Your partner" } ?: "Your partner"
+                val partnerName = getPartnerDisplayName()
                 tvPartnerStatus.text = "$partnerName might be away right now 🌸"
                 tvConnectionStatus.text = "Partner Away • Tap Nudge below 💌"
                 btnNudgePartner.animate()
@@ -252,7 +258,7 @@ class ThumbKissActivity : AppCompatActivity() {
                 if (!wasPartnerTouching) {
                     triggerHapticPulse(50)
                 }
-                val partnerName = partnerUser?.name ?: "Partner"
+                val partnerName = getPartnerDisplayName()
                 if (!touchCanvas.isLocalTouching) {
                     tvPartnerStatus.text = "$partnerName is touching the screen! 💓"
                 }
@@ -397,7 +403,10 @@ class ThumbKissActivity : AppCompatActivity() {
     private fun sendNudge() {
         btnNudgePartner.isEnabled = false
         lifecycleScope.launch {
-            val senderName = repository.getCurrentUser()?.name ?: "Your Love"
+            val myUser = repository.getCurrentUser()
+            val senderName = partnerUser?.nicknameForPartner?.takeIf { it.isNotBlank() }
+                ?: myUser?.name?.takeIf { it.isNotBlank() }
+                ?: "Your Love"
             val success = repository.sendHeartbeat(coupleId, "$senderName wants to ThumbKiss 💓", null)
             if (success) {
                 Toast.makeText(this@ThumbKissActivity, "Nudged your partner! 💌", Toast.LENGTH_SHORT).show()
