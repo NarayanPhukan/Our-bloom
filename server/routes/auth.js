@@ -198,6 +198,19 @@ router.put('/me/nickname', authMiddleware, async (req, res) => {
     user.nicknameForPartner = nicknameForPartner || '';
     await user.save();
 
+    // Dual-sync to Firestore users collection
+    try {
+      const db = getFirestore();
+      if (db) {
+        await db.collection('users').doc(user._id.toString()).set({
+          nicknameForPartner: user.nicknameForPartner,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (fbErr) {
+      console.warn('Firestore sync error on nickname update:', fbErr.message);
+    }
+
     res.json(user.toJSON());
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -213,8 +226,22 @@ router.put('/me/fcm-token', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    user.fcmToken = fcmToken || null;
+    user.fcmToken = fcmToken || '';
     await user.save();
+
+    // Dual-sync to Firestore users collection
+    try {
+      const db = getFirestore();
+      if (db) {
+        await db.collection('users').doc(user._id.toString()).set({
+          fcmToken: user.fcmToken,
+          fcmUpdatedAt: Date.now(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (fbErr) {
+      console.warn('Firestore sync error on fcm token update:', fbErr.message);
+    }
 
     res.json({ success: true });
   } catch (err) {

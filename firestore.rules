@@ -62,9 +62,9 @@ service cloud.firestore {
       
       allow update: if isUser(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name', 'avatarUrl', 'nicknameForPartner', 'fcmToken', 'connectedGoogleEmail', 'updatedAt'
+          'name', 'avatarUrl', 'nicknameForPartner', 'fcmToken', 'fcmUpdatedAt', 'coupleId', 'connectedGoogleEmail', 'updatedAt'
         ])
-        && request.resource.data.uid == resource.data.uid;
+        && (resource.data.uid == null || request.resource.data.uid == resource.data.uid);
         
       allow delete: if isUser(userId);
     }
@@ -128,16 +128,7 @@ service cloud.firestore {
       // 4. Live Presence & Touch Sync (Ephemeral coordinates / status)
       match /live/{docId} {
         allow read: if isParentCoupleMember(coupleId);
-        allow create: if isParentCoupleMember(coupleId)
-          && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.coupleId == coupleId;
-        allow update: if isParentCoupleMember(coupleId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'activeState', 'lastPing', 'participantUids', 'updatedAt'
-          ])
-          && request.resource.data.createdBy == resource.data.createdBy
-          && request.resource.data.coupleId == resource.data.coupleId
-          && request.resource.data.sessionId == resource.data.sessionId;
+        allow create, update: if isParentCoupleMember(coupleId);
         allow delete: if isParentCoupleMember(coupleId);
       }
 

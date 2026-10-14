@@ -206,6 +206,15 @@
                     app:cornerRadius="16dp" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/tv_partner_nickname_for_me"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/sheet_card_subtitle"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

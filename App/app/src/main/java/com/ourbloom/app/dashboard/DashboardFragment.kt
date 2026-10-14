@@ -523,7 +523,7 @@ class DashboardFragment : Fragment() {
         val months = viewModel.getMonthsTogether()
         val partnerDisplayName = getPartnerDisplayName()
         val myDisplayName = getMyDisplayNameForPartner()
-        val myName = viewModel.currentUser.value?.name?.takeIf { it.isNotBlank() } ?: myDisplayName
+        val myName = myDisplayName.takeIf { it.isNotBlank() } ?: viewModel.currentUser.value?.name?.takeIf { it.isNotBlank() } ?: "Me"
 
         val tvHeaderTitle = view?.findViewById<TextView>(R.id.tv_header_title)
         tvHeaderTitle?.text = "Happy $months Months,\nmy beautiful $partnerDisplayName."
@@ -697,6 +697,11 @@ class DashboardFragment : Fragment() {
             .setPositiveButton("Save") { _, _ ->
                 val newNick = input.text.toString().trim()
                 viewModel.updateNicknameForPartner(newNick)
+                if (newNick.isNotEmpty()) {
+                    Toast.makeText(requireContext(), "Nickname saved as $newNick! ❤️", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Nickname cleared! ❤️", Toast.LENGTH_SHORT).show()
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -767,13 +772,25 @@ class DashboardFragment : Fragment() {
         btnAvatarFrame.setOnClickListener { launchPicker() }
         btnChangeAvatar.setOnClickListener { launchPicker() }
 
+        val tvPartnerNickForMe = sheetView.findViewById<TextView>(R.id.tv_partner_nickname_for_me)
+        val partnerNick = viewModel.partnerUser.value?.nicknameForPartner?.takeIf { it.isNotBlank() }
+        val partnerName = viewModel.partnerUser.value?.name?.takeIf { it.isNotBlank() } ?: "Your partner"
+        if (!partnerNick.isNullOrBlank()) {
+            tvPartnerNickForMe?.text = "💕 $partnerName calls you: $partnerNick"
+            tvPartnerNickForMe?.visibility = View.VISIBLE
+        } else {
+            tvPartnerNickForMe?.visibility = View.GONE
+        }
+
         btnSaveNickname.setOnClickListener {
             val newNick = etPartnerNickname.text.toString().trim()
+            viewModel.updateNicknameForPartner(newNick)
             if (newNick.isNotEmpty()) {
-                viewModel.updateNicknameForPartner(newNick)
                 Toast.makeText(requireContext(), "Nickname saved as $newNick! ❤️", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
+            } else {
+                Toast.makeText(requireContext(), "Nickname cleared! ❤️", Toast.LENGTH_SHORT).show()
             }
+            dialog.dismiss()
         }
 
         val btnCheckUpdates = sheetView.findViewById<MaterialButton>(R.id.btn_check_updates)

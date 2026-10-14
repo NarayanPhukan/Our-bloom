@@ -6,6 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-25-openjdk}"
 APP_GRADLE="$ROOT_DIR/App/app/build.gradle"
 UPDATE_JSON="$ROOT_DIR/app-update.json"
 CLIENT_UPDATE_JSON="$ROOT_DIR/client/public/app-update.json"

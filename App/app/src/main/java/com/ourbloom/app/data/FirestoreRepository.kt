@@ -79,28 +79,34 @@ class FirestoreRepository {
 
                 // Try 2: Query users where uid == partnerUid
                 if (token.isNullOrBlank()) {
-                    val qUid = db.collection("users").whereEqualTo("uid", partnerUid).get().await()
-                    token = qUid.documents.firstOrNull()?.getString("fcmToken")
+                    try {
+                        val qUid = db.collection("users").whereEqualTo("uid", partnerUid).get().await()
+                        token = qUid.documents.firstOrNull()?.getString("fcmToken")
+                    } catch (_: Exception) {}
                 }
 
                 // Try 3: Query users where _id == partnerUid
                 if (token.isNullOrBlank()) {
-                    val qId = db.collection("users").whereEqualTo("_id", partnerUid).get().await()
-                    token = qId.documents.firstOrNull()?.getString("fcmToken")
+                    try {
+                        val qId = db.collection("users").whereEqualTo("_id", partnerUid).get().await()
+                        token = qId.documents.firstOrNull()?.getString("fcmToken")
+                    } catch (_: Exception) {}
                 }
 
                 // Try 4: Query users by coupleId if partnerUid was missing or unmapped
                 if (token.isNullOrBlank()) {
-                    val qCouple = db.collection("users").whereEqualTo("coupleId", coupleId).get().await()
-                    for (doc in qCouple.documents) {
-                        if (doc.id != currentUid && doc.getString("uid") != currentUid) {
-                            val candToken = doc.getString("fcmToken")
-                            if (!candToken.isNullOrBlank()) {
-                                token = candToken
-                                break
+                    try {
+                        val qCouple = db.collection("users").whereEqualTo("coupleId", coupleId).get().await()
+                        for (doc in qCouple.documents) {
+                            if (doc.id != currentUid && doc.getString("uid") != currentUid) {
+                                val candToken = doc.getString("fcmToken")
+                                if (!candToken.isNullOrBlank()) {
+                                    token = candToken
+                                    break
+                                }
                             }
                         }
-                    }
+                    } catch (_: Exception) {}
                 }
 
                 if (!token.isNullOrBlank()) {
@@ -288,7 +294,39 @@ class FirestoreRepository {
     suspend fun updateNicknameForPartner(nickname: String): Boolean {
         val fbUser = auth.currentUser ?: return false
         return try {
-            db.collection("users").document(fbUser.uid).update("nicknameForPartner", nickname).await()
+            val isoString = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.format(java.util.Date())
+
+            db.collection("users").document(fbUser.uid).set(
+                mapOf(
+                    "nicknameForPartner" to nickname,
+                    "updatedAt" to isoString
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            ).await()
+
+            // Also dual-sync to backend API so MongoDB stays synchronized
+            withContext(Dispatchers.IO) {
+                try {
+                    val idToken = fbUser.getIdToken(false).await().token
+                    if (!idToken.isNullOrBlank()) {
+                        val json = JSONObject().apply {
+                            put("nicknameForPartner", nickname)
+                        }
+                        val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                        val req = Request.Builder()
+                            .url("$baseUrl/api/auth/me/nickname")
+                            .addHeader("Authorization", "Bearer $idToken")
+                            .put(body)
+                            .build()
+                        client.newCall(req).execute().close()
+                    }
+                } catch (e: Exception) {
+                    Log.w("FirestoreRepo", "Backend sync for nickname warning: ${e.message}")
+                }
+            }
+
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error updating nickname", e)

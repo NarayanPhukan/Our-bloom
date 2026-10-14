@@ -1,8 +1,8 @@
 {
-  "versionCode": 68,
-  "versionName": "1.67",
+  "versionCode": 69,
+  "versionName": "1.68",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Fix null attribute deserialization and crash on startup",
+  "changelog": "Fix nickname synchronization, permission errors, and dynamic naming display",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
