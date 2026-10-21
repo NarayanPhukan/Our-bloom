@@ -1,8 +1,8 @@
 {
-  "versionCode": 72,
-  "versionName": "1.71",
+  "versionCode": 73,
+  "versionName": "1.72",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Added Razorpay Checkout alongside PayU for instant UPI, GPay, PhonePe, Cards & NetBanking deposits\n• Real-time 2% platform fee transparency breakdown\n• Dual payment gateway redundancy for couple savings vaults",
+  "changelog": "• Select between Razorpay and PayU gateways when depositing to Vault\\n• Direct redirection to respective payment gateway",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

@@ -21,8 +21,10 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import android.graphics.Color
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.textfield.TextInputEditText
@@ -511,8 +513,11 @@ class SavingsVaultFragment : Fragment() {
         val etAmount = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_amount)
         val etNote = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_note)
         val spinnerGoal = sheetView.findViewById<Spinner>(R.id.spinner_deposit_goal)
-        val btnPayRazorpay = sheetView.findViewById<MaterialButton>(R.id.btn_pay_razorpay)
-        val btnPayPayu = sheetView.findViewById<MaterialButton>(R.id.btn_pay_payu)
+        val cardRazorpay = sheetView.findViewById<MaterialCardView>(R.id.card_gateway_razorpay)
+        val rbRazorpay = sheetView.findViewById<RadioButton>(R.id.rb_gateway_razorpay)
+        val cardPayu = sheetView.findViewById<MaterialCardView>(R.id.card_gateway_payu)
+        val rbPayu = sheetView.findViewById<RadioButton>(R.id.rb_gateway_payu)
+        val btnProceed = sheetView.findViewById<MaterialButton>(R.id.btn_proceed_deposit)
         val tvDepositGrossVal = sheetView.findViewById<TextView>(R.id.tv_deposit_gross_val)
         val tvDepositFeeVal = sheetView.findViewById<TextView>(R.id.tv_deposit_fee_val)
         val tvDepositNetVal = sheetView.findViewById<TextView>(R.id.tv_deposit_net_val)
@@ -520,27 +525,70 @@ class SavingsVaultFragment : Fragment() {
         activeTxnId = null
         statusPollJob?.cancel()
 
+        var isRazorpaySelected = true
+        val colorSelectedStroke = Color.parseColor("#E85D75")
+        val colorSelectedBg = Color.parseColor("#FFF0F3")
+        val colorDefaultStroke = Color.parseColor("#E0E0E0")
+        val colorDefaultBg = Color.parseColor("#FAFAFA")
+        val density = resources.displayMetrics.density
+        val strokeSelectedPx = (2 * density).toInt()
+        val strokeDefaultPx = (1 * density).toInt()
+
         fun updateTransparencyBreakdown(input: String) {
             val vaultAmountPaise = parseRupeesToPaise(input)
             if (vaultAmountPaise == null) {
-                btnPayRazorpay?.isEnabled = false
-                btnPayPayu?.isEnabled = false
-                btnPayRazorpay?.text = "Enter valid amount (₹1.00 – ₹5,00,000.00)"
-                btnPayPayu?.text = "Enter valid amount"
+                btnProceed?.isEnabled = false
+                btnProceed?.text = if (isRazorpaySelected) {
+                    "Enter valid deposit amount (Razorpay ⚡)"
+                } else {
+                    "Enter valid deposit amount (PayU 💳)"
+                }
                 tvDepositGrossVal?.text = "₹0.00"
                 tvDepositFeeVal?.text = "+ ₹0.00"
                 tvDepositNetVal?.text = "₹0.00"
             } else {
-                btnPayRazorpay?.isEnabled = true
-                btnPayPayu?.isEnabled = true
+                btnProceed?.isEnabled = true
                 val (platformFeePaise, payableAmountPaise) = calculateDepositAmounts(vaultAmountPaise)
                 tvDepositGrossVal?.text = formatRupees(vaultAmountPaise)
                 tvDepositFeeVal?.text = "+ ${formatRupees(platformFeePaise)}"
                 tvDepositNetVal?.text = formatRupees(payableAmountPaise)
-                btnPayRazorpay?.text = "⚡ Pay ${formatRupees(payableAmountPaise)} via Razorpay"
-                btnPayPayu?.text = "💳 Pay ${formatRupees(payableAmountPaise)} via PayU"
+                if (isRazorpaySelected) {
+                    btnProceed?.text = "Proceed to Razorpay Gateway • ${formatRupees(payableAmountPaise)} ⚡"
+                } else {
+                    btnProceed?.text = "Proceed to PayU Gateway • ${formatRupees(payableAmountPaise)} 💳"
+                }
             }
         }
+
+        fun updateGatewaySelectionUI(isRazorpay: Boolean) {
+            isRazorpaySelected = isRazorpay
+            rbRazorpay?.isChecked = isRazorpay
+            rbPayu?.isChecked = !isRazorpay
+
+            if (isRazorpay) {
+                cardRazorpay?.strokeColor = colorSelectedStroke
+                cardRazorpay?.strokeWidth = strokeSelectedPx
+                cardRazorpay?.setCardBackgroundColor(colorSelectedBg)
+
+                cardPayu?.strokeColor = colorDefaultStroke
+                cardPayu?.strokeWidth = strokeDefaultPx
+                cardPayu?.setCardBackgroundColor(colorDefaultBg)
+            } else {
+                cardPayu?.strokeColor = colorSelectedStroke
+                cardPayu?.strokeWidth = strokeSelectedPx
+                cardPayu?.setCardBackgroundColor(colorSelectedBg)
+
+                cardRazorpay?.strokeColor = colorDefaultStroke
+                cardRazorpay?.strokeWidth = strokeDefaultPx
+                cardRazorpay?.setCardBackgroundColor(colorDefaultBg)
+            }
+            updateTransparencyBreakdown(etAmount?.text?.toString() ?: "")
+        }
+
+        cardRazorpay?.setOnClickListener { updateGatewaySelectionUI(true) }
+        rbRazorpay?.setOnClickListener { updateGatewaySelectionUI(true) }
+        cardPayu?.setOnClickListener { updateGatewaySelectionUI(false) }
+        rbPayu?.setOnClickListener { updateGatewaySelectionUI(false) }
 
         etAmount.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -549,7 +597,6 @@ class SavingsVaultFragment : Fragment() {
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
-        updateTransparencyBreakdown(etAmount.text.toString())
 
         sheetView.findViewById<View>(R.id.btn_close_deposit).setOnClickListener {
             dialog.dismiss()
@@ -583,8 +630,10 @@ class SavingsVaultFragment : Fragment() {
         sheetView.findViewById<Chip>(R.id.chip_2000).setOnClickListener { etAmount.setText("2000") }
         sheetView.findViewById<Chip>(R.id.chip_5000).setOnClickListener { etAmount.setText("5000") }
 
-        // 1. Pay via Razorpay Gateway (Instant UPI, Cards)
-        btnPayRazorpay?.setOnClickListener {
+        updateGatewaySelectionUI(true)
+
+        // Unified Proceed Button: redirects to selected gateway
+        btnProceed?.setOnClickListener {
             val amountStr = etAmount.text.toString().trim()
             val vaultAmountPaise = parseRupeesToPaise(amountStr)
             if (vaultAmountPaise == null) {
@@ -598,26 +647,11 @@ class SavingsVaultFragment : Fragment() {
             val payableAmountDouble = BigDecimal.valueOf(payableAmountPaise, 2).toDouble()
             val vaultAmountDouble = BigDecimal.valueOf(vaultAmountPaise, 2).toDouble()
 
-            launchRazorpayCheckout(payableAmountDouble, vaultAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
-            dialog.dismiss()
-        }
-
-        // 2. Pay via PayU Hosted Gateway (Cards, NetBanking)
-        btnPayPayu?.setOnClickListener {
-            val amountStr = etAmount.text.toString().trim()
-            val vaultAmountPaise = parseRupeesToPaise(amountStr)
-            if (vaultAmountPaise == null) {
-                Toast.makeText(requireContext(), "Please enter a valid deposit amount (₹1.00 – ₹5,00,000.00)", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            if (isRazorpaySelected) {
+                launchRazorpayCheckout(payableAmountDouble, vaultAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
+            } else {
+                launchPayUCheckout(payableAmountDouble, vaultAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
             }
-
-            val (platformFeePaise, payableAmountPaise) = calculateDepositAmounts(vaultAmountPaise)
-            val note = etNote.text.toString().trim()
-            val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
-            val payableAmountDouble = BigDecimal.valueOf(payableAmountPaise, 2).toDouble()
-            val vaultAmountDouble = BigDecimal.valueOf(vaultAmountPaise, 2).toDouble()
-
-            launchPayUCheckout(payableAmountDouble, vaultAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
             dialog.dismiss()
         }
 
