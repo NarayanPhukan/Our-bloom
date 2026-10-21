@@ -1,8 +1,8 @@
 {
-  "versionCode": 73,
-  "versionName": "1.72",
+  "versionCode": 74,
+  "versionName": "1.73",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Select between Razorpay and PayU gateways when depositing to Vault\\n• Direct redirection to respective payment gateway",
+  "changelog": "• Enable Chrome Custom Tabs with Razorpay UPI (Google Pay, PhonePe, Paytm, BHIM, UPI ID)\\n• Automatic deep link returns and instant Vault credit",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

@@ -3,13 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:background="#FFF9FA">
 
-    <!-- Fullscreen Official Razorpay Checkout Web View -->
+    <!-- Fallback In-App WebView -->
     <WebView
         android:id="@+id/web_view_razorpay"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:visibility="gone" />
 
     <!-- Sleek Top Progress Bar -->
     <ProgressBar
@@ -19,7 +20,7 @@
         android:layout_height="3dp"
         android:layout_gravity="top"
         android:indeterminate="true"
-        android:indeterminateTint="#0C2340" />
+        android:indeterminateTint="#E85D75" />
 
     <!-- Top Controls Floating Bar -->
     <LinearLayout
@@ -28,9 +29,9 @@
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="12dp">
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp">
 
         <ImageButton
             android:id="@+id/btn_close_razorpay"
@@ -38,7 +39,7 @@
             android:layout_height="38dp"
             android:background="@drawable/bg_checkout_circle_btn"
             android:contentDescription="Close"
-            android:elevation="6dp"
+            android:elevation="4dp"
             android:src="@drawable/ic_close"
             app:tint="#444444" />
 
@@ -52,17 +53,120 @@
             style="@style/Widget.Material3.Chip.Assist.Elevated"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:elevation="6dp"
-            android:text="⚡ Razorpay Secure Checkout"
-            android:textColor="#0C2340"
+            android:elevation="4dp"
+            android:text="⚡ Razorpay Gateway (UPI • Cards)"
+            android:textColor="#E85D75"
             android:textSize="12sp"
             android:textStyle="bold"
             app:chipBackgroundColor="#FFFFFF"
             app:chipIcon="@drawable/ic_savings_vault"
-            app:chipIconTint="#0C2340" />
+            app:chipIconTint="#E85D75" />
     </LinearLayout>
 
-    <!-- Loading State Overlay -->
+    <!-- Awaiting Payment State (Visible when Chrome Custom Tab is active or returned) -->
+    <LinearLayout
+        android:id="@+id/layout_razorpay_waiting"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:visibility="gone">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="8dp"
+            app:strokeColor="#FCE4EC"
+            app:strokeWidth="1.5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <ProgressBar
+                    android:id="@+id/progress_waiting"
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
+                    android:indeterminateTint="#E85D75" />
+
+                <TextView
+                    android:id="@+id/tv_waiting_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="sans-serif-black"
+                    android:text="Awaiting Payment Approval 🌸"
+                    android:textColor="#2D2D2D"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/tv_waiting_amount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="₹0.00"
+                    android:textColor="#E85D75"
+                    android:textSize="22sp" />
+
+                <TextView
+                    android:id="@+id/tv_waiting_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:text="Please complete your payment in Google Pay, PhonePe, Paytm, or your selected payment method."
+                    android:textColor="#666666"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_verify_payment"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="20dp"
+                    android:text="I Have Completed Payment ⚡"
+                    android:textAppearance="?attr/textAppearanceTitleSmall"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    app:backgroundTint="#E85D75"
+                    app:cornerRadius="26dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_reopen_gateway"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:text="Reopen Payment Window 🌐"
+                    android:textColor="#E85D75"
+                    android:textStyle="bold"
+                    app:cornerRadius="24dp"
+                    app:strokeColor="#E85D75"
+                    app:strokeWidth="1.5dp" />
+
+                <TextView
+                    android:id="@+id/btn_cancel_waiting"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:text="Cancel Deposit"
+                    android:textColor="#999999"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <!-- Initial Loading State Overlay -->
     <LinearLayout
         android:id="@+id/layout_razorpay_loading"
         android:layout_width="match_parent"
@@ -82,16 +186,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:fontFamily="sans-serif-medium"
-            android:text="Connecting to Razorpay..."
-            android:textColor="#333333"
-            android:textSize="15sp" />
+            android:fontFamily="sans-serif-bold"
+            android:text="Connecting to Razorpay Gateway..."
+            android:textColor="#2D2D2D"
+            android:textSize="16sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Instant UPI, GPay, PhonePe, Cards &amp; NetBanking"
+            android:text="Loading UPI (GPay, PhonePe, Paytm, BHIM), Cards &amp; NetBanking"
             android:textColor="#888888"
             android:textSize="12sp" />
     </LinearLayout>

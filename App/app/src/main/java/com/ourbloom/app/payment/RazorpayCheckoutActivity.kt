@@ -5,11 +5,11 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -21,7 +21,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
 import com.ourbloom.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,7 +33,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class RazorpayCheckoutActivity : AppCompatActivity() {
@@ -83,6 +85,10 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var layoutLoading: LinearLayout
     private lateinit var tvLoadingStatus: TextView
+    private lateinit var layoutWaiting: LinearLayout
+    private lateinit var tvWaitingAmount: TextView
+    private lateinit var btnVerifyPayment: MaterialButton
+    private lateinit var btnReopenGateway: MaterialButton
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
@@ -101,8 +107,10 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
     private var goalTitle: String? = null
 
     private var currentTxnId: String = ""
-    private var currentOrderId: String = ""
+    private var currentPaymentUrl: String = ""
     private var isCompleted: Boolean = false
+    private var hasLaunchedCustomTab: Boolean = false
+    private var isCheckingStatus: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,17 +131,241 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progress_razorpay)
         layoutLoading = findViewById(R.id.layout_razorpay_loading)
         tvLoadingStatus = findViewById(R.id.tv_razorpay_loading_status)
+        layoutWaiting = findViewById(R.id.layout_razorpay_waiting)
+        tvWaitingAmount = findViewById(R.id.tv_waiting_amount)
+        btnVerifyPayment = findViewById(R.id.btn_verify_payment)
+        btnReopenGateway = findViewById(R.id.btn_reopen_gateway)
+
+        tvWaitingAmount.text = String.format(Locale.getDefault(), "₹%.2f", payableAmount)
 
         findViewById<ImageButton>(R.id.btn_close_razorpay).setOnClickListener {
             handleCancel()
         }
 
-        setupWebView()
-        initiateOrderCreation()
+        findViewById<View>(R.id.btn_cancel_waiting).setOnClickListener {
+            handleCancel()
+        }
+
+        btnVerifyPayment.setOnClickListener {
+            checkPaymentStatus(userInitiated = true)
+        }
+
+        btnReopenGateway.setOnClickListener {
+            if (currentPaymentUrl.isNotBlank()) {
+                launchCustomTab(currentPaymentUrl)
+            } else {
+                initiatePaymentLinkCreation()
+            }
+        }
+
+        setupFallbackWebView()
+        handleIncomingDeepLink(intent)
+
+        if (currentTxnId.isBlank()) {
+            initiatePaymentLinkCreation()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingDeepLink(intent)
+    }
+
+    private fun handleIncomingDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        Log.d(TAG, "Incoming deep link: $uri")
+
+        if (uri.scheme == "ourbloom" && uri.host == "razorpay-return") {
+            val txnidParam = uri.getQueryParameter("txnid")
+            if (!txnidParam.isNullOrBlank()) {
+                currentTxnId = txnidParam
+            }
+            checkPaymentStatus(userInitiated = false)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (hasLaunchedCustomTab && !isCompleted && !isCheckingStatus && currentTxnId.isNotBlank()) {
+            checkPaymentStatus(userInitiated = false)
+        }
+    }
+
+    private fun initiatePaymentLinkCreation() {
+        tvLoadingStatus.text = "Opening Razorpay UPI Gateway..."
+        layoutLoading.visibility = View.VISIBLE
+        layoutWaiting.visibility = View.GONE
+        webView.visibility = View.GONE
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val jsonPayload = JSONObject().apply {
+                    put("amount", payableAmount)
+                    put("vaultAmountPaise", Math.round(vaultAmount * 100))
+                    put("coupleId", coupleId)
+                    put("userId", userId)
+                    put("userName", userName)
+                    put("email", userEmail)
+                    put("phone", userPhone)
+                    put("goalId", goalId ?: "")
+                    put("note", note)
+                }
+
+                val requestBody = jsonPayload.toString().toRequestBody("application/json".toMediaType())
+                val request = Request.Builder()
+                    .url("$BASE_URL/api/razorpay/create-payment-link")
+                    .post(requestBody)
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    val errMsg = try {
+                        JSONObject(responseBody).optString("error", "Failed to initialize payment")
+                    } catch (_: Exception) {
+                        "Server error (${response.code})"
+                    }
+                    withContext(Dispatchers.Main) {
+                        showErrorDialog(errMsg)
+                    }
+                    return@launch
+                }
+
+                val data = JSONObject(responseBody)
+                val paymentUrl = data.getString("paymentUrl")
+                val txnid = data.getString("txnid")
+
+                currentPaymentUrl = paymentUrl
+                currentTxnId = txnid
+
+                withContext(Dispatchers.Main) {
+                    launchCustomTab(paymentUrl)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Payment link network exception", e)
+                withContext(Dispatchers.Main) {
+                    showErrorDialog(e.message ?: "Failed to connect to payment server")
+                }
+            }
+        }
+    }
+
+    private fun launchCustomTab(url: String) {
+        layoutLoading.visibility = View.GONE
+        layoutWaiting.visibility = View.VISIBLE
+        tvWaitingAmount.text = String.format(Locale.getDefault(), "₹%.2f", payableAmount)
+
+        try {
+            val builder = CustomTabsIntent.Builder()
+            builder.setShowTitle(true)
+            val colorSchemeParams = androidx.browser.customtabs.CustomTabColorSchemeParams.Builder()
+                .setToolbarColor(Color.parseColor("#E85D75"))
+                .build()
+            builder.setDefaultColorSchemeParams(colorSchemeParams)
+            builder.setStartAnimations(this, android.R.anim.fade_in, android.R.anim.fade_out)
+            builder.setExitAnimations(this, android.R.anim.fade_in, android.R.anim.fade_out)
+            val customTabsIntent = builder.build()
+            customTabsIntent.intent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+
+            customTabsIntent.launchUrl(this, Uri.parse(url))
+            hasLaunchedCustomTab = true
+            Log.d(TAG, "Chrome Custom Tab launched successfully for URL: $url")
+        } catch (e: Exception) {
+            Log.w(TAG, "CustomTabs failed, falling back to embedded WebView: ${e.message}")
+            openInFallbackWebView(url)
+        }
+    }
+
+    private fun checkPaymentStatus(userInitiated: Boolean) {
+        if (isCompleted || isCheckingStatus || currentTxnId.isBlank()) return
+        isCheckingStatus = true
+
+        if (userInitiated) {
+            btnVerifyPayment.isEnabled = false
+            btnVerifyPayment.text = "Verifying with Bank..."
+            progressBar.visibility = View.VISIBLE
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/api/razorpay/check-status?txnid=$currentTxnId")
+                    .get()
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
+
+                if (response.isSuccessful) {
+                    val data = JSONObject(responseBody)
+                    val completed = data.optBoolean("completed", false)
+                    val status = data.optString("status", "")
+
+                    if (completed || status.equals("COMPLETED", ignoreCase = true)) {
+                        withContext(Dispatchers.Main) {
+                            onPaymentVerifiedSuccess(currentTxnId)
+                        }
+                        return@launch
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    isCheckingStatus = false
+                    progressBar.visibility = View.GONE
+                    btnVerifyPayment.isEnabled = true
+                    btnVerifyPayment.text = "I Have Completed Payment ⚡"
+
+                    if (userInitiated) {
+                        Toast.makeText(
+                            this@RazorpayCheckoutActivity,
+                            "Payment approval is still pending. If you completed payment, it will credit in a moment.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking status", e)
+                withContext(Dispatchers.Main) {
+                    isCheckingStatus = false
+                    progressBar.visibility = View.GONE
+                    btnVerifyPayment.isEnabled = true
+                    btnVerifyPayment.text = "I Have Completed Payment ⚡"
+                }
+            }
+        }
+    }
+
+    private fun onPaymentVerifiedSuccess(paymentId: String) {
+        if (isCompleted) return
+        isCompleted = true
+
+        progressBar.visibility = View.VISIBLE
+        Toast.makeText(this, "Deposit Verified! Added to Couple's Vault 🌸", Toast.LENGTH_LONG).show()
+
+        val exactVaultCredit = if (vaultAmount > 0.0) vaultAmount else (Math.round((payableAmount / 1.02) * 100.0) / 100.0).coerceAtLeast(1.0)
+
+        val resultIntent = Intent().apply {
+            putExtra("txnid", currentTxnId)
+            putExtra("reference", paymentId)
+            putExtra("paymentId", paymentId)
+            putExtra("amount", payableAmount)
+            putExtra("vaultAmount", exactVaultCredit)
+            putExtra("coupleId", coupleId)
+            putExtra("userId", userId)
+            putExtra("userName", userName)
+            putExtra("note", note)
+            putExtra("goalId", goalId)
+            putExtra("goalTitle", goalTitle)
+            putExtra("paymentMethod", "Razorpay")
+        }
+        setResult(Activity.RESULT_OK, resultIntent)
+        finish()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun setupWebView() {
+    private fun setupFallbackWebView() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -142,9 +374,10 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
             javaScriptCanOpenWindowsAutomatically = true
             useWideViewPort = true
             loadWithOverviewMode = true
+            // Remove ; wv flag to ensure standard UPI rendering in WebView fallback
+            val defaultUa = userAgentString
+            userAgentString = defaultUa.replace("; wv", "").replace("Version/4.0 ", "")
         }
-
-        webView.addJavascriptInterface(RazorpayBridge(), "RazorpayBridge")
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -176,10 +409,28 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
         }
     }
 
+    private fun openInFallbackWebView(url: String) {
+        layoutLoading.visibility = View.VISIBLE
+        layoutWaiting.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        webView.loadUrl(url)
+    }
+
     private fun handleUrlScheme(url: String): Boolean {
         val lower = url.lowercase()
 
-        // Intercept UPI intents (gpay, phonepe, paytm, bhim, cred, or standard upi://pay)
+        // Handle app-return deep link
+        if (lower.startsWith("ourbloom://razorpay-return")) {
+            val uri = Uri.parse(url)
+            val txnidParam = uri.getQueryParameter("txnid")
+            if (!txnidParam.isNullOrBlank()) {
+                currentTxnId = txnidParam
+            }
+            checkPaymentStatus(userInitiated = false)
+            return true
+        }
+
+        // Intercept UPI intents
         if (lower.startsWith("upi://") ||
             lower.startsWith("gpay://") ||
             lower.startsWith("phonepe://") ||
@@ -190,7 +441,6 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
             return launchUpiIntent(url)
         }
 
-        // Intercept Android generic intent URIs
         if (lower.startsWith("intent://")) {
             return launchGenericIntent(url)
         }
@@ -199,7 +449,6 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
     }
 
     private fun launchUpiIntent(url: String): Boolean {
-        Log.d(TAG, "Triggering UPI Payment intent for: $url")
         return try {
             val uri = Uri.parse(url)
             val upiIntent = Intent(Intent.ACTION_VIEW, uri).apply {
@@ -235,195 +484,6 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
         }
     }
 
-    private fun initiateOrderCreation() {
-        tvLoadingStatus.text = "Creating secure Razorpay order..."
-        layoutLoading.visibility = View.VISIBLE
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val jsonPayload = JSONObject().apply {
-                    put("amount", payableAmount)
-                    put("vaultAmountPaise", Math.round(vaultAmount * 100))
-                    put("coupleId", coupleId)
-                    put("userId", userId)
-                    put("userName", userName)
-                    put("email", userEmail)
-                    put("phone", userPhone)
-                    put("goalId", goalId ?: "")
-                    put("note", note)
-                }
-
-                val requestBody = jsonPayload.toString().toRequestBody("application/json".toMediaType())
-                val request = Request.Builder()
-                    .url("$BASE_URL/api/razorpay/create-order")
-                    .post(requestBody)
-                    .build()
-
-                val response = httpClient.newCall(request).execute()
-                val responseBody = response.body?.string() ?: ""
-
-                if (!response.isSuccessful) {
-                    val errMsg = try {
-                        JSONObject(responseBody).optString("error", "Failed to create order")
-                    } catch (_: Exception) {
-                        "Server error (${response.code})"
-                    }
-                    withContext(Dispatchers.Main) {
-                        showErrorDialog(errMsg)
-                    }
-                    return@launch
-                }
-
-                val data = JSONObject(responseBody)
-                val orderId = data.getString("orderId")
-                val keyId = data.getString("keyId")
-                val amountPaise = data.getLong("amount")
-                val txnid = data.optString("txnid", "RZP_${System.currentTimeMillis()}")
-
-                currentOrderId = orderId
-                currentTxnId = txnid
-
-                withContext(Dispatchers.Main) {
-                    loadRazorpayCheckout(keyId, orderId, amountPaise)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Order creation network exception", e)
-                withContext(Dispatchers.Main) {
-                    showErrorDialog(e.message ?: "Failed to connect to Razorpay server")
-                }
-            }
-        }
-    }
-
-    private fun loadRazorpayCheckout(keyId: String, orderId: String, amountPaise: Long) {
-        tvLoadingStatus.text = "Opening Razorpay Checkout..."
-
-        val cleanName = escapeJsString(userName)
-        val cleanEmail = escapeJsString(userEmail)
-        val cleanPhone = escapeJsString(userPhone)
-
-        val htmlContent = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <title>OurBloom Checkout</title>
-              <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-              <style>
-                * { box-sizing: border-box; }
-                body {
-                  margin: 0;
-                  padding: 20px;
-                  background: #FFFFFF;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  height: 100vh;
-                  color: #333333;
-                  text-align: center;
-                }
-                .spinner {
-                  width: 44px;
-                  height: 44px;
-                  border: 4px solid #FCE4EC;
-                  border-top: 4px solid #E85D75;
-                  border-radius: 50%;
-                  animation: spin 0.8s linear infinite;
-                  margin-bottom: 16px;
-                }
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                h3 { margin: 0 0 8px 0; color: #0C2340; font-size: 17px; }
-                p { margin: 0; color: #888888; font-size: 13px; }
-              </style>
-            </head>
-            <body>
-              <div class="spinner"></div>
-              <h3>Opening Razorpay Secure Checkout...</h3>
-              <p>UPI • GPay • PhonePe • Cards • NetBanking</p>
-
-              <script>
-                var options = {
-                  "key": "$keyId",
-                  "amount": $amountPaise,
-                  "currency": "INR",
-                  "name": "OurBloom",
-                  "description": "Couple Savings Vault Deposit 🌸",
-                  "image": "https://our-bloom.onrender.com/favicon.png",
-                  "order_id": "$orderId",
-                  "handler": function (response){
-                    RazorpayBridge.onPaymentSuccess(
-                      response.razorpay_payment_id || '',
-                      response.razorpay_order_id || '',
-                      response.razorpay_signature || ''
-                    );
-                  },
-                  "modal": {
-                    "ondismiss": function(){
-                      RazorpayBridge.onPaymentDismissed();
-                    }
-                  },
-                  "prefill": {
-                    "name": "$cleanName",
-                    "email": "$cleanEmail",
-                    "contact": "$cleanPhone"
-                  },
-                  "theme": {
-                    "color": "#E85D75"
-                  }
-                };
-
-                var rzp = new Razorpay(options);
-                rzp.on('payment.failed', function (response){
-                  var desc = (response.error && response.error.description) ? response.error.description : 'Payment failed';
-                  RazorpayBridge.onPaymentFailed(desc);
-                });
-                rzp.open();
-              </script>
-            </body>
-            </html>
-        """.trimIndent()
-
-        webView.loadDataWithBaseURL("https://checkout.razorpay.com", htmlContent, "text/html", "UTF-8", null)
-    }
-
-    private fun escapeJsString(input: String): String {
-        return input.replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("'", "\\'")
-            .replace("\n", "\\n")
-            .replace("\r", "")
-    }
-
-    private fun onPaymentVerifiedSuccess(paymentId: String) {
-        if (isCompleted) return
-        isCompleted = true
-
-        progressBar.visibility = View.VISIBLE
-        Toast.makeText(this, "Deposit Verified! Added to Couple's Vault 🌸", Toast.LENGTH_SHORT).show()
-
-        val exactVaultCredit = if (vaultAmount > 0.0) vaultAmount else (Math.round((payableAmount / 1.02) * 100.0) / 100.0).coerceAtLeast(1.0)
-
-        val resultIntent = Intent().apply {
-            putExtra("txnid", currentTxnId)
-            putExtra("reference", paymentId)
-            putExtra("paymentId", paymentId)
-            putExtra("amount", payableAmount)
-            putExtra("vaultAmount", exactVaultCredit)
-            putExtra("coupleId", coupleId)
-            putExtra("userId", userId)
-            putExtra("userName", userName)
-            putExtra("note", note)
-            putExtra("goalId", goalId)
-            putExtra("goalTitle", goalTitle)
-            putExtra("paymentMethod", "Razorpay")
-        }
-        setResult(Activity.RESULT_OK, resultIntent)
-        finish()
-    }
-
     private fun showErrorDialog(message: String) {
         AlertDialog.Builder(this)
             .setTitle("Checkout Error")
@@ -440,78 +500,15 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
         if (isCompleted) return
         AlertDialog.Builder(this)
             .setTitle("Cancel Deposit?")
-            .setMessage("Are you sure you want to exit? Your payment has not been processed.")
+            .setMessage("Are you sure you want to exit? If you have already approved payment in your UPI app, tap 'Check Status'.")
             .setPositiveButton("Exit") { _, _ ->
                 setResult(Activity.RESULT_CANCELED)
                 finish()
             }
-            .setNegativeButton("Continue Payment", null)
+            .setNeutralButton("Check Status") { _, _ ->
+                checkPaymentStatus(userInitiated = true)
+            }
+            .setNegativeButton("Continue", null)
             .show()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        handleCancel()
-    }
-
-    inner class RazorpayBridge {
-        @JavascriptInterface
-        fun onPaymentSuccess(paymentId: String, orderId: String, signature: String) {
-            Log.i(TAG, "Payment success callback: paymentId=$paymentId, orderId=$orderId")
-
-            lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    val verifyPayload = JSONObject().apply {
-                        put("razorpay_order_id", orderId.ifBlank { currentOrderId })
-                        put("razorpay_payment_id", paymentId)
-                        put("razorpay_signature", signature)
-                        put("txnid", currentTxnId)
-                    }
-
-                    val requestBody = verifyPayload.toString().toRequestBody("application/json".toMediaType())
-                    val request = Request.Builder()
-                        .url("$BASE_URL/api/razorpay/verify-payment")
-                        .post(requestBody)
-                        .build()
-
-                    val response = httpClient.newCall(request).execute()
-                    val responseStr = response.body?.string() ?: ""
-
-                    withContext(Dispatchers.Main) {
-                        if (response.isSuccessful) {
-                            onPaymentVerifiedSuccess(paymentId)
-                        } else {
-                            Log.w(TAG, "Backend verification returned non-200: $responseStr")
-                            // Still treat as success from gateway perspective and let server webhook reconcile
-                            onPaymentVerifiedSuccess(paymentId)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Exception during verification call", e)
-                    withContext(Dispatchers.Main) {
-                        onPaymentVerifiedSuccess(paymentId)
-                    }
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun onPaymentFailed(reason: String) {
-            Log.w(TAG, "Razorpay payment failed: $reason")
-            runOnUiThread {
-                Toast.makeText(this@RazorpayCheckoutActivity, "Payment failed: $reason", Toast.LENGTH_LONG).show()
-                setResult(Activity.RESULT_CANCELED)
-                finish()
-            }
-        }
-
-        @JavascriptInterface
-        fun onPaymentDismissed() {
-            Log.d(TAG, "Razorpay checkout modal dismissed by user")
-            runOnUiThread {
-                setResult(Activity.RESULT_CANCELED)
-                finish()
-            }
-        }
     }
 }
