@@ -356,8 +356,18 @@ service cloud.firestore {
     // =========================================================================
     // ADMIN PRIVILEGED COLLECTIONS (CLIENT WRITE STRICTLY DENIED)
     // =========================================================================
+    match /admin_config/version_info {
+      allow read: if true; // Public version metadata for in-app auto-update checks
+      allow write: if isAdmin();
+    }
+
+    match /app_updates/{document=**} {
+      allow read: if true; // Public version metadata for couple app updates
+      allow write: if isAdmin();
+    }
+
     match /admin_config/{document=**} {
-      allow read: if isSignedIn(); // needed for min app version check
+      allow read: if isSignedIn(); // needed for authenticated config
       allow write: if isAdmin();
     }
 
