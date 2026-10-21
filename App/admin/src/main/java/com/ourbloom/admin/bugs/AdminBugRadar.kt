@@ -219,6 +219,11 @@ object AdminBugRadar {
     }
 
     private fun syncBugToFirestore(bug: DetectedBug) {
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            // Avoid attempting remote upload if auth is not yet established
+            return
+        }
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = FirebaseFirestore.getInstance()

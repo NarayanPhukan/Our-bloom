@@ -83,6 +83,10 @@ object AdminUpdateManager {
 
                 // 1. Check Firestore remote configuration
                 try {
+                    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                    if (auth.currentUser == null) {
+                        com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuthSuspend()
+                    }
                     val db = FirebaseFirestore.getInstance()
                     val snapshot = db.collection(COLLECTION_CONFIG).document(DOC_VERSION_INFO).get().await()
 

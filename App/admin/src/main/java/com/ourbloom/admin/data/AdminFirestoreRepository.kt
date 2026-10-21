@@ -2,9 +2,13 @@ package com.ourbloom.admin.data
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import com.ourbloom.admin.data.models.AdminAlert
@@ -16,7 +20,11 @@ import com.ourbloom.admin.data.models.TreasuryAuditLog
 import com.ourbloom.admin.data.models.TreasuryPosition
 import com.ourbloom.admin.data.models.WithdrawalRequest
 import com.ourbloom.admin.util.AdminFcmSender
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -43,6 +51,11 @@ class AdminFirestoreRepository {
 
     companion object {
         private const val TAG = "AdminFirestoreRepo"
+        const val ADMIN_EMAIL_PRIMARY = "admin@ourbloom.app"
+        const val ADMIN_EMAIL_FALLBACK = "narayan@ourbloom.app"
+        const val ADMIN_PASSWORD_PRIMARY = "Tanayan@admin"
+        const val ADMIN_PASSWORD_FALLBACK = "Narayan@admin"
+
         private const val PAYU_PAYOUT_URL = "https://our-bloom.onrender.com/api/payu/payout"
         private const val PAYU_SETTLEMENT_SYNC_URL = "https://our-bloom.onrender.com/api/payu/settlements/sync"
         private const val BROADCAST_URL = "https://our-bloom.onrender.com/api/admin/broadcast"
@@ -54,15 +67,197 @@ class AdminFirestoreRepository {
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
     init {
-        // Ensure anonymous or existing auth session so firestore.rules (isAuthenticated()) succeed
+        // Authenticate with admin credentials so Firestore security rules succeed
         ensureAuth()
     }
 
-    private fun ensureAuth() {
-        if (auth.currentUser == null) {
-            auth.signInAnonymously().addOnFailureListener {
-                Log.w(TAG, "Admin anonymous sign-in warning: ${it.message}")
+    fun ensureAuth(
+        preferredPassword: String? = null,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        val currentUser = auth.currentUser
+        if (currentUser != null && preferredPassword == null) {
+            onComplete?.invoke(true)
+            return
+        }
+
+        val passPrimary = if (preferredPassword == ADMIN_PASSWORD_FALLBACK) ADMIN_PASSWORD_FALLBACK else ADMIN_PASSWORD_PRIMARY
+        val emailPrimary = if (preferredPassword == ADMIN_PASSWORD_FALLBACK) ADMIN_EMAIL_FALLBACK else ADMIN_EMAIL_PRIMARY
+
+        auth.signInWithEmailAndPassword(emailPrimary, passPrimary)
+            .addOnSuccessListener {
+                Log.d(TAG, "Admin Firebase Auth successful: ${it.user?.email}")
+                onComplete?.invoke(true)
             }
+            .addOnFailureListener { err1 ->
+                Log.w(TAG, "Primary admin auth ($emailPrimary) failed: ${err1.message}, trying fallback...")
+                val passFallback = if (emailPrimary == ADMIN_EMAIL_PRIMARY) ADMIN_PASSWORD_FALLBACK else ADMIN_PASSWORD_PRIMARY
+                val emailFallback = if (emailPrimary == ADMIN_EMAIL_PRIMARY) ADMIN_EMAIL_FALLBACK else ADMIN_EMAIL_PRIMARY
+
+                auth.signInWithEmailAndPassword(emailFallback, passFallback)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "Fallback admin auth successful: ${it.user?.email}")
+                        onComplete?.invoke(true)
+                    }
+                    .addOnFailureListener { err2 ->
+                        Log.e(TAG, "All admin Firebase Auth attempts failed: ${err2.message}")
+                        onComplete?.invoke(false)
+                    }
+            }
+    }
+
+    suspend fun ensureAuthSuspend(preferredPassword: String? = null): Boolean = withContext(Dispatchers.IO) {
+        if (auth.currentUser != null && preferredPassword == null) return@withContext true
+        try {
+            val passPrimary = if (preferredPassword == ADMIN_PASSWORD_FALLBACK) ADMIN_PASSWORD_FALLBACK else ADMIN_PASSWORD_PRIMARY
+            val emailPrimary = if (preferredPassword == ADMIN_PASSWORD_FALLBACK) ADMIN_EMAIL_FALLBACK else ADMIN_EMAIL_PRIMARY
+
+            auth.signInWithEmailAndPassword(emailPrimary, passPrimary).await()
+            Log.d(TAG, "Admin Firebase Auth successful: ${auth.currentUser?.email}")
+            return@withContext true
+        } catch (e: Exception) {
+            Log.w(TAG, "Primary admin auth failed: ${e.message}, trying fallback...")
+            try {
+                val passFallback = if (preferredPassword == ADMIN_PASSWORD_FALLBACK) ADMIN_PASSWORD_PRIMARY else ADMIN_PASSWORD_FALLBACK
+                val emailFallback = if (preferredPassword == ADMIN_PASSWORD_FALLBACK) ADMIN_EMAIL_PRIMARY else ADMIN_EMAIL_FALLBACK
+                auth.signInWithEmailAndPassword(emailFallback, passFallback).await()
+                Log.d(TAG, "Fallback admin auth successful: ${auth.currentUser?.email}")
+                return@withContext true
+            } catch (e2: Exception) {
+                Log.e(TAG, "All admin Firebase Auth attempts failed", e2)
+                return@withContext false
+            }
+        }
+    }
+
+    /**
+     * Resilient query observer that guarantees snapshot listening even if
+     * auth is pending, reconnecting automatically upon permission recovery or token refresh.
+     */
+    fun safeObserveQuery(
+        queryProvider: () -> Query,
+        onUpdate: (QuerySnapshot) -> Unit
+    ): ListenerRegistration {
+        var activeRegistration: ListenerRegistration? = null
+        var isDisposed = false
+        var retryJob: Job? = null
+
+        fun attachListener() {
+            if (isDisposed) return
+            activeRegistration?.remove()
+
+            try {
+                val query = queryProvider()
+                activeRegistration = query.addSnapshotListener { snapshot, error ->
+                    if (isDisposed) return@addSnapshotListener
+                    if (error != null) {
+                        Log.w(TAG, "Snapshot error for query [${error.code}]: ${error.message}")
+                        if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                            error.code == FirebaseFirestoreException.Code.UNAUTHENTICATED) {
+                            // Re-authenticate and retry attaching after brief delay
+                            retryJob?.cancel()
+                            retryJob = CoroutineScope(Dispatchers.Main).launch {
+                                delay(1200)
+                                if (isDisposed) return@launch
+                                ensureAuth { success ->
+                                    if (success && !isDisposed) {
+                                        attachListener()
+                                    }
+                                }
+                            }
+                        }
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null) {
+                        onUpdate(snapshot)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to attach query listener", e)
+            }
+        }
+
+        if (auth.currentUser != null) {
+            attachListener()
+        } else {
+            ensureAuth {
+                if (!isDisposed) {
+                    attachListener()
+                }
+            }
+        }
+
+        return ListenerRegistration {
+            isDisposed = true
+            retryJob?.cancel()
+            activeRegistration?.remove()
+            activeRegistration = null
+        }
+    }
+
+    /**
+     * Resilient document observer that guarantees snapshot listening even if
+     * auth is pending, reconnecting automatically upon permission recovery or token refresh.
+     */
+    fun safeObserveDocument(
+        docProvider: () -> DocumentReference,
+        onUpdate: (DocumentSnapshot) -> Unit
+    ): ListenerRegistration {
+        var activeRegistration: ListenerRegistration? = null
+        var isDisposed = false
+        var retryJob: Job? = null
+
+        fun attachListener() {
+            if (isDisposed) return
+            activeRegistration?.remove()
+
+            try {
+                val doc = docProvider()
+                activeRegistration = doc.addSnapshotListener { snapshot, error ->
+                    if (isDisposed) return@addSnapshotListener
+                    if (error != null) {
+                        Log.w(TAG, "Snapshot error for document [${error.code}]: ${error.message}")
+                        if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                            error.code == FirebaseFirestoreException.Code.UNAUTHENTICATED) {
+                            retryJob?.cancel()
+                            retryJob = CoroutineScope(Dispatchers.Main).launch {
+                                delay(1200)
+                                if (isDisposed) return@launch
+                                ensureAuth { success ->
+                                    if (success && !isDisposed) {
+                                        attachListener()
+                                    }
+                                }
+                            }
+                        }
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null) {
+                        onUpdate(snapshot)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to attach document listener", e)
+            }
+        }
+
+        if (auth.currentUser != null) {
+            attachListener()
+        } else {
+            ensureAuth {
+                if (!isDisposed) {
+                    attachListener()
+                }
+            }
+        }
+
+        return ListenerRegistration {
+            isDisposed = true
+            retryJob?.cancel()
+            activeRegistration?.remove()
+            activeRegistration = null
         }
     }
 
@@ -74,18 +269,14 @@ class AdminFirestoreRepository {
         statusFilter: String? = null,
         onUpdate: (List<WithdrawalRequest>) -> Unit
     ): ListenerRegistration {
-        var query: Query = db.collection("withdrawal_requests")
-        if (!statusFilter.isNullOrBlank()) {
-            query = query.whereEqualTo("status", statusFilter)
-        }
-
-        return query.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.e(TAG, "Error observing withdrawal requests", error)
-                return@addSnapshotListener
+        return safeObserveQuery({
+            var query: Query = db.collection("withdrawal_requests")
+            if (!statusFilter.isNullOrBlank()) {
+                query = query.whereEqualTo("status", statusFilter)
             }
-            val list = snapshot?.documents?.mapNotNull { it.toObject(WithdrawalRequest::class.java) } ?: emptyList()
-            // Sort client-side by requestedAt descending
+            query
+        }) { snapshot ->
+            val list = snapshot.documents.mapNotNull { it.toObject(WithdrawalRequest::class.java) }
             val sorted = list.sortedByDescending { it.requestedAt }
             onUpdate(sorted)
         }
@@ -343,24 +534,19 @@ class AdminFirestoreRepository {
     // =========================================================================
 
     fun observeTransactions(onUpdate: (List<SavingsTransaction>) -> Unit): ListenerRegistration {
-        return db.collection("savings_transactions")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing transactions", error)
-                    return@addSnapshotListener
+        return safeObserveQuery({ db.collection("savings_transactions") }) { snapshot ->
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val txn = doc.toObject(SavingsTransaction::class.java)
+                    txn?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error deserializing transaction ${doc.id}", e)
+                    null
                 }
-                val list = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        val txn = doc.toObject(SavingsTransaction::class.java)
-                        txn?.copy(id = doc.id)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error deserializing transaction ${doc.id}", e)
-                        null
-                    }
-                } ?: emptyList()
-                val sorted = list.sortedByDescending { it.timestamp }
-                onUpdate(sorted)
             }
+            val sorted = list.sortedByDescending { it.timestamp }
+            onUpdate(sorted)
+        }
     }
 
     suspend fun syncPayUSettlements(days: Int = 30): Boolean = withContext(Dispatchers.IO) {
@@ -472,16 +658,11 @@ class AdminFirestoreRepository {
     // =========================================================================
 
     fun observeSavingsWallets(onUpdate: (List<SavingsWallet>) -> Unit): ListenerRegistration {
-        return db.collection("savings_wallets")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing wallets", error)
-                    return@addSnapshotListener
-                }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(SavingsWallet::class.java) } ?: emptyList()
-                val sorted = list.sortedByDescending { it.totalBalance }
-                onUpdate(sorted)
-            }
+        return safeObserveQuery({ db.collection("savings_wallets") }) { snapshot ->
+            val list = snapshot.documents.mapNotNull { it.toObject(SavingsWallet::class.java) }
+            val sorted = list.sortedByDescending { it.totalBalance }
+            onUpdate(sorted)
+        }
     }
 
     suspend fun adjustWalletBalance(
@@ -558,24 +739,21 @@ class AdminFirestoreRepository {
     // =========================================================================
 
     fun observeCoupleTransactions(coupleId: String, onUpdate: (List<SavingsTransaction>) -> Unit): ListenerRegistration {
-        return db.collection("savings_transactions")
-            .whereEqualTo("coupleId", coupleId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing couple transactions for $coupleId", error)
-                    return@addSnapshotListener
+        return safeObserveQuery({
+            db.collection("savings_transactions")
+                .whereEqualTo("coupleId", coupleId)
+        }) { snapshot ->
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val txn = doc.toObject(SavingsTransaction::class.java)
+                    txn?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error deserializing couple transaction ${doc.id}", e)
+                    null
                 }
-                val list = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        val txn = doc.toObject(SavingsTransaction::class.java)
-                        txn?.copy(id = doc.id)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error deserializing couple transaction ${doc.id}", e)
-                        null
-                    }
-                } ?: emptyList()
-                onUpdate(list.sortedByDescending { it.timestamp })
             }
+            onUpdate(list.sortedByDescending { it.timestamp })
+        }
     }
 
     suspend fun freezeWallet(coupleId: String, freeze: Boolean, reason: String = ""): Boolean = withContext(Dispatchers.IO) {
@@ -600,15 +778,12 @@ class AdminFirestoreRepository {
     // =========================================================================
 
     fun observeAppControlConfig(onUpdate: (AppControlConfig) -> Unit): ListenerRegistration {
-        return db.collection("admin_config").document("app_control")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing app_control config", error)
-                    return@addSnapshotListener
-                }
-                val config = snapshot?.toObject(AppControlConfig::class.java) ?: AppControlConfig()
-                onUpdate(config)
-            }
+        return safeObserveDocument({
+            db.collection("admin_config").document("app_control")
+        }) { snapshot ->
+            val config = snapshot.toObject(AppControlConfig::class.java) ?: AppControlConfig()
+            onUpdate(config)
+        }
     }
 
     suspend fun updateAppControlConfig(config: AppControlConfig): Boolean = withContext(Dispatchers.IO) {
@@ -769,47 +944,34 @@ class AdminFirestoreRepository {
      * Strictly append-only: One financial event -> Exactly one RevenueRecord.
      */
     fun observeRevenueRecords(onUpdate: (List<RevenueRecord>) -> Unit): ListenerRegistration {
-        return db.collection("revenue_records")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing revenue records", error)
-                    return@addSnapshotListener
-                }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(RevenueRecord::class.java) } ?: emptyList()
-                val sorted = list.sortedByDescending { it.timestamp }
-                onUpdate(sorted)
-            }
+        return safeObserveQuery({ db.collection("revenue_records") }) { snapshot ->
+            val list = snapshot.documents.mapNotNull { it.toObject(RevenueRecord::class.java) }
+            val sorted = list.sortedByDescending { it.timestamp }
+            onUpdate(sorted)
+        }
     }
 
     /**
      * Observes the Active PNB FD Position snapshot (/admin_config/treasury_positions).
      */
     fun observeTreasuryPosition(onUpdate: (TreasuryPosition) -> Unit): ListenerRegistration {
-        return db.collection("admin_config").document("treasury_positions")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing treasury position", error)
-                    return@addSnapshotListener
-                }
-                val pos = snapshot?.toObject(TreasuryPosition::class.java) ?: TreasuryPosition()
-                onUpdate(pos)
-            }
+        return safeObserveDocument({
+            db.collection("admin_config").document("treasury_positions")
+        }) { snapshot ->
+            val pos = snapshot.toObject(TreasuryPosition::class.java) ?: TreasuryPosition()
+            onUpdate(pos)
+        }
     }
 
     /**
      * Observes the immutable PNB Treasury Audit Log (/treasury_audit_log).
      */
     fun observeTreasuryAuditLog(onUpdate: (List<TreasuryAuditLog>) -> Unit): ListenerRegistration {
-        return db.collection("treasury_audit_log")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error observing treasury audit log", error)
-                    return@addSnapshotListener
-                }
-                val list = snapshot?.documents?.mapNotNull { it.toObject(TreasuryAuditLog::class.java) } ?: emptyList()
-                val sorted = list.sortedByDescending { it.timestamp }
-                onUpdate(sorted)
-            }
+        return safeObserveQuery({ db.collection("treasury_audit_log") }) { snapshot ->
+            val list = snapshot.documents.mapNotNull { it.toObject(TreasuryAuditLog::class.java) }
+            val sorted = list.sortedByDescending { it.timestamp }
+            onUpdate(sorted)
+        }
     }
 
     /**

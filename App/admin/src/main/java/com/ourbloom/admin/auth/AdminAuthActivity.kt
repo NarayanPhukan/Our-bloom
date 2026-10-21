@@ -50,6 +50,9 @@ class AdminAuthActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val wasLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
 
+        // Pre-warm Firebase Auth admin session in background
+        com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuth()
+
         // If previously authenticated on this device, prompt biometrics for convenience
         if (wasLoggedIn && isBiometricAvailable()) {
             biometricPrompt.authenticate(promptInfo)
@@ -105,14 +108,22 @@ class AdminAuthActivity : AppCompatActivity() {
         val isValid = com.ourbloom.admin.profile.AdminProfileRepository.validateCredentials(mobile10, password)
 
         if (isValid) {
-            val profile = com.ourbloom.admin.profile.AdminProfileRepository.getProfile()
-            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit()
-                .putBoolean(KEY_IS_LOGGED_IN, true)
-                .putString(KEY_ADMIN_MOBILE, mobile10)
-                .apply()
+            tvError.visibility = View.GONE
+            btnLogin.isEnabled = false
+            btnLogin.text = "Authorizing..."
 
-            unlockApp("Welcome ${profile.adminName} • Admin Access Granted 🌸")
+            com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuth(preferredPassword = password) { _ ->
+                runOnUiThread {
+                    val profile = com.ourbloom.admin.profile.AdminProfileRepository.getProfile()
+                    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean(KEY_IS_LOGGED_IN, true)
+                        .putString(KEY_ADMIN_MOBILE, mobile10)
+                        .apply()
+
+                    unlockApp("Welcome ${profile.adminName} • Admin Access Granted 🌸")
+                }
+            }
         } else {
             showError("Invalid administrator credentials. Please check your mobile or password.")
         }
@@ -128,7 +139,11 @@ class AdminAuthActivity : AppCompatActivity() {
         biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
-                unlockApp("Biometric Verified • Welcome 🌸")
+                com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuth { _ ->
+                    runOnUiThread {
+                        unlockApp("Biometric Verified • Welcome 🌸")
+                    }
+                }
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {

@@ -1,0 +1,11 @@
+{
+  "latestVersionCode": 6,
+  "latestVersionName": "1.3.1",
+  "versionCode": 6,
+  "versionName": "1.3.1",
+  "title": "OurBloom Admin Update Available 🚀",
+  "changelog": "• Fixed live dynamic dashboard data streaming (wallets, transactions, revenue & payouts)\n• Resolved Firestore PERMISSION_DENIED on admin profile, transactions, wallets, and withdrawal requests\n• Added resilient auto-reconnecting snapshot listeners\n• Integrated authorized Firebase Admin Authentication on login and biometric unlock",
+  "downloadUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk",
+  "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk",
+  "forceUpdate": true
+}

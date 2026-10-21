@@ -18,6 +18,11 @@ import com.google.firebase.messaging.RemoteMessage
 import com.ourbloom.admin.R
 import com.ourbloom.admin.main.AdminMainActivity
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+
 class AdminFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
@@ -29,19 +34,27 @@ class AdminFirebaseMessagingService : FirebaseMessagingService() {
 
         fun registerDeviceToken(token: String) {
             if (token.isBlank()) return
-            try {
-                val db = FirebaseFirestore.getInstance()
-                val data = mapOf(
-                    "token" to token,
-                    "adminPhone" to ADMIN_PHONE,
-                    "platform" to "android",
-                    "app" to "com.ourbloom.admin",
-                    "updatedAt" to System.currentTimeMillis()
-                )
-                db.collection("admin_devices").document(token).set(data, SetOptions.merge())
-                Log.d(TAG, "Admin FCM token registered in Firestore admin_devices")
-            } catch (e: Exception) {
-                Log.w(TAG, "Error saving admin token: ${e.message}")
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                    if (auth.currentUser == null) {
+                        com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuthSuspend()
+                    }
+                    if (auth.currentUser != null) {
+                        val db = FirebaseFirestore.getInstance()
+                        val data = mapOf(
+                            "token" to token,
+                            "adminPhone" to ADMIN_PHONE,
+                            "platform" to "android",
+                            "app" to "com.ourbloom.admin",
+                            "updatedAt" to System.currentTimeMillis()
+                        )
+                        db.collection("admin_devices").document(token).set(data, SetOptions.merge()).await()
+                        Log.d(TAG, "Admin FCM token registered in Firestore admin_devices")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error saving admin token: ${e.message}")
+                }
             }
         }
 

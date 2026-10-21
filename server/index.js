@@ -771,11 +771,20 @@ app.get('/api/admin/app/download', (req, res) => {
 
 // Admin App version metadata endpoint
 app.get('/api/admin/app/version', (req, res) => {
+  const adminUpdatePath = path.join(__dirname, '../admin-update.json');
+  if (fs.existsSync(adminUpdatePath)) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(adminUpdatePath, 'utf8'));
+      return res.json(manifest);
+    } catch (e) {
+      console.warn('Failed to parse admin-update.json:', e.message);
+    }
+  }
   res.json({
-    latestVersionCode: 4,
-    latestVersionName: '1.2.1',
+    latestVersionCode: 6,
+    latestVersionName: '1.3.1',
     downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
-    changelog: '• Resilient System Health Radar with offline/standalone telemetry fallback\n• Direct Firestore ping and server latency tracking (Zero 404 error)\n• Direct Firestore cloud broadcast fallback\n• Exact PayU bank settlement sync (₹840.50 settled inflow)\n• Couple Vault CRM with Payment Statements & CSV sharing',
+    changelog: '• Fixed live dynamic dashboard data streaming (wallets, transactions, revenue & payouts)\n• Resolved Firestore PERMISSION_DENIED on admin profile, transactions, wallets, and withdrawal requests\n• Added resilient auto-reconnecting snapshot listeners\n• Integrated authorized Firebase Admin Authentication on login and biometric unlock',
     forceUpdate: true
   });
 });

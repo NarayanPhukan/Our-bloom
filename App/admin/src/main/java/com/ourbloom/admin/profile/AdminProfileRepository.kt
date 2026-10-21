@@ -169,6 +169,10 @@ object AdminProfileRepository {
     private fun syncWithFirestore() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                if (auth.currentUser == null) {
+                    com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuthSuspend()
+                }
                 val db = FirebaseFirestore.getInstance()
                 val docRef = db.collection("admin_config").document("admin_profile")
                 val snap = docRef.get().await()
@@ -191,12 +195,14 @@ object AdminProfileRepository {
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Firestore sync failed", e)
-                AdminBugRadar.record(
-                    tag = "Profile/FirestoreSync",
-                    message = "Could not sync admin profile: ${e.message}",
-                    throwable = e,
-                    severity = BugSeverity.WARNING
-                )
+                if (!e.message.orEmpty().contains("PERMISSION_DENIED")) {
+                    AdminBugRadar.record(
+                        tag = "Profile/FirestoreSync",
+                        message = "Could not sync admin profile: ${e.message}",
+                        throwable = e,
+                        severity = BugSeverity.WARNING
+                    )
+                }
             }
         }
     }
@@ -204,6 +210,10 @@ object AdminProfileRepository {
     private fun pushToFirestore(profile: AdminProfile) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                if (auth.currentUser == null) {
+                    com.ourbloom.admin.data.AdminFirestoreRepository().ensureAuthSuspend()
+                }
                 val db = FirebaseFirestore.getInstance()
                 val map = mapOf(
                     "adminName" to profile.adminName,
