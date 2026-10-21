@@ -403,7 +403,7 @@ router.post('/create-payment-link', async (req, res) => {
         goalId: String(goalId || ''),
         txnid
       },
-      callback_url: `https://our-bloom.onrender.com/api/razorpay/payment-link-callback?txnid=${txnid}`,
+      callback_url: `https://our-bloom-gamma.vercel.app/payment-return.html?txnid=${txnid}`,
       callback_method: 'get'
     };
 

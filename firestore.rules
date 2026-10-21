@@ -190,7 +190,8 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && isExistingCoupleMember(resource.data.coupleId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'reactions', 'readBy', 'editedAt', 'deletedFor', 'status', 'isRead', 'readAt', 'deliveryStatus', 'updatedAt'
+          'reactions', 'readBy', 'editedAt', 'deletedFor', 'status', 'isRead', 'readAt', 'deliveryStatus', 'updatedAt',
+          'isDelivered', 'delivered', 'deliveredAt', 'read'
         ]);
       allow delete: if isSignedIn()
         && isExistingCoupleMember(resource.data.coupleId)

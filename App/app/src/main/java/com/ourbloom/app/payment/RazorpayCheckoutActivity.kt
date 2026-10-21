@@ -117,6 +117,7 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
     private var isCompleted: Boolean = false
     private var hasLaunchedCustomTab: Boolean = false
     private var isCheckingStatus: Boolean = false
+    private var lastErrorMessage: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -205,13 +206,13 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
         webView.visibility = View.GONE
 
         lifecycleScope.launch(Dispatchers.IO) {
-            // Attempt 1: Call server payment link endpoint
-            var linkData = createPaymentLinkViaServer()
+            // Attempt 1: Direct Razorpay Payment Link API (instant 200ms creation, no cold-start delay)
+            var linkData = createPaymentLinkDirectly()
 
-            // Attempt 2 (Fallback): Direct Razorpay Payment Link API (instant 200ms creation)
+            // Attempt 2 (Fallback): Server payment link endpoint
             if (linkData == null) {
-                Log.i(TAG, "Server payment-link creation not available yet, creating directly via Razorpay API...")
-                linkData = createPaymentLinkDirectly()
+                Log.i(TAG, "Direct Razorpay creation unfulfilled, trying via backend server...")
+                linkData = createPaymentLinkViaServer()
             }
 
             if (linkData != null) {
@@ -222,7 +223,12 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
                 }
             } else {
                 withContext(Dispatchers.Main) {
-                    showErrorDialog("Unable to initialize Razorpay gateway. Please check your internet connection and try again.")
+                    val errorMsg = if (lastErrorMessage.isNotBlank()) {
+                        "Payment initialization failed: $lastErrorMessage"
+                    } else {
+                        "Unable to initialize Razorpay gateway. Please check your internet connection and try again."
+                    }
+                    showErrorDialog(errorMsg)
                 }
             }
         }
@@ -258,6 +264,12 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
                 currentPaymentLinkId = data.optString("paymentLinkId", "")
                 Pair(paymentUrl, txnid)
             } else {
+                val errDesc = try {
+                    JSONObject(responseBody).optString("error")
+                } catch (_: Exception) { null }
+                if (!errDesc.isNullOrBlank()) {
+                    lastErrorMessage = errDesc
+                }
                 Log.w(TAG, "Server create-payment-link returned HTTP ${response.code}: $responseBody")
                 null
             }
@@ -298,18 +310,32 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
                     put("txnid", generatedTxnId)
                     put("goalId", goalId ?: "")
                 })
-                put("callback_url", "ourbloom://razorpay-return?txnid=$generatedTxnId&status=success")
+                put("callback_url", "https://our-bloom-gamma.vercel.app/payment-return.html?txnid=$generatedTxnId")
                 put("callback_method", "get")
             }
 
-            val request = Request.Builder()
+            var request = Request.Builder()
                 .url("https://api.razorpay.com/v1/payment_links")
                 .header("Authorization", authHeader)
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
+            var response = httpClient.newCall(request).execute()
+            var responseBody = response.body?.string() ?: ""
+
+            // Fallback retry without callback_url if callback_url field is ever rejected
+            if (!response.isSuccessful && response.code == 400 && responseBody.contains("callback_url")) {
+                Log.w(TAG, "Retrying direct Razorpay link creation without callback_url: $responseBody")
+                payload.remove("callback_url")
+                payload.remove("callback_method")
+                request = Request.Builder()
+                    .url("https://api.razorpay.com/v1/payment_links")
+                    .header("Authorization", authHeader)
+                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+                response = httpClient.newCall(request).execute()
+                responseBody = response.body?.string() ?: ""
+            }
 
             if (response.isSuccessful) {
                 val data = JSONObject(responseBody)
@@ -319,10 +345,15 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
                 Log.d(TAG, "Direct Razorpay Payment Link created: $shortUrl (id: $linkId)")
                 Pair(shortUrl, generatedTxnId)
             } else {
+                val errDesc = try {
+                    JSONObject(responseBody).optJSONObject("error")?.optString("description")
+                } catch (_: Exception) { null }
+                lastErrorMessage = errDesc ?: "HTTP ${response.code}: $responseBody"
                 Log.e(TAG, "Direct Razorpay creation failed (HTTP ${response.code}): $responseBody")
                 null
             }
         } catch (e: Exception) {
+            lastErrorMessage = e.message ?: "Network error"
             Log.e(TAG, "Exception during direct Razorpay link creation: ${e.message}", e)
             null
         }
