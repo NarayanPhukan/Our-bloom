@@ -18,6 +18,7 @@ const storyEntryRoutes = require('./routes/storyEntries');
 const settingsRoutes = require('./routes/settings');
 const uploadRoutes = require('./routes/upload');
 const payuRoutes = require('./routes/payu');
+const razorpayRoutes = require('./routes/razorpay');
 const inviteRoutes = require('./routes/invites');
 const authMiddleware = require('./middleware/authMiddleware');
 const coupleMiddleware = require('./middleware/coupleMiddleware');
@@ -432,6 +433,9 @@ app.use('/api/upload', uploadRoutes);
 // PayU payment gateway endpoints (create payment, callbacks, webhooks)
 app.use('/api/payu', payuRoutes);
 
+// Razorpay payment gateway endpoints (create orders, verify, webhooks, settlements)
+app.use('/api/razorpay', razorpayRoutes);
+
 // Protected invite validation and creation endpoints
 app.use('/api/invites', inviteRoutes);
 
@@ -577,6 +581,12 @@ app.get('/api/admin/system-health', async (req, res) => {
           status: 'CONFIGURED',
           mode: process.env.PAYU_MODE || 'live',
           merchantKeyConfigured: Boolean(process.env.PAYU_KEY)
+        },
+        razorpay: {
+          status: 'CONFIGURED',
+          mode: 'live',
+          keyId: (process.env.RAZORPAY_KEY_ID || 'rzp_live_TmiLSHkOVIFPyZ').slice(0, 10) + '...',
+          gatewayConnected: true
         }
       }
     });

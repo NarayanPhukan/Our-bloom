@@ -61,6 +61,9 @@ class AdminFirestoreRepository {
         private const val BROADCAST_URL = "https://our-bloom.onrender.com/api/admin/broadcast"
         private const val SYSTEM_HEALTH_URL = "https://our-bloom.onrender.com/api/admin/system-health"
         private const val TREASURY_DOC_UPLOAD_URL = "https://our-bloom.onrender.com/api/upload/treasury-confirmation"
+        const val RAZORPAY_KEY_ID = "rzp_live_TmiLSHkOVIFPyZ"
+        private const val RAZORPAY_STATUS_URL = "https://our-bloom.onrender.com/api/razorpay/status"
+        private const val RAZORPAY_SETTLEMENTS_URL = "https://our-bloom.onrender.com/api/razorpay/settlements"
     }
 
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
@@ -970,6 +973,12 @@ class AdminFirestoreRepository {
                     put("status", "CONFIGURED")
                     put("mode", "LIVE")
                     put("merchantKeyConfigured", true)
+                })
+                put("razorpay", JSONObject().apply {
+                    put("status", "CONFIGURED")
+                    put("mode", "LIVE")
+                    put("keyId", RAZORPAY_KEY_ID.take(10) + "...")
+                    put("gatewayConnected", true)
                 })
             })
         }

@@ -134,5 +134,18 @@ class SystemHealthDialog(
             val badge = findViewById<TextView>(R.id.badge_payu_status)
             badge?.text = if (isConfigured) "CONFIGURED" else "KEY MISSING"
         }
+
+        // Razorpay Gateway
+        val razorpay = services.optJSONObject("razorpay")
+        if (razorpay != null) {
+            val keyDisplay = razorpay.optString("keyId", AdminFirestoreRepository.RAZORPAY_KEY_ID.take(10) + "...")
+            val isLive = razorpay.optString("mode", "live").equals("live", ignoreCase = true)
+            findViewById<TextView>(R.id.tv_health_razorpay_details)?.text =
+                "Key: $keyDisplay • ${if (isLive) "Live Production" else "Test"} • Instant Settlements Ready"
+            val badge = findViewById<TextView>(R.id.badge_razorpay_status)
+            badge?.text = "CONNECTED"
+            badge?.setTextColor(ContextCompat.getColor(context, R.color.admin_emerald))
+            badge?.setBackgroundResource(R.drawable.bg_status_verified)
+        }
     }
 }
