@@ -781,10 +781,10 @@ app.get('/api/admin/app/version', (req, res) => {
     }
   }
   res.json({
-    latestVersionCode: 7,
-    latestVersionName: '1.3.2',
+    latestVersionCode: 8,
+    latestVersionName: '1.3.3',
     downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
-    changelog: '• Fixed live dynamic revenue updating on deposits & manual credits\n• Real-time 2% deposit platform fee synchronization\n• Real-time Solvency & Liquidity coverage monitoring\n• Fixed permissions for revenue ledger synchronization',
+    changelog: '• Separated OurBloom revenue breakdown by calendar months and weekly cycles\n• Added periodic breakdown cards with progress bars and percentage distribution\n• Sectioned revenue ledger with monthly and weekly subtotals and grouping toggles\n• Live This Month, This Week, and Last Month indicators on overview dashboard',
     forceUpdate: true
   });
 });

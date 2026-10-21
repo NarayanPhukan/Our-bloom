@@ -15,6 +15,7 @@ import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import androidx.activity.result.contract.ActivityResultContracts
@@ -128,6 +129,17 @@ class AdminRevenueFragment : Fragment() {
     private lateinit var tabSettlementsOnly: MaterialButton
     private lateinit var tabAuditOnly: MaterialButton
 
+    // Card 1B: Periodic Revenue Separation (Months & Weeks)
+    private lateinit var btnPeriodTabMonths: MaterialButton
+    private lateinit var btnPeriodTabWeeks: MaterialButton
+    private lateinit var tvPeriodSummaryDesc: TextView
+    private lateinit var layoutMonthlyPeriodsContainer: LinearLayout
+    private lateinit var layoutWeeklyPeriodsContainer: LinearLayout
+
+    // Ledger Grouping Selector
+    private lateinit var tvLedgerGroupingLabel: TextView
+    private lateinit var btnToggleGroupView: MaterialButton
+
     // Active state
     private var allRevenueRecords: List<RevenueRecord> = emptyList()
     private var allTransactions: List<SavingsTransaction> = emptyList()
@@ -138,9 +150,13 @@ class AdminRevenueFragment : Fragment() {
 
     private var activeTimeFilter = TimeFilter.ALL_TIME
     private var activeLedgerTab = LedgerTab.ALL_REVENUE
+    private var activePeriodTab = PeriodTab.MONTHS
+    private var activeGroupingMode = GroupingMode.PARTITIONED
 
     enum class TimeFilter { ALL_TIME, THIS_MONTH, THIS_WEEK, TODAY }
     enum class LedgerTab { ALL_REVENUE, FEES, GIFTS, SUBSCRIPTIONS, SETTLEMENTS, AUDIT }
+    enum class PeriodTab { MONTHS, WEEKS }
+    enum class GroupingMode { PARTITIONED, FLAT }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -216,6 +232,15 @@ class AdminRevenueFragment : Fragment() {
         tabSubsOnly = root.findViewById(R.id.tab_subs_only)
         tabSettlementsOnly = root.findViewById(R.id.tab_settlements_only)
         tabAuditOnly = root.findViewById(R.id.tab_audit_only)
+
+        btnPeriodTabMonths = root.findViewById(R.id.btn_period_tab_months)
+        btnPeriodTabWeeks = root.findViewById(R.id.btn_period_tab_weeks)
+        tvPeriodSummaryDesc = root.findViewById(R.id.tv_period_summary_desc)
+        layoutMonthlyPeriodsContainer = root.findViewById(R.id.layout_monthly_periods_container)
+        layoutWeeklyPeriodsContainer = root.findViewById(R.id.layout_weekly_periods_container)
+
+        tvLedgerGroupingLabel = root.findViewById(R.id.tv_ledger_grouping_label)
+        btnToggleGroupView = root.findViewById(R.id.btn_toggle_group_view)
     }
 
     private fun setupClickListeners(root: View) {
@@ -283,6 +308,37 @@ class AdminRevenueFragment : Fragment() {
         tabSubsOnly.setOnClickListener { setLedgerTab(LedgerTab.SUBSCRIPTIONS) }
         tabSettlementsOnly.setOnClickListener { setLedgerTab(LedgerTab.SETTLEMENTS) }
         tabAuditOnly.setOnClickListener { setLedgerTab(LedgerTab.AUDIT) }
+
+        // Card 1B: Periodic Separation Tabs
+        btnPeriodTabMonths.setOnClickListener {
+            activePeriodTab = PeriodTab.MONTHS
+            btnPeriodTabMonths.setStyleSelected(true)
+            btnPeriodTabWeeks.setStyleSelected(false)
+            layoutMonthlyPeriodsContainer.visibility = View.VISIBLE
+            layoutWeeklyPeriodsContainer.visibility = View.GONE
+            tvPeriodSummaryDesc.text = "Real-time revenue partitioned into calendar months"
+        }
+
+        btnPeriodTabWeeks.setOnClickListener {
+            activePeriodTab = PeriodTab.WEEKS
+            btnPeriodTabMonths.setStyleSelected(false)
+            btnPeriodTabWeeks.setStyleSelected(true)
+            layoutMonthlyPeriodsContainer.visibility = View.GONE
+            layoutWeeklyPeriodsContainer.visibility = View.VISIBLE
+            tvPeriodSummaryDesc.text = "Real-time revenue partitioned into weekly 7-day cycles"
+        }
+
+        // Ledger Grouping View Toggle
+        btnToggleGroupView.setOnClickListener {
+            activeGroupingMode = if (activeGroupingMode == GroupingMode.PARTITIONED) {
+                GroupingMode.FLAT
+            } else {
+                GroupingMode.PARTITIONED
+            }
+            updateGroupingToggleState()
+            renderRecyclerItems()
+        }
+        updateGroupingToggleState()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -492,6 +548,7 @@ class AdminRevenueFragment : Fragment() {
             layoutDocEmpty.visibility = View.VISIBLE
         }
 
+        renderPeriodicSummaries()
         renderRecyclerItems()
     }
 
@@ -511,7 +568,8 @@ class AdminRevenueFragment : Fragment() {
                 allRevenueRecords.filter { it.timestamp >= startOfMonth }
             }
             TimeFilter.THIS_WEEK -> {
-                calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
+                calendar.firstDayOfWeek = Calendar.MONDAY
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)
                 calendar.set(Calendar.SECOND, 0)
@@ -535,16 +593,36 @@ class AdminRevenueFragment : Fragment() {
 
         when (activeLedgerTab) {
             LedgerTab.ALL_REVENUE -> {
-                list.addAll(getFilteredRevenueList().map { RevenueListItem.Revenue(it) })
+                val filtered = getFilteredRevenueList()
+                if (activeGroupingMode == GroupingMode.PARTITIONED) {
+                    list.addAll(buildPartitionedRevenueList(filtered))
+                } else {
+                    list.addAll(filtered.map { RevenueListItem.Revenue(it) })
+                }
             }
             LedgerTab.FEES -> {
-                list.addAll(getFilteredRevenueList().filter { it.type.equals("FEE", true) }.map { RevenueListItem.Revenue(it) })
+                val filtered = getFilteredRevenueList().filter { it.type.equals("FEE", true) }
+                if (activeGroupingMode == GroupingMode.PARTITIONED) {
+                    list.addAll(buildPartitionedRevenueList(filtered))
+                } else {
+                    list.addAll(filtered.map { RevenueListItem.Revenue(it) })
+                }
             }
             LedgerTab.GIFTS -> {
-                list.addAll(getFilteredRevenueList().filter { it.type.equals("GIFT", true) }.map { RevenueListItem.Revenue(it) })
+                val filtered = getFilteredRevenueList().filter { it.type.equals("GIFT", true) }
+                if (activeGroupingMode == GroupingMode.PARTITIONED) {
+                    list.addAll(buildPartitionedRevenueList(filtered))
+                } else {
+                    list.addAll(filtered.map { RevenueListItem.Revenue(it) })
+                }
             }
             LedgerTab.SUBSCRIPTIONS -> {
-                list.addAll(getFilteredRevenueList().filter { it.type.equals("SUBSCRIPTION", true) }.map { RevenueListItem.Revenue(it) })
+                val filtered = getFilteredRevenueList().filter { it.type.equals("SUBSCRIPTION", true) }
+                if (activeGroupingMode == GroupingMode.PARTITIONED) {
+                    list.addAll(buildPartitionedRevenueList(filtered))
+                } else {
+                    list.addAll(filtered.map { RevenueListItem.Revenue(it) })
+                }
             }
             LedgerTab.SETTLEMENTS -> {
                 val settledTxns = allTransactions.filter { it.type.equals("deposit", true) && it.isSettled }
@@ -562,6 +640,154 @@ class AdminRevenueFragment : Fragment() {
 
         adapter.submitList(list)
         tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun updateGroupingToggleState() {
+        if (activeGroupingMode == GroupingMode.PARTITIONED) {
+            btnToggleGroupView.text = "🗓️ Partitioned (Month/Week)"
+            tvLedgerGroupingLabel.text = "Grouping: Month & Week Partitioned"
+            btnToggleGroupView.setStyleSelected(true)
+        } else {
+            btnToggleGroupView.text = "📄 Flat List"
+            tvLedgerGroupingLabel.text = "Grouping: Chronological Flat List"
+            btnToggleGroupView.setStyleSelected(false)
+        }
+    }
+
+    private fun renderPeriodicSummaries() {
+        if (!isAdded) return
+        val records = allRevenueRecords
+        val totalAllPaise = records.sumOf { it.netRevenuePaise }.coerceAtLeast(1L)
+
+        // 1. Monthly Summaries
+        layoutMonthlyPeriodsContainer.removeAllViews()
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val groupedByMonth = LinkedHashMap<String, MutableList<RevenueRecord>>()
+        for (rec in records) {
+            val key = if (rec.timestamp > 0L) monthFormat.format(Date(rec.timestamp)) else "Recent"
+            groupedByMonth.getOrPut(key) { mutableListOf() }.add(rec)
+        }
+
+        if (groupedByMonth.isEmpty()) {
+            val tvEmpty = TextView(requireContext()).apply {
+                text = "No monthly records recorded yet"
+                setTextColor(ContextCompat.getColor(context, R.color.admin_text_muted))
+                textSize = 11f
+            }
+            layoutMonthlyPeriodsContainer.addView(tvEmpty)
+        } else {
+            for ((monthTitle, monthRecords) in groupedByMonth) {
+                val totalPaise = monthRecords.sumOf { it.netRevenuePaise }
+                val pct = (totalPaise.toDouble() / totalAllPaise.toDouble()) * 100.0
+                val rowView = layoutInflater.inflate(R.layout.item_revenue_period_summary_row, layoutMonthlyPeriodsContainer, false)
+                rowView.findViewById<ImageView>(R.id.iv_period_row_icon).setImageResource(R.drawable.ic_revenue)
+                rowView.findViewById<TextView>(R.id.tv_period_row_title).text = monthTitle
+                rowView.findViewById<TextView>(R.id.tv_period_row_subtitle).text = "${monthRecords.size} receipts • 2% Deposit Fees"
+                rowView.findViewById<TextView>(R.id.tv_period_row_amount).text = "+${RevenueAdapter.formatPaise(totalPaise)}"
+                rowView.findViewById<TextView>(R.id.tv_period_row_pct).text = String.format(Locale.US, "%.1f%% of revenue", pct)
+                rowView.findViewById<ProgressBar>(R.id.pb_period_row_progress).progress = pct.toInt().coerceIn(1, 100)
+                layoutMonthlyPeriodsContainer.addView(rowView)
+            }
+        }
+
+        // 2. Weekly Summaries
+        layoutWeeklyPeriodsContainer.removeAllViews()
+        val groupedByWeek = LinkedHashMap<String, MutableList<RevenueRecord>>()
+        for (rec in records) {
+            val key = if (rec.timestamp > 0L) getWeekDisplayTitle(rec.timestamp) else "Recent Week"
+            groupedByWeek.getOrPut(key) { mutableListOf() }.add(rec)
+        }
+
+        if (groupedByWeek.isEmpty()) {
+            val tvEmpty = TextView(requireContext()).apply {
+                text = "No weekly records recorded yet"
+                setTextColor(ContextCompat.getColor(context, R.color.admin_text_muted))
+                textSize = 11f
+            }
+            layoutWeeklyPeriodsContainer.addView(tvEmpty)
+        } else {
+            for ((weekTitle, weekRecords) in groupedByWeek) {
+                val totalPaise = weekRecords.sumOf { it.netRevenuePaise }
+                val pct = (totalPaise.toDouble() / totalAllPaise.toDouble()) * 100.0
+                val rowView = layoutInflater.inflate(R.layout.item_revenue_period_summary_row, layoutWeeklyPeriodsContainer, false)
+                rowView.findViewById<ImageView>(R.id.iv_period_row_icon).setImageResource(R.drawable.ic_ledger)
+                rowView.findViewById<TextView>(R.id.tv_period_row_title).text = weekTitle
+                rowView.findViewById<TextView>(R.id.tv_period_row_subtitle).text = "${weekRecords.size} receipts in 7-day cycle"
+                rowView.findViewById<TextView>(R.id.tv_period_row_amount).text = "+${RevenueAdapter.formatPaise(totalPaise)}"
+                rowView.findViewById<TextView>(R.id.tv_period_row_pct).text = String.format(Locale.US, "%.1f%% of revenue", pct)
+                rowView.findViewById<ProgressBar>(R.id.pb_period_row_progress).progress = pct.toInt().coerceIn(1, 100)
+                layoutWeeklyPeriodsContainer.addView(rowView)
+            }
+        }
+    }
+
+    private fun buildPartitionedRevenueList(records: List<RevenueRecord>): List<RevenueListItem> {
+        if (records.isEmpty()) return emptyList()
+        val result = mutableListOf<RevenueListItem>()
+
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val groupedByMonth = LinkedHashMap<String, MutableList<RevenueRecord>>()
+        for (rec in records) {
+            val mKey = if (rec.timestamp > 0L) monthFormat.format(Date(rec.timestamp)) else "Recent"
+            groupedByMonth.getOrPut(mKey) { mutableListOf() }.add(rec)
+        }
+
+        for ((monthTitle, monthRecords) in groupedByMonth) {
+            val monthTotalPaise = monthRecords.sumOf { it.netRevenuePaise }
+            result.add(
+                RevenueListItem.PeriodHeader(
+                    title = "🗓️ $monthTitle",
+                    subtitle = "${monthRecords.size} receipts recognized",
+                    totalPaise = monthTotalPaise,
+                    isMonth = true
+                )
+            )
+
+            val groupedByWeek = LinkedHashMap<String, MutableList<RevenueRecord>>()
+            for (rec in monthRecords) {
+                val wKey = if (rec.timestamp > 0L) getWeekDisplayTitle(rec.timestamp) else "Recent Week"
+                groupedByWeek.getOrPut(wKey) { mutableListOf() }.add(rec)
+            }
+
+            for ((weekTitle, weekRecords) in groupedByWeek) {
+                val weekTotalPaise = weekRecords.sumOf { it.netRevenuePaise }
+                result.add(
+                    RevenueListItem.PeriodHeader(
+                        title = "📅 $weekTitle",
+                        subtitle = "${weekRecords.size} receipts",
+                        totalPaise = weekTotalPaise,
+                        isMonth = false
+                    )
+                )
+
+                for (rec in weekRecords) {
+                    result.add(RevenueListItem.Revenue(rec))
+                }
+            }
+        }
+
+        return result
+    }
+
+    private fun getWeekDisplayTitle(timestamp: Long): String {
+        val cal = Calendar.getInstance()
+        cal.firstDayOfWeek = Calendar.MONDAY
+        cal.timeInMillis = timestamp
+        val weekNum = cal.get(Calendar.WEEK_OF_YEAR)
+
+        val startCal = Calendar.getInstance()
+        startCal.firstDayOfWeek = Calendar.MONDAY
+        startCal.timeInMillis = timestamp
+        startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        val startDay = startCal.get(Calendar.DAY_OF_MONTH)
+        val startMonth = SimpleDateFormat("MMM", Locale.US).format(startCal.time)
+
+        startCal.add(Calendar.DAY_OF_WEEK, 6)
+        val endDay = startCal.get(Calendar.DAY_OF_MONTH)
+        val endMonth = SimpleDateFormat("MMM", Locale.US).format(startCal.time)
+        val year = startCal.get(Calendar.YEAR)
+
+        return "Week $weekNum • $startDay $startMonth – $endDay $endMonth $year"
     }
 
     private fun setTimeFilter(filter: TimeFilter) {

@@ -256,6 +256,15 @@
                     android:text="Fees: ₹0.00 • Gifts: ₹0.00 • Subscriptions: ₹0.00"
                     android:textColor="@color/admin_text_muted"
                     android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/tv_dash_revenue_period_breakdown"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="🗓️ This Month: ₹0.00 • Last Month: ₹0.00"
+                    android:textColor="@color/admin_text_secondary"
+                    android:textSize="10sp" />
             </LinearLayout>
 
             <!-- SECTION 3: Key Financial Metrics (Side-by-side Cards) -->

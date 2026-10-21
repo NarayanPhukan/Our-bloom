@@ -1,10 +1,10 @@
 {
-  "latestVersionCode": 7,
-  "latestVersionName": "1.3.2",
-  "versionCode": 7,
-  "versionName": "1.3.2",
+  "latestVersionCode": 8,
+  "latestVersionName": "1.3.3",
+  "versionCode": 8,
+  "versionName": "1.3.3",
   "title": "OurBloom Admin Update Available 🚀",
-  "changelog": "• Fixed live dynamic revenue updating on deposits & manual credits\n• Real-time 2% deposit platform fee synchronization\n• Real-time Solvency & Liquidity coverage monitoring\n• Fixed permissions for revenue ledger synchronization",
+  "changelog": "• Separated OurBloom company revenue by calendar months and weekly cycles\n• Added periodic breakdown card with progress bars, percentages, and receipt counts\n• Added sectioned ledger headers (Month & Week partitions with subtotals) and grouping toggle\n• Real-time This Month, This Week, and Last Month revenue indicators on overview dashboard",
   "downloadUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk",
   "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk",
   "forceUpdate": true

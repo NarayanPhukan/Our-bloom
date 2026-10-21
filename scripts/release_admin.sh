@@ -31,19 +31,21 @@ fi
 
 # 1. Update admin-update.json manifest
 echo "Updating admin version manifests..."
-cat <<EOF > "$ADMIN_UPDATE_JSON"
-{
-  "latestVersionCode": $CURRENT_CODE,
-  "latestVersionName": "$CURRENT_NAME",
-  "versionCode": $CURRENT_CODE,
-  "versionName": "$CURRENT_NAME",
-  "title": "OurBloom Admin Update Available 🚀",
-  "changelog": "$CHANGELOG_TEXT",
-  "downloadUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk",
-  "apkUrl": "https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk",
-  "forceUpdate": true
-}
-EOF
+CHANGELOG_TEXT="$CHANGELOG_TEXT" node -e "
+const fs = require('fs');
+const manifest = {
+  latestVersionCode: parseInt(process.env.CURRENT_CODE || '$CURRENT_CODE', 10),
+  latestVersionName: process.env.CURRENT_NAME || '$CURRENT_NAME',
+  versionCode: parseInt(process.env.CURRENT_CODE || '$CURRENT_CODE', 10),
+  versionName: process.env.CURRENT_NAME || '$CURRENT_NAME',
+  title: 'OurBloom Admin Update Available 🚀',
+  changelog: process.env.CHANGELOG_TEXT || '',
+  downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
+  apkUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
+  forceUpdate: true
+};
+fs.writeFileSync('$ADMIN_UPDATE_JSON', JSON.stringify(manifest, null, 2) + '\n');
+"
 
 mkdir -p "$ROOT_DIR/client/public"
 cp "$ADMIN_UPDATE_JSON" "$ROOT_DIR/client/public/admin-update.json"

@@ -24,6 +24,7 @@ import com.ourbloom.admin.main.AdminMainActivity
 import com.ourbloom.admin.transactions.ManualCreditDialog
 import com.ourbloom.admin.transactions.TransactionsAdapter
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import java.util.Locale
 
 class AdminDashboardFragment : Fragment() {
@@ -49,6 +50,7 @@ class AdminDashboardFragment : Fragment() {
     private lateinit var cardRevenueOverview: View
     private lateinit var tvKpiTotalRevenue: TextView
     private lateinit var tvDashRevenueBreakdown: TextView
+    private lateinit var tvDashRevenuePeriodBreakdown: TextView
     private lateinit var tvDashRevenueSolvencyBadge: TextView
 
     private lateinit var layoutUrgentAlert: View
@@ -89,6 +91,7 @@ class AdminDashboardFragment : Fragment() {
         cardRevenueOverview = root.findViewById(R.id.card_revenue_overview)
         tvKpiTotalRevenue = root.findViewById(R.id.tv_kpi_total_revenue)
         tvDashRevenueBreakdown = root.findViewById(R.id.tv_dash_revenue_breakdown_label)
+        tvDashRevenuePeriodBreakdown = root.findViewById(R.id.tv_dash_revenue_period_breakdown)
         tvDashRevenueSolvencyBadge = root.findViewById(R.id.tv_dash_revenue_solvency_badge)
 
         cardRevenueOverview.setOnClickListener {
@@ -323,6 +326,38 @@ class AdminDashboardFragment : Fragment() {
         val cleanG = if (giftsPaise % 100L == 0L) "₹${gRupees.toLong()}" else String.format(Locale.US, "₹%.2f", gRupees)
         val cleanS = if (subsPaise % 100L == 0L) "₹${sRupees.toLong()}" else String.format(Locale.US, "₹%.2f", sRupees)
         tvDashRevenueBreakdown.text = "Fees: $cleanF • Gifts: $cleanG • Subscriptions: $cleanS"
+
+        // Periodic separation (Months & Weeks)
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val startThisMonth = cal.timeInMillis
+
+        cal.add(Calendar.MONTH, -1)
+        val startLastMonth = cal.timeInMillis
+
+        val weekCal = Calendar.getInstance()
+        weekCal.firstDayOfWeek = Calendar.MONDAY
+        weekCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        weekCal.set(Calendar.HOUR_OF_DAY, 0)
+        weekCal.set(Calendar.MINUTE, 0)
+        weekCal.set(Calendar.SECOND, 0)
+        weekCal.set(Calendar.MILLISECOND, 0)
+        val startThisWeek = weekCal.timeInMillis
+
+        val thisMonthPaise = currentRevenueRecords.filter { it.timestamp >= startThisMonth }.sumOf { it.netRevenuePaise }
+        val lastMonthPaise = currentRevenueRecords.filter { it.timestamp in startLastMonth until startThisMonth }.sumOf { it.netRevenuePaise }
+        val thisWeekPaise = currentRevenueRecords.filter { it.timestamp >= startThisWeek }.sumOf { it.netRevenuePaise }
+
+        fun fmt(paise: Long): String {
+            val r = paise / 100.0
+            return if (paise % 100L == 0L) "₹${r.toLong()}" else String.format(Locale.US, "₹%.2f", r)
+        }
+
+        tvDashRevenuePeriodBreakdown.text = "🗓️ This Month: ${fmt(thisMonthPaise)} • This Week: ${fmt(thisWeekPaise)} • Last Month: ${fmt(lastMonthPaise)}"
 
         // Dynamic Solvency & Liquidity Badge
         val vaultPrincipalPaise = currentWallets.sumOf { Math.round(it.totalBalance * 100.0) }

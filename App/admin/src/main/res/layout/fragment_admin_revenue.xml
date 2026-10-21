@@ -309,6 +309,93 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- CARD 1B: PERIODIC REVENUE SEPARATION (MONTHS & WEEKS) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_admin_card"
+                android:elevation="2dp"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_revenue"
+                        app:tint="@color/admin_navy" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:fontFamily="sans-serif-bold"
+                        android:text="PERIODIC REVENUE SEPARATION"
+                        android:textColor="@color/admin_navy"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_input"
+                        android:padding="2dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_period_tab_months"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="28dp"
+                            android:paddingHorizontal="10dp"
+                            android:text="By Months"
+                            android:textSize="10sp"
+                            app:cornerRadius="6dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_period_tab_weeks"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="28dp"
+                            android:paddingHorizontal="10dp"
+                            android:text="By Weeks"
+                            android:textSize="10sp"
+                            app:cornerRadius="6dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_period_summary_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="Real-time revenue partitioned into calendar months"
+                    android:textColor="@color/admin_text_muted"
+                    android:textSize="10sp" />
+
+                <!-- Dynamic Monthly periods list -->
+                <LinearLayout
+                    android:id="@+id/layout_monthly_periods_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical" />
+
+                <!-- Dynamic Weekly periods list -->
+                <LinearLayout
+                    android:id="@+id/layout_weekly_periods_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
+            </LinearLayout>
+
             <!-- CARD 2: CUSTOMER FUNDS (LIABILITIES — NON-REVENUE) -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -979,6 +1066,34 @@
                         app:cornerRadius="16dp" />
                 </LinearLayout>
             </HorizontalScrollView>
+
+            <!-- LEDGER GROUPING TOGGLE -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tv_ledger_grouping_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Grouping: Month &amp; Week Partitioned"
+                    android:textColor="@color/admin_text_muted"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_toggle_group_view"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:text="🗓️ Partitioned (Month/Week)"
+                    android:textSize="9sp"
+                    app:cornerRadius="14dp" />
+            </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler_revenue_items"

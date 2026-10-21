@@ -17,6 +17,12 @@ import java.util.Date
 import java.util.Locale
 
 sealed class RevenueListItem {
+    data class PeriodHeader(
+        val title: String,
+        val subtitle: String,
+        val totalPaise: Long,
+        val isMonth: Boolean = true
+    ) : RevenueListItem()
     data class Revenue(val record: RevenueRecord) : RevenueListItem()
     data class Settlement(val date: String, val utr: String, val count: Int, val settledPaise: Long) : RevenueListItem()
     data class Audit(val log: TreasuryAuditLog) : RevenueListItem()
@@ -25,6 +31,7 @@ sealed class RevenueListItem {
 class RevenueAdapter : ListAdapter<RevenueListItem, RecyclerView.ViewHolder>(DiffCallback) {
 
     companion object {
+        private const val TYPE_PERIOD_HEADER = 0
         private const val TYPE_REVENUE = 1
         private const val TYPE_SETTLEMENT = 2
         private const val TYPE_AUDIT = 3
@@ -32,6 +39,8 @@ class RevenueAdapter : ListAdapter<RevenueListItem, RecyclerView.ViewHolder>(Dif
         private val DiffCallback = object : DiffUtil.ItemCallback<RevenueListItem>() {
             override fun areItemsTheSame(oldItem: RevenueListItem, newItem: RevenueListItem): Boolean {
                 return when {
+                    oldItem is RevenueListItem.PeriodHeader && newItem is RevenueListItem.PeriodHeader ->
+                        oldItem.title == newItem.title && oldItem.isMonth == newItem.isMonth
                     oldItem is RevenueListItem.Revenue && newItem is RevenueListItem.Revenue ->
                         oldItem.record.eventId == newItem.record.eventId
                     oldItem is RevenueListItem.Settlement && newItem is RevenueListItem.Settlement ->
@@ -59,6 +68,7 @@ class RevenueAdapter : ListAdapter<RevenueListItem, RecyclerView.ViewHolder>(Dif
 
     override fun getItemViewType(position: Int): Int {
         return when (getItem(position)) {
+            is RevenueListItem.PeriodHeader -> TYPE_PERIOD_HEADER
             is RevenueListItem.Revenue -> TYPE_REVENUE
             is RevenueListItem.Settlement -> TYPE_SETTLEMENT
             is RevenueListItem.Audit -> TYPE_AUDIT
@@ -68,6 +78,10 @@ class RevenueAdapter : ListAdapter<RevenueListItem, RecyclerView.ViewHolder>(Dif
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
+            TYPE_PERIOD_HEADER -> {
+                val view = inflater.inflate(R.layout.item_revenue_period_header, parent, false)
+                PeriodHeaderViewHolder(view)
+            }
             TYPE_REVENUE -> {
                 val view = inflater.inflate(R.layout.item_revenue_entry, parent, false)
                 RevenueViewHolder(view)
@@ -85,9 +99,42 @@ class RevenueAdapter : ListAdapter<RevenueListItem, RecyclerView.ViewHolder>(Dif
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val item = getItem(position)) {
+            is RevenueListItem.PeriodHeader -> (holder as PeriodHeaderViewHolder).bind(item)
             is RevenueListItem.Revenue -> (holder as RevenueViewHolder).bind(item.record)
             is RevenueListItem.Settlement -> (holder as SettlementViewHolder).bind(item)
             is RevenueListItem.Audit -> (holder as AuditViewHolder).bind(item.log)
+        }
+    }
+
+    class PeriodHeaderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val rootLayout: View = itemView.findViewById(R.id.layout_period_header_root)
+        private val ivIcon: ImageView = itemView.findViewById(R.id.iv_period_icon)
+        private val tvTitle: TextView = itemView.findViewById(R.id.tv_period_title)
+        private val tvSubtitle: TextView = itemView.findViewById(R.id.tv_period_subtitle)
+        private val tvTotalAmount: TextView = itemView.findViewById(R.id.tv_period_total_amount)
+        private val tvBadge: TextView = itemView.findViewById(R.id.tv_period_badge)
+
+        fun bind(header: RevenueListItem.PeriodHeader) {
+            val context = itemView.context
+            tvTitle.text = header.title
+            tvSubtitle.text = header.subtitle
+            tvTotalAmount.text = "+${formatPaise(header.totalPaise)}"
+
+            if (header.isMonth) {
+                ivIcon.setImageResource(R.drawable.ic_revenue)
+                ivIcon.setColorFilter(ContextCompat.getColor(context, R.color.admin_navy))
+                tvBadge.text = "MONTH TOTAL"
+                tvBadge.setBackgroundResource(R.drawable.bg_status_verified)
+                tvBadge.setTextColor(ContextCompat.getColor(context, R.color.admin_emerald))
+                rootLayout.setPadding(32, 24, 32, 24)
+            } else {
+                ivIcon.setImageResource(R.drawable.ic_ledger)
+                ivIcon.setColorFilter(ContextCompat.getColor(context, R.color.admin_text_secondary))
+                tvBadge.text = "WEEK TOTAL"
+                tvBadge.setBackgroundResource(R.drawable.bg_input)
+                tvBadge.setTextColor(ContextCompat.getColor(context, R.color.admin_navy))
+                rootLayout.setPadding(44, 16, 32, 16)
+            }
         }
     }
 
