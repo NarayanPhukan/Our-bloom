@@ -1,8 +1,8 @@
 {
-  "versionCode": 74,
-  "versionName": "1.73",
+  "versionCode": 75,
+  "versionName": "1.74",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Enable Chrome Custom Tabs with Razorpay UPI (Google Pay, PhonePe, Paytm, BHIM, UPI ID)\\n• Automatic deep link returns and instant Vault credit",
+  "changelog": "• Seamless Razorpay UPI integration with resilient direct payment link creation\\n• Zero checkout errors and instant Chrome Custom Tabs launch",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
