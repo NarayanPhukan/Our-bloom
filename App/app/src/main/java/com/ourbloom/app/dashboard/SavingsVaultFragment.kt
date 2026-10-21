@@ -30,6 +30,8 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.*
+import com.ourbloom.app.payment.PayUCheckoutActivity
+import com.ourbloom.app.payment.RazorpayCheckoutActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -65,6 +67,38 @@ class SavingsVaultFragment : Fragment() {
     private var statusPollJob: Job? = null
 
     private val payuLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val txnid = result.data?.getStringExtra("txnid") ?: ""
+            val payableAmt = result.data?.getDoubleExtra("amount", 0.0) ?: 0.0
+            val rawVaultAmt = result.data?.getDoubleExtra("vaultAmount", 0.0) ?: 0.0
+            val vaultAmt = if (rawVaultAmt > 0) rawVaultAmt else (Math.round((payableAmt / 1.02) * 100.0) / 100.0).coerceAtLeast(1.0)
+            val note = result.data?.getStringExtra("note") ?: "Online Contribution"
+            val goalId = result.data?.getStringExtra("goalId")
+            val goalTitle = result.data?.getStringExtra("goalTitle")
+
+            if (txnid.isNotBlank() && vaultAmt > 0) {
+                activeTxnId = txnid
+                lifecycleScope.launch {
+                    val success = repository.recordDepositDirectly(
+                        context = requireContext(),
+                        coupleId = coupleId,
+                        txnid = txnid,
+                        vaultAmount = vaultAmt,
+                        payableAmount = payableAmt,
+                        note = note,
+                        goalId = goalId,
+                        goalTitle = goalTitle
+                    )
+                    if (success) {
+                        Toast.makeText(requireContext(), "${formatRupees((vaultAmt * 100).toLong())} added to your Vault 🌸", Toast.LENGTH_LONG).show()
+                    }
+                    pollPaymentStatus(txnid)
+                }
+            }
+        }
+    }
+
+    private val razorpayLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val txnid = result.data?.getStringExtra("txnid") ?: ""
             val payableAmt = result.data?.getDoubleExtra("amount", 0.0) ?: 0.0
@@ -477,6 +511,7 @@ class SavingsVaultFragment : Fragment() {
         val etAmount = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_amount)
         val etNote = sheetView.findViewById<TextInputEditText>(R.id.et_deposit_note)
         val spinnerGoal = sheetView.findViewById<Spinner>(R.id.spinner_deposit_goal)
+        val btnPayRazorpay = sheetView.findViewById<MaterialButton>(R.id.btn_pay_razorpay)
         val btnPayPayu = sheetView.findViewById<MaterialButton>(R.id.btn_pay_payu)
         val tvDepositGrossVal = sheetView.findViewById<TextView>(R.id.tv_deposit_gross_val)
         val tvDepositFeeVal = sheetView.findViewById<TextView>(R.id.tv_deposit_fee_val)
@@ -488,18 +523,22 @@ class SavingsVaultFragment : Fragment() {
         fun updateTransparencyBreakdown(input: String) {
             val vaultAmountPaise = parseRupeesToPaise(input)
             if (vaultAmountPaise == null) {
-                btnPayPayu.isEnabled = false
-                btnPayPayu.text = "Enter valid amount (₹1.00 – ₹5,00,000.00)"
+                btnPayRazorpay?.isEnabled = false
+                btnPayPayu?.isEnabled = false
+                btnPayRazorpay?.text = "Enter valid amount (₹1.00 – ₹5,00,000.00)"
+                btnPayPayu?.text = "Enter valid amount"
                 tvDepositGrossVal?.text = "₹0.00"
                 tvDepositFeeVal?.text = "+ ₹0.00"
                 tvDepositNetVal?.text = "₹0.00"
             } else {
-                btnPayPayu.isEnabled = true
+                btnPayRazorpay?.isEnabled = true
+                btnPayPayu?.isEnabled = true
                 val (platformFeePaise, payableAmountPaise) = calculateDepositAmounts(vaultAmountPaise)
                 tvDepositGrossVal?.text = formatRupees(vaultAmountPaise)
                 tvDepositFeeVal?.text = "+ ${formatRupees(platformFeePaise)}"
                 tvDepositNetVal?.text = formatRupees(payableAmountPaise)
-                btnPayPayu.text = "Pay ${formatRupees(payableAmountPaise)} to add ${formatRupees(vaultAmountPaise)}"
+                btnPayRazorpay?.text = "⚡ Pay ${formatRupees(payableAmountPaise)} via Razorpay"
+                btnPayPayu?.text = "💳 Pay ${formatRupees(payableAmountPaise)} via PayU"
             }
         }
 
@@ -544,8 +583,27 @@ class SavingsVaultFragment : Fragment() {
         sheetView.findViewById<Chip>(R.id.chip_2000).setOnClickListener { etAmount.setText("2000") }
         sheetView.findViewById<Chip>(R.id.chip_5000).setOnClickListener { etAmount.setText("5000") }
 
-        // Pay via PayU Hosted Gateway
-        btnPayPayu.setOnClickListener {
+        // 1. Pay via Razorpay Gateway (Instant UPI, Cards)
+        btnPayRazorpay?.setOnClickListener {
+            val amountStr = etAmount.text.toString().trim()
+            val vaultAmountPaise = parseRupeesToPaise(amountStr)
+            if (vaultAmountPaise == null) {
+                Toast.makeText(requireContext(), "Please enter a valid deposit amount (₹1.00 – ₹5,00,000.00)", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val (platformFeePaise, payableAmountPaise) = calculateDepositAmounts(vaultAmountPaise)
+            val note = etNote.text.toString().trim()
+            val selectedGoal = goalsMap[spinnerGoal.selectedItemPosition]
+            val payableAmountDouble = BigDecimal.valueOf(payableAmountPaise, 2).toDouble()
+            val vaultAmountDouble = BigDecimal.valueOf(vaultAmountPaise, 2).toDouble()
+
+            launchRazorpayCheckout(payableAmountDouble, vaultAmountDouble, note, selectedGoal?.id, selectedGoal?.title)
+            dialog.dismiss()
+        }
+
+        // 2. Pay via PayU Hosted Gateway (Cards, NetBanking)
+        btnPayPayu?.setOnClickListener {
             val amountStr = etAmount.text.toString().trim()
             val vaultAmountPaise = parseRupeesToPaise(amountStr)
             if (vaultAmountPaise == null) {
@@ -564,6 +622,46 @@ class SavingsVaultFragment : Fragment() {
         }
 
         dialog.show()
+    }
+
+    private fun launchRazorpayCheckout(
+        payableAmount: Double,
+        vaultAmount: Double,
+        note: String,
+        goalId: String?,
+        goalTitle: String?
+    ) {
+        if (coupleId.isBlank()) {
+            Toast.makeText(requireContext(), "Loading profile... please tap again in a moment", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch {
+                val user = repository.getCurrentUser()
+                if (user != null && !user.coupleId.isNullOrBlank()) {
+                    coupleId = user.coupleId ?: ""
+                    currentUserId = user.uid
+                    currentUserName = user.name
+                    currentUserEmail = user.email.ifBlank {
+                        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email ?: ""
+                    }
+                    currentUserPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
+                }
+            }
+            return
+        }
+
+        val intent = RazorpayCheckoutActivity.createIntent(
+            context = requireContext(),
+            amount = payableAmount,
+            coupleId = coupleId,
+            userId = currentUserId,
+            userName = currentUserName,
+            userEmail = currentUserEmail,
+            userPhone = currentUserPhone,
+            note = note,
+            goalId = goalId,
+            goalTitle = goalTitle,
+            vaultAmount = vaultAmount
+        )
+        razorpayLauncher.launch(intent)
     }
 
     private fun launchPayUCheckout(

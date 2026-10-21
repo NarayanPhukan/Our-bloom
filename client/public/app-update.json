@@ -1,8 +1,8 @@
 {
-  "versionCode": 71,
-  "versionName": "1.70",
+  "versionCode": 72,
+  "versionName": "1.71",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "Display partner nickname across notes, chat, calls, and notifications",
+  "changelog": "• Added Razorpay Checkout alongside PayU for instant UPI, GPay, PhonePe, Cards & NetBanking deposits\n• Real-time 2% platform fee transparency breakdown\n• Dual payment gateway redundancy for couple savings vaults",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

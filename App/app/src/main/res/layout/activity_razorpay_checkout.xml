@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+    <!-- Fullscreen Official Razorpay Checkout Web View -->
+    <WebView
+        android:id="@+id/web_view_razorpay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Sleek Top Progress Bar -->
+    <ProgressBar
+        android:id="@+id/progress_razorpay"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="top"
+        android:indeterminate="true"
+        android:indeterminateTint="#0C2340" />
+
+    <!-- Top Controls Floating Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp">
+
+        <ImageButton
+            android:id="@+id/btn_close_razorpay"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_checkout_circle_btn"
+            android:contentDescription="Close"
+            android:elevation="6dp"
+            android:src="@drawable/ic_close"
+            app:tint="#444444" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_razorpay_badge"
+            style="@style/Widget.Material3.Chip.Assist.Elevated"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:elevation="6dp"
+            android:text="⚡ Razorpay Secure Checkout"
+            android:textColor="#0C2340"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:chipBackgroundColor="#FFFFFF"
+            app:chipIcon="@drawable/ic_savings_vault"
+            app:chipIconTint="#0C2340" />
+    </LinearLayout>
+
+    <!-- Loading State Overlay -->
+    <LinearLayout
+        android:id="@+id/layout_razorpay_loading"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <ProgressBar
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminateTint="#E85D75" />
+
+        <TextView
+            android:id="@+id/tv_razorpay_loading_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="Connecting to Razorpay..."
+            android:textColor="#333333"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Instant UPI, GPay, PhonePe, Cards &amp; NetBanking"
+            android:textColor="#888888"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+</FrameLayout>

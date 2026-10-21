@@ -51,16 +51,18 @@ sed -i -E "s/versionName \"[^\"]+\"/versionName \"$NEW_NAME\"/" "$APP_GRADLE"
 
 # 3. Update app-update.json
 echo "Updating version manifests..."
-cat <<EOF > "$UPDATE_JSON"
-{
-  "versionCode": $NEW_CODE,
-  "versionName": "$NEW_NAME",
-  "title": "New Bloom Update Available! 🌸",
-  "changelog": "$CHANGELOG_TEXT",
-  "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
-  "forceUpdate": false
-}
-EOF
+CHANGELOG_TEXT="$CHANGELOG_TEXT" node -e "
+const fs = require('fs');
+const manifest = {
+  versionCode: parseInt('$NEW_CODE', 10),
+  versionName: '$NEW_NAME',
+  title: 'New Bloom Update Available! 🌸',
+  changelog: process.env.CHANGELOG_TEXT || '',
+  apkUrl: 'https://our-bloom-gamma.vercel.app/OurBloom.apk',
+  forceUpdate: false
+};
+fs.writeFileSync('$UPDATE_JSON', JSON.stringify(manifest, null, 2) + '\n');
+"
 
 mkdir -p "$(dirname "$CLIENT_UPDATE_JSON")"
 cp "$UPDATE_JSON" "$CLIENT_UPDATE_JSON"
@@ -70,7 +72,7 @@ cp "$UPDATE_JSON" "$SERVER_UPDATE_JSON"
 # 4. Compile Release APK
 echo "Building Release APK with Gradle..."
 cd "$ROOT_DIR/App"
-./gradlew assembleRelease
+./gradlew :app:assembleRelease
 cd "$ROOT_DIR"
 
 if [ ! -f "$RELEASE_APK_SRC" ]; then
