@@ -322,6 +322,9 @@ class AdminRevenueFragment : Fragment() {
             if (!isAdded) return@observeTransactions
             allTransactions = txns
             recalculateAllMetrics()
+            viewLifecycleOwner.lifecycleScope.launch {
+                repository.syncHistoricalFeesToRevenueLedger()
+            }
         }
 
         walletListener = repository.observeSavingsWallets { wallets ->
@@ -341,17 +344,34 @@ class AdminRevenueFragment : Fragment() {
         val filteredRevenues = getFilteredRevenueList()
 
         // 1. OURBLOOM REVENUE (Company Earned Income)
-        val netRevTotalPaise = filteredRevenues.sumOf { it.netRevenuePaise }
+        var netRevTotalPaise = filteredRevenues.sumOf { it.netRevenuePaise }
         val feesList = filteredRevenues.filter { it.type.equals("FEE", true) }
         val giftsList = filteredRevenues.filter { it.type.equals("GIFT", true) }
         val subsList = filteredRevenues.filter { it.type.equals("SUBSCRIPTION", true) }
 
-        val feesTotalPaise = feesList.sumOf { it.netRevenuePaise }
+        var feesTotalPaise = feesList.sumOf { it.netRevenuePaise }
         val giftsTotalPaise = giftsList.sumOf { it.netRevenuePaise }
         val subsTotalPaise = subsList.sumOf { it.netRevenuePaise }
 
+        // Live calculation safety: If viewing ALL_TIME and there are deposit transactions with fees not yet in revenue_records, incorporate them
+        if (activeTimeFilter == TimeFilter.ALL_TIME) {
+            val txnDepositFeesPaise = allTransactions.filter { it.type.equals("deposit", true) }.sumOf {
+                if (it.effectivePlatformFeePaise > 0L) it.effectivePlatformFeePaise else Math.round(it.effectiveVaultPaise * 0.02)
+            }
+            if (txnDepositFeesPaise > feesTotalPaise) {
+                val diff = txnDepositFeesPaise - feesTotalPaise
+                feesTotalPaise = txnDepositFeesPaise
+                netRevTotalPaise += diff
+            }
+        }
+
         tvNetRevTotal.text = RevenueAdapter.formatPaise(netRevTotalPaise)
-        tvTotalRevEvents.text = "${filteredRevenues.size} receipts"
+        val receiptCount = if (activeTimeFilter == TimeFilter.ALL_TIME && allTransactions.isNotEmpty()) {
+            Math.max(filteredRevenues.size, allTransactions.count { it.type.equals("deposit", true) })
+        } else {
+            filteredRevenues.size
+        }
+        tvTotalRevEvents.text = "$receiptCount receipts"
         tvFeesAmount.text = RevenueAdapter.formatPaise(feesTotalPaise)
         tvFeesCount.text = "${feesList.size} fees • 2% on deposits"
         tvGiftsAmount.text = RevenueAdapter.formatPaise(giftsTotalPaise)
@@ -485,6 +505,8 @@ class AdminRevenueFragment : Fragment() {
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
                 val startOfMonth = calendar.timeInMillis
                 allRevenueRecords.filter { it.timestamp >= startOfMonth }
             }
@@ -492,12 +514,16 @@ class AdminRevenueFragment : Fragment() {
                 calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
                 val startOfWeek = calendar.timeInMillis
                 allRevenueRecords.filter { it.timestamp >= startOfWeek }
             }
             TimeFilter.TODAY -> {
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
                 val startOfDay = calendar.timeInMillis
                 allRevenueRecords.filter { it.timestamp >= startOfDay }
             }

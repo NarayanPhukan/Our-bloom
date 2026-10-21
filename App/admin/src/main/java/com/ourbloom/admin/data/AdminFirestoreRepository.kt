@@ -605,20 +605,62 @@ class AdminFirestoreRepository {
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
 
-            // 2. Record transaction
+            val grossAmountPaise = Math.round(amount * 100.0)
+            val platformFeePaise = Math.round(grossAmountPaise * 0.02)
+            val txnDocRef = db.collection("savings_transactions").document()
+            val txnId = txnDocRef.id
+
+            // 2. Record transaction with explicit platform fee
             val txn = SavingsTransaction(
+                id = txnId,
                 coupleId = cleanCoupleId,
                 userId = "admin",
                 userName = "Administrator",
                 type = "deposit",
                 amount = amount,
+                grossAmount = amount,
+                grossAmountPaise = grossAmountPaise,
+                vaultAmountPaise = grossAmountPaise,
+                netVaultCreditPaise = grossAmountPaise,
+                platformFee = platformFeePaise / 100.0,
+                platformFeePaise = platformFeePaise,
+                pricingModel = "FEE_ON_TOP",
+                settlementStatus = "SETTLED",
                 utrNumber = cleanUtr,
                 note = cleanNote,
                 category = "Savings",
                 paymentMethod = "Manual Credit",
                 timestamp = now
             )
-            db.collection("savings_transactions").add(txn).await()
+            txnDocRef.set(txn).await()
+
+            // 2b. Write corresponding RevenueRecord to canonical ledger (/revenue_records)
+            val revEventId = "REV_SAVINGS_TXN_$txnId"
+            val revRecord = RevenueRecord(
+                id = revEventId,
+                eventId = revEventId,
+                source = "SAVINGS_TRANSACTION",
+                sourceTransactionId = txnId,
+                type = "FEE",
+                title = "2% Deposit Platform Fee (Manual Credit)",
+                grossAmountPaise = platformFeePaise,
+                sellerPayablePaise = 0L,
+                gatewayFeePaise = 0L,
+                taxPaise = 0L,
+                netRevenuePaise = platformFeePaise,
+                coupleId = cleanCoupleId,
+                userId = "admin",
+                userName = "Administrator",
+                paymentMethod = "Manual Credit",
+                referenceId = cleanUtr,
+                timestamp = now
+            )
+            try {
+                db.collection("revenue_records").document(revEventId).set(revRecord).await()
+                Log.d(TAG, "Committed revenue record for manual deposit: $revEventId")
+            } catch (revEx: Exception) {
+                Log.w(TAG, "Note: manual deposit revenue record commit error: ${revEx.message}")
+            }
 
             // 3. Log alert
             val adminAlert = AdminAlert(
@@ -945,7 +987,15 @@ class AdminFirestoreRepository {
      */
     fun observeRevenueRecords(onUpdate: (List<RevenueRecord>) -> Unit): ListenerRegistration {
         return safeObserveQuery({ db.collection("revenue_records") }) { snapshot ->
-            val list = snapshot.documents.mapNotNull { it.toObject(RevenueRecord::class.java) }
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val record = doc.toObject(RevenueRecord::class.java)
+                    record?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse RevenueRecord ${doc.id}: ${e.message}")
+                    null
+                }
+            }
             val sorted = list.sortedByDescending { it.timestamp }
             onUpdate(sorted)
         }
@@ -1201,6 +1251,7 @@ class AdminFirestoreRepository {
      */
     suspend fun syncHistoricalFeesToRevenueLedger(): Int = withContext(Dispatchers.IO) {
         try {
+            ensureAuthSuspend()
             val txnsSnap = db.collection("savings_transactions")
                 .whereEqualTo("type", "deposit")
                 .get()
@@ -1211,7 +1262,11 @@ class AdminFirestoreRepository {
 
             for (doc in txnsSnap.documents) {
                 val txn = doc.toObject(SavingsTransaction::class.java) ?: continue
-                val feePaise = txn.effectivePlatformFeePaise
+                val feePaise = if (txn.effectivePlatformFeePaise > 0L) {
+                    txn.effectivePlatformFeePaise
+                } else {
+                    Math.round(txn.effectiveVaultPaise * 0.02)
+                }
                 if (feePaise <= 0L) continue
 
                 val eventId = "REV_SAVINGS_TXN_${doc.id}"

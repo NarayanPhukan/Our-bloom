@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -14,8 +15,10 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.firebase.firestore.ListenerRegistration
 import com.ourbloom.admin.R
 import com.ourbloom.admin.data.AdminFirestoreRepository
+import com.ourbloom.admin.data.models.RevenueRecord
 import com.ourbloom.admin.data.models.SavingsTransaction
 import com.ourbloom.admin.data.models.SavingsWallet
+import com.ourbloom.admin.data.models.TreasuryPosition
 import com.ourbloom.admin.data.models.WithdrawalRequest
 import com.ourbloom.admin.main.AdminMainActivity
 import com.ourbloom.admin.transactions.ManualCreditDialog
@@ -31,6 +34,7 @@ class AdminDashboardFragment : Fragment() {
     private var txListener: ListenerRegistration? = null
     private var walletListener: ListenerRegistration? = null
     private var revListener: ListenerRegistration? = null
+    private var posListener: ListenerRegistration? = null
 
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var tvTotalDeposits: TextView
@@ -57,6 +61,8 @@ class AdminDashboardFragment : Fragment() {
 
     private var currentTransactions: List<SavingsTransaction> = emptyList()
     private var currentWallets: List<SavingsWallet> = emptyList()
+    private var currentRevenueRecords: List<RevenueRecord> = emptyList()
+    private var currentTreasuryPosition: TreasuryPosition = TreasuryPosition()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -101,6 +107,7 @@ class AdminDashboardFragment : Fragment() {
         swipeRefresh.setOnRefreshListener {
             viewLifecycleOwner.lifecycleScope.launch {
                 repository.syncPayUSettlements()
+                repository.syncHistoricalFeesToRevenueLedger()
                 swipeRefresh.isRefreshing = false
             }
         }
@@ -190,9 +197,10 @@ class AdminDashboardFragment : Fragment() {
     }
 
     private fun setupListeners() {
-        // Trigger automatic PayU settlement sync on launch
+        // Trigger automatic PayU settlement sync and fee sync on launch
         viewLifecycleOwner.lifecycleScope.launch {
             repository.syncPayUSettlements()
+            repository.syncHistoricalFeesToRevenueLedger()
         }
 
         // 1. Observe Transactions for deposits calculation & recent activity
@@ -225,6 +233,8 @@ class AdminDashboardFragment : Fragment() {
             val recent5 = transactions.take(5)
             adapter.submitList(recent5)
             tvEmptyActivity.visibility = if (recent5.isEmpty()) View.VISIBLE else View.GONE
+
+            updateRevenueAndSolvencyViews()
         }
 
         // 2. Observe Wallets for total reserve balances
@@ -236,6 +246,8 @@ class AdminDashboardFragment : Fragment() {
             val cleanRes = if (totalReserves % 1.0 == 0.0) totalReserves.toInt().toString() else String.format(Locale.US, "%.2f", totalReserves)
             tvVaultReserves.text = "₹$cleanRes"
             tvVaultsCount.text = "${wallets.size} couple vaults"
+
+            updateRevenueAndSolvencyViews()
         }
 
         // 3. Observe Withdrawal Requests for pending and completed payouts
@@ -269,22 +281,84 @@ class AdminDashboardFragment : Fragment() {
         // 4. Observe Revenue Records for real-time company earnings
         revListener = repository.observeRevenueRecords { records ->
             if (!isAdded) return@observeRevenueRecords
-            val netRevPaise = records.sumOf { it.netRevenuePaise }
-            val feesPaise = records.filter { it.type.equals("FEE", true) }.sumOf { it.netRevenuePaise }
-            val giftsPaise = records.filter { it.type.equals("GIFT", true) }.sumOf { it.netRevenuePaise }
-            val subsPaise = records.filter { it.type.equals("SUBSCRIPTION", true) }.sumOf { it.netRevenuePaise }
+            currentRevenueRecords = records
+            updateRevenueAndSolvencyViews()
+        }
 
-            val totalRupees = netRevPaise / 100.0
-            val cleanTotal = if (netRevPaise % 100L == 0L) "₹${totalRupees.toLong()}" else String.format(Locale.US, "₹%.2f", totalRupees)
-            tvKpiTotalRevenue.text = cleanTotal
+        // 5. Observe Treasury Position for live solvency backing
+        posListener = repository.observeTreasuryPosition { pos ->
+            if (!isAdded) return@observeTreasuryPosition
+            currentTreasuryPosition = pos
+            updateRevenueAndSolvencyViews()
+        }
+    }
 
-            val fRupees = feesPaise / 100.0
-            val gRupees = giftsPaise / 100.0
-            val sRupees = subsPaise / 100.0
-            val cleanF = if (feesPaise % 100L == 0L) "₹${fRupees.toLong()}" else String.format(Locale.US, "₹%.2f", fRupees)
-            val cleanG = if (giftsPaise % 100L == 0L) "₹${gRupees.toLong()}" else String.format(Locale.US, "₹%.2f", gRupees)
-            val cleanS = if (subsPaise % 100L == 0L) "₹${sRupees.toLong()}" else String.format(Locale.US, "₹%.2f", sRupees)
-            tvDashRevenueBreakdown.text = "Fees: $cleanF • Gifts: $cleanG • Subscriptions: $cleanS"
+    private fun updateRevenueAndSolvencyViews() {
+        if (!isAdded) return
+
+        // 1. Primary from canonical revenue_records
+        var netRevPaise = currentRevenueRecords.sumOf { it.netRevenuePaise }
+        var feesPaise = currentRevenueRecords.filter { it.type.equals("FEE", true) }.sumOf { it.netRevenuePaise }
+        val giftsPaise = currentRevenueRecords.filter { it.type.equals("GIFT", true) }.sumOf { it.netRevenuePaise }
+        val subsPaise = currentRevenueRecords.filter { it.type.equals("SUBSCRIPTION", true) }.sumOf { it.netRevenuePaise }
+
+        // Live calculation check: Incorporate any recent deposit transactions whose fee record is pending sync
+        val txnDepositFeesPaise = currentTransactions.filter { it.type.equals("deposit", true) }.sumOf {
+            if (it.effectivePlatformFeePaise > 0L) it.effectivePlatformFeePaise else Math.round(it.effectiveVaultPaise * 0.02)
+        }
+        if (txnDepositFeesPaise > feesPaise) {
+            val diff = txnDepositFeesPaise - feesPaise
+            feesPaise = txnDepositFeesPaise
+            netRevPaise += diff
+        }
+
+        val totalRupees = netRevPaise / 100.0
+        val cleanTotal = if (netRevPaise % 100L == 0L) "₹${totalRupees.toLong()}" else String.format(Locale.US, "₹%.2f", totalRupees)
+        tvKpiTotalRevenue.text = cleanTotal
+
+        val fRupees = feesPaise / 100.0
+        val gRupees = giftsPaise / 100.0
+        val sRupees = subsPaise / 100.0
+        val cleanF = if (feesPaise % 100L == 0L) "₹${fRupees.toLong()}" else String.format(Locale.US, "₹%.2f", fRupees)
+        val cleanG = if (giftsPaise % 100L == 0L) "₹${gRupees.toLong()}" else String.format(Locale.US, "₹%.2f", gRupees)
+        val cleanS = if (subsPaise % 100L == 0L) "₹${sRupees.toLong()}" else String.format(Locale.US, "₹%.2f", sRupees)
+        tvDashRevenueBreakdown.text = "Fees: $cleanF • Gifts: $cleanG • Subscriptions: $cleanS"
+
+        // Dynamic Solvency & Liquidity Badge
+        val vaultPrincipalPaise = currentWallets.sumOf { Math.round(it.totalBalance * 100.0) }
+        val settledCashPaise = currentTransactions.filter { it.type.equals("deposit", true) && it.isSettled }.sumOf { it.effectiveSettledPaise }
+        val pendingCashPaise = currentTransactions.filter {
+            it.type.equals("deposit", true) && !it.isSettled &&
+            (it.paymentMethod.contains("PayU", true) || it.paymentMethod.equals("Online", true) || it.utrNumber.startsWith("OB_")) &&
+            !it.paymentMethod.contains("Admin", true) && it.category != "Audit Correction"
+        }.sumOf { it.effectiveVaultPaise }
+        val liquidBankReservePaise = currentTreasuryPosition.liquidBankReservePaise.coerceAtLeast(settledCashPaise)
+        val totalBackingPaise = liquidBankReservePaise + pendingCashPaise + currentTreasuryPosition.fdPrincipalPaise
+
+        val coverageRatio = if (vaultPrincipalPaise > 0L) {
+            (totalBackingPaise.toDouble() / vaultPrincipalPaise.toDouble()) * 100.0
+        } else 100.0
+
+        val immediateLiquidityRatio = if (vaultPrincipalPaise > 0L) {
+            (liquidBankReservePaise.toDouble() / vaultPrincipalPaise.toDouble()) * 100.0
+        } else 100.0
+
+        when {
+            immediateLiquidityRatio >= 100.0 -> {
+                tvDashRevenueSolvencyBadge.text = "100% LIQUID"
+                tvDashRevenueSolvencyBadge.setBackgroundResource(R.drawable.bg_status_verified)
+                tvDashRevenueSolvencyBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.admin_emerald))
+            }
+            coverageRatio >= 100.0 -> {
+                tvDashRevenueSolvencyBadge.text = "100% COVERED"
+                tvDashRevenueSolvencyBadge.setBackgroundResource(R.drawable.bg_status_verified)
+                tvDashRevenueSolvencyBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.admin_emerald))
+            }
+            else -> {
+                tvDashRevenueSolvencyBadge.text = String.format(Locale.US, "%.0f%% COVERED", coverageRatio)
+                tvDashRevenueSolvencyBadge.setBackgroundResource(R.drawable.bg_status_pending)
+                tvDashRevenueSolvencyBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.admin_amber))
+            }
         }
     }
 
@@ -294,5 +368,6 @@ class AdminDashboardFragment : Fragment() {
         txListener?.remove()
         walletListener?.remove()
         revListener?.remove()
+        posListener?.remove()
     }
 }

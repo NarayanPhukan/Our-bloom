@@ -24,7 +24,7 @@ CURRENT_NAME=$(grep -E 'versionName\s+"[^"]+"' "$ADMIN_GRADLE" | grep -oE '"[^"]
 echo "Admin Version: $CURRENT_NAME (code $CURRENT_CODE)"
 
 if [ -z "$CHANGELOG_INPUT" ]; then
-    CHANGELOG_TEXT="• Fixed live dynamic dashboard data streaming (wallets, transactions, revenue & payouts)\n• Resolved Firestore PERMISSION_DENIED on admin profile, transactions, wallets, and withdrawal requests\n• Added resilient auto-reconnecting snapshot listeners\n• Integrated authorized Firebase Admin Authentication on login and biometric unlock"
+    CHANGELOG_TEXT="• Fixed live dynamic revenue updating on deposits & manual credits\n• Real-time 2% deposit platform fee synchronization\n• Real-time Solvency & Liquidity coverage monitoring\n• Fixed permissions for revenue ledger synchronization"
 else
     CHANGELOG_TEXT="$CHANGELOG_INPUT"
 fi

@@ -781,10 +781,10 @@ app.get('/api/admin/app/version', (req, res) => {
     }
   }
   res.json({
-    latestVersionCode: 6,
-    latestVersionName: '1.3.1',
+    latestVersionCode: 7,
+    latestVersionName: '1.3.2',
     downloadUrl: 'https://raw.githubusercontent.com/NarayanPhukan/Our-bloom/main/updates/admin/OurBloomAdmin.apk',
-    changelog: '• Fixed live dynamic dashboard data streaming (wallets, transactions, revenue & payouts)\n• Resolved Firestore PERMISSION_DENIED on admin profile, transactions, wallets, and withdrawal requests\n• Added resilient auto-reconnecting snapshot listeners\n• Integrated authorized Firebase Admin Authentication on login and biometric unlock',
+    changelog: '• Fixed live dynamic revenue updating on deposits & manual credits\n• Real-time 2% deposit platform fee synchronization\n• Real-time Solvency & Liquidity coverage monitoring\n• Fixed permissions for revenue ledger synchronization',
     forceUpdate: true
   });
 });

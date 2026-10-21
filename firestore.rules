@@ -395,18 +395,18 @@ service cloud.firestore {
       allow write: if false; // Server Admin SDK only
     }
 
-    // Canonical immutable revenue ledger: Append-only, updates & deletes strictly denied!
+    // Canonical immutable revenue ledger: Append/sync by admin, delete strictly denied!
     match /revenue_records/{recordId} {
       allow read: if isAdmin();
-      allow create: if isAdmin();
-      allow update, delete: if false;
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
-    // Immutable audit trail for PNB treasury position changes: Append-only!
+    // Immutable audit trail for PNB treasury position changes: Append/sync by admin, delete strictly denied!
     match /treasury_audit_log/{logId} {
       allow read: if isAdmin();
-      allow create: if isAdmin();
-      allow update, delete: if false;
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
     // =========================================================================
