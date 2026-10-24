@@ -1,8 +1,8 @@
 {
-  "versionCode": 80,
-  "versionName": "1.79",
+  "versionCode": 81,
+  "versionName": "1.80",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "fix(chess): resolve turn authorization, dynamic player color badges, and instant online sync in couple chess",
+  "changelog": "feat(chess): add flip board button to toggle White and Black board perspective",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

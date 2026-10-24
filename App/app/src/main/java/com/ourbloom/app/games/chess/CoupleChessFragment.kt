@@ -42,6 +42,7 @@ class CoupleChessFragment : Fragment() {
 
     // Local Pass & Play State
     private var localGameState = ChessState()
+    private var manualFlipOverride: Boolean? = null
 
     // Views
     private lateinit var chessBoardView: ChessBoardView
@@ -158,6 +159,14 @@ class CoupleChessFragment : Fragment() {
             }
         }
 
+        view.findViewById<ImageButton>(R.id.btn_flip_board)?.setOnClickListener {
+            flipBoard()
+        }
+
+        view.findViewById<MaterialButton>(R.id.btn_bottom_flip_board)?.setOnClickListener {
+            flipBoard()
+        }
+
         chessBoardView.onSquareClickListener = { squareIndex ->
             onSquareClicked(squareIndex)
         }
@@ -259,61 +268,90 @@ class CoupleChessFragment : Fragment() {
         }
     }
 
+    private fun flipBoard() {
+        triggerHaptic()
+        val currentEffectiveFlipped = chessBoardView.isFlipped
+        val newFlipped = !currentEffectiveFlipped
+        manualFlipOverride = newFlipped
+        val activeState = if (isOnlineMode) gameState else localGameState
+        renderState(activeState)
+        val bottomSide = if (newFlipped) "Black ♚" else "White ♔"
+        Toast.makeText(requireContext(), "Board flipped • $bottomSide at bottom", Toast.LENGTH_SHORT).show()
+    }
+
     private fun renderState(state: ChessState) {
         chessBoardView.board = state.board
         chessBoardView.lastMoveFrom = state.lastMoveFrom
         chessBoardView.lastMoveTo = state.lastMoveTo
         tvActiveWager.text = state.wager
 
-        val amIWhite = if (isOnlineMode) isCurrentUserWhite(state) else true
-        // Orient board: If current user is Black, orient board so Black is on bottom
-        chessBoardView.isFlipped = !amIWhite
+        val isMeWhite = if (isOnlineMode) isCurrentUserWhite(state) else true
+        val defaultFlipped = if (isOnlineMode) !isMeWhite else false
+        val effectiveFlipped = manualFlipOverride ?: defaultFlipped
+        chessBoardView.isFlipped = effectiveFlipped
 
-        // Player Badges & Names
+        val whiteCapturedSymbols = state.capturedByWhite.joinToString(" ") { ChessEngine.getPieceSymbol(it) }
+        val blackCapturedSymbols = state.capturedByBlack.joinToString(" ") { ChessEngine.getPieceSymbol(it) }
+
+        // Player Badges & Names (Dynamically aligned with effective board perspective)
         if (isOnlineMode) {
-            if (amIWhite) {
+            if (!effectiveFlipped) {
+                // White is at bottom, Black is at top
                 tvBottomPlayerBadge.text = "♔"
                 tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
                 tvBottomPlayerBadge.setTextColor(0xFFAD1457.toInt())
-                tvBottomPlayerName.text = "You ($currentUserName) • White"
+                tvBottomPlayerName.text = if (isMeWhite) "You ($currentUserName) • White" else "$partnerName • White"
 
                 tvTopPlayerBadge.text = "♚"
                 tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
                 tvTopPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
-                tvTopPlayerName.text = "$partnerName • Black"
+                tvTopPlayerName.text = if (isMeWhite) "$partnerName • Black" else "You ($currentUserName) • Black"
+
+                tvBottomCaptured.text = whiteCapturedSymbols
+                tvTopCaptured.text = blackCapturedSymbols
             } else {
+                // Black is at bottom, White is at top
                 tvBottomPlayerBadge.text = "♚"
                 tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
                 tvBottomPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
-                tvBottomPlayerName.text = "You ($currentUserName) • Black"
+                tvBottomPlayerName.text = if (!isMeWhite) "You ($currentUserName) • Black" else "$partnerName • Black"
 
                 tvTopPlayerBadge.text = "♔"
                 tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
                 tvTopPlayerBadge.setTextColor(0xFFAD1457.toInt())
-                tvTopPlayerName.text = "$partnerName • White"
+                tvTopPlayerName.text = if (!isMeWhite) "$partnerName • White" else "You ($currentUserName) • White"
+
+                tvBottomCaptured.text = blackCapturedSymbols
+                tvTopCaptured.text = whiteCapturedSymbols
             }
         } else {
-            tvBottomPlayerBadge.text = "♔"
-            tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
-            tvBottomPlayerBadge.setTextColor(0xFFAD1457.toInt())
-            tvBottomPlayerName.text = "Player 1 (White ♔)"
+            if (!effectiveFlipped) {
+                tvBottomPlayerBadge.text = "♔"
+                tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
+                tvBottomPlayerBadge.setTextColor(0xFFAD1457.toInt())
+                tvBottomPlayerName.text = "Player 1 (White ♔)"
 
-            tvTopPlayerBadge.text = "♚"
-            tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
-            tvTopPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
-            tvTopPlayerName.text = "Player 2 (Black ♚)"
-        }
+                tvTopPlayerBadge.text = "♚"
+                tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvTopPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
+                tvTopPlayerName.text = "Player 2 (Black ♚)"
 
-        // Captured pieces
-        val whiteCapturedSymbols = state.capturedByWhite.joinToString(" ") { ChessEngine.getPieceSymbol(it) }
-        val blackCapturedSymbols = state.capturedByBlack.joinToString(" ") { ChessEngine.getPieceSymbol(it) }
+                tvBottomCaptured.text = whiteCapturedSymbols
+                tvTopCaptured.text = blackCapturedSymbols
+            } else {
+                tvBottomPlayerBadge.text = "♚"
+                tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvBottomPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
+                tvBottomPlayerName.text = "Player 2 (Black ♚)"
 
-        if (amIWhite) {
-            tvBottomCaptured.text = blackCapturedSymbols
-            tvTopCaptured.text = whiteCapturedSymbols
-        } else {
-            tvBottomCaptured.text = whiteCapturedSymbols
-            tvTopCaptured.text = blackCapturedSymbols
+                tvTopPlayerBadge.text = "♔"
+                tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
+                tvTopPlayerBadge.setTextColor(0xFFAD1457.toInt())
+                tvTopPlayerName.text = "Player 1 (White ♔)"
+
+                tvBottomCaptured.text = blackCapturedSymbols
+                tvTopCaptured.text = whiteCapturedSymbols
+            }
         }
 
         // Check if current turn player's King is in check
@@ -326,7 +364,7 @@ class CoupleChessFragment : Fragment() {
         val myTurn = isMyTurnToPlay(state)
 
         if (state.status == "CHECKMATE") {
-            val winnerIsMe = if (isOnlineMode) state.winnerUid == currentUserId else state.winnerUid == (if (amIWhite) "WHITE" else "BLACK")
+            val winnerIsMe = if (isOnlineMode) state.winnerUid == currentUserId else state.winnerUid == (if (isMeWhite) "WHITE" else "BLACK")
             val winnerName = if (winnerIsMe) "You" else partnerName
             tvTurnIcon.text = "👑"
             tvTurnStatus.text = "Checkmate! $winnerName won the duel! 🏆"
@@ -344,10 +382,10 @@ class CoupleChessFragment : Fragment() {
             tvTurnIcon.text = if (isWhiteTurn) "♔" else "♚"
             if (isOnlineMode) {
                 if (myTurn) {
-                    tvTurnStatus.text = "Your Turn (${if (amIWhite) "White ♔" else "Black ♚"})"
+                    tvTurnStatus.text = "Your Turn (${if (isMeWhite) "White ♔" else "Black ♚"})"
                     cardTurnBanner.strokeColor = 0xFFC8E6C9.toInt()
                 } else {
-                    tvTurnStatus.text = "$partnerName's Turn (${if (!amIWhite) "White ♔" else "Black ♚"})"
+                    tvTurnStatus.text = "$partnerName's Turn (${if (!isMeWhite) "White ♔" else "Black ♚"})"
                     cardTurnBanner.strokeColor = 0xFFE0E0E0.toInt()
                 }
             } else {
@@ -358,22 +396,24 @@ class CoupleChessFragment : Fragment() {
 
         // Status chips
         if (isOnlineMode) {
-            if (myTurn) {
-                tvBottomStatusChip.text = "Your Turn 🌸"
-                tvBottomStatusChip.setTextColor(0xFF2E7D32.toInt())
-                tvTopStatusChip.text = "Waiting ⏳"
-                tvTopStatusChip.setTextColor(0xFF757575.toInt())
+            val isBottomMe = (isMeWhite && !effectiveFlipped) || (!isMeWhite && effectiveFlipped)
+            if (isBottomMe) {
+                tvBottomStatusChip.text = if (myTurn) "Your Turn 🌸" else "Waiting ⏳"
+                tvBottomStatusChip.setTextColor(if (myTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
+                tvTopStatusChip.text = if (!myTurn) "Their Turn 🌸" else "Waiting ⏳"
+                tvTopStatusChip.setTextColor(if (!myTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
             } else {
-                tvBottomStatusChip.text = "Waiting ⏳"
-                tvBottomStatusChip.setTextColor(0xFF757575.toInt())
-                tvTopStatusChip.text = "Their Turn 🌸"
-                tvTopStatusChip.setTextColor(0xFF2E7D32.toInt())
+                tvBottomStatusChip.text = if (!myTurn) "Their Turn 🌸" else "Waiting ⏳"
+                tvBottomStatusChip.setTextColor(if (!myTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
+                tvTopStatusChip.text = if (myTurn) "Your Turn 🌸" else "Waiting ⏳"
+                tvTopStatusChip.setTextColor(if (myTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
             }
         } else {
-            tvBottomStatusChip.text = if (isWhiteTurn) "To Move ♔" else "Waiting ⏳"
-            tvBottomStatusChip.setTextColor(if (isWhiteTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
-            tvTopStatusChip.text = if (!isWhiteTurn) "To Move ♚" else "Waiting ⏳"
-            tvTopStatusChip.setTextColor(if (!isWhiteTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
+            val isBottomTurn = (isWhiteTurn && !effectiveFlipped) || (!isWhiteTurn && effectiveFlipped)
+            tvBottomStatusChip.text = if (isBottomTurn) "To Move 🌸" else "Waiting ⏳"
+            tvBottomStatusChip.setTextColor(if (isBottomTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
+            tvTopStatusChip.text = if (!isBottomTurn) "To Move 🌸" else "Waiting ⏳"
+            tvTopStatusChip.setTextColor(if (!isBottomTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
         }
     }
 
@@ -530,6 +570,7 @@ class CoupleChessFragment : Fragment() {
     private fun startNewOnlineGame() {
         if (coupleId.isBlank()) return
         isSubmittingMove = false
+        manualFlipOverride = null
 
         // Alternate starting player (White)
         val prevWhiteUid = gameState.whitePlayerUid
@@ -567,6 +608,7 @@ class CoupleChessFragment : Fragment() {
     }
 
     private fun resetLocalGame() {
+        manualFlipOverride = null
         localGameState = ChessState(
             id = "chess",
             board = ChessState.defaultChessBoard(),
