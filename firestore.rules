@@ -171,6 +171,21 @@ service cloud.firestore {
         allow delete: if isParentCoupleMember(coupleId);
       }
 
+      // 8. Couple Games (Tic-Tac-Toe, Chess, Ludo, Would You Rather, Truth or Dare)
+      match /games/{gameId} {
+        allow read, write: if isParentCoupleMember(coupleId) || isAdmin();
+      }
+
+      // 9. Custom Truth or Dare Cards
+      match /custom_cards/{cardId} {
+        allow read, write: if isParentCoupleMember(coupleId) || isAdmin();
+      }
+
+      // 10. Couple Customization & Wallpaper
+      match /customization/{docId} {
+        allow read, write: if isParentCoupleMember(coupleId) || isAdmin();
+      }
+
       // Deny-by-default for any unmapped subcollections under /couples/{coupleId}
       match /{otherSubcollections=**} {
         allow read, write: if false;

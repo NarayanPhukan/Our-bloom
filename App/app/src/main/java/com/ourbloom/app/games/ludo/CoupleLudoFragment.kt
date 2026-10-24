@@ -218,9 +218,31 @@ class CoupleLudoFragment : Fragment() {
         gameListener = repository.observeLudoState(coupleId) { state ->
             if (!isAdded) return@observeLudoState
 
-            // If empty, initialize online duel
+            // If empty or unassigned in Firestore, seed online state with current user as Player 1
             if (state.player1Uid.isBlank() && state.player2Uid.isBlank()) {
-                startNewOnlineGame()
+                val seedP1Uid = currentUserId
+                val seedP1Name = currentUserName
+                val seedP2Uid = partnerId.ifBlank { "partner" }
+                val seedP2Name = partnerName
+
+                val seeded = LudoState(
+                    id = "ludo",
+                    player1Uid = seedP1Uid,
+                    player1Name = seedP1Name,
+                    player2Uid = seedP2Uid,
+                    player2Name = seedP2Name,
+                    turnUid = seedP1Uid,
+                    turnPlayer = 1,
+                    wager = state.wager.ifBlank { "Winner gets breakfast in bed ☕" },
+                    status = "PLAYING"
+                )
+                gameState = seeded
+                isSubmittingMove = false
+                renderState(seeded)
+
+                lifecycleScope.launch {
+                    repository.updateLudoState(coupleId, seeded)
+                }
                 return@observeLudoState
             }
 
@@ -516,22 +538,36 @@ class CoupleLudoFragment : Fragment() {
         if (coupleId.isBlank()) return
         isSubmittingMove = false
 
-        // Alternate starting player
-        val nextP1Uid = if (gameState.player1Uid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
+        val prevP1Uid = gameState.player1Uid
+        val nextP1Uid = if (prevP1Uid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
         val nextP1Name = if (nextP1Uid == currentUserId) currentUserName else partnerName
         val nextP2Uid = if (nextP1Uid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
         val nextP2Name = if (nextP1Uid == currentUserId) partnerName else currentUserName
 
+        val newState = LudoState(
+            id = "ludo",
+            player1Uid = nextP1Uid,
+            player1Name = nextP1Name,
+            player2Uid = nextP2Uid,
+            player2Name = nextP2Name,
+            turnUid = nextP1Uid,
+            turnPlayer = 1,
+            player1Tokens = listOf(-1, -1, -1, -1),
+            player2Tokens = listOf(-1, -1, -1, -1),
+            currentDiceValue = 0,
+            hasRolledDice = false,
+            wager = gameState.wager.ifBlank { "Winner gets breakfast in bed ☕" },
+            lastActionMessage = "New duel! $nextP1Name rolls first 🎲",
+            status = "PLAYING"
+        )
+        gameState = newState
+        renderState(newState)
+
         lifecycleScope.launch {
-            repository.resetLudoGame(
-                coupleId = coupleId,
-                player1Uid = nextP1Uid,
-                player1Name = nextP1Name,
-                player2Uid = nextP2Uid,
-                player2Name = nextP2Name,
-                wager = gameState.wager.ifBlank { "Winner gets breakfast in bed ☕" }
-            )
-            Toast.makeText(requireContext(), "New Ludo Duel Started! 🎲", Toast.LENGTH_SHORT).show()
+            val ok = repository.updateLudoState(coupleId, newState)
+            if (ok) {
+                Toast.makeText(requireContext(), "New Ludo Duel Started! 🎲", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

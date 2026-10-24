@@ -47,9 +47,11 @@ class CoupleChessFragment : Fragment() {
     private lateinit var chessBoardView: ChessBoardView
     private lateinit var tvGameModeStatus: TextView
     private lateinit var tvActiveWager: TextView
+    private lateinit var tvTopPlayerBadge: TextView
     private lateinit var tvTopPlayerName: TextView
     private lateinit var tvTopCaptured: TextView
     private lateinit var tvTopStatusChip: TextView
+    private lateinit var tvBottomPlayerBadge: TextView
     private lateinit var tvBottomPlayerName: TextView
     private lateinit var tvBottomCaptured: TextView
     private lateinit var tvBottomStatusChip: TextView
@@ -116,9 +118,11 @@ class CoupleChessFragment : Fragment() {
         chessBoardView = view.findViewById(R.id.chess_board_view)
         tvGameModeStatus = view.findViewById(R.id.tv_game_mode_status)
         tvActiveWager = view.findViewById(R.id.tv_active_wager)
+        tvTopPlayerBadge = view.findViewById(R.id.tv_top_player_badge)
         tvTopPlayerName = view.findViewById(R.id.tv_top_player_name)
         tvTopCaptured = view.findViewById(R.id.tv_top_captured)
         tvTopStatusChip = view.findViewById(R.id.tv_top_status_chip)
+        tvBottomPlayerBadge = view.findViewById(R.id.tv_bottom_player_badge)
         tvBottomPlayerName = view.findViewById(R.id.tv_bottom_player_name)
         tvBottomCaptured = view.findViewById(R.id.tv_bottom_captured)
         tvBottomStatusChip = view.findViewById(R.id.tv_bottom_status_chip)
@@ -159,17 +163,36 @@ class CoupleChessFragment : Fragment() {
         }
     }
 
+    private fun isCurrentUserWhite(state: ChessState): Boolean {
+        return when {
+            state.whitePlayerUid == currentUserId -> true
+            state.blackPlayerUid == currentUserId -> false
+            state.whitePlayerUid.isNotBlank() && state.whitePlayerUid != currentUserId -> false
+            state.blackPlayerUid.isNotBlank() && state.blackPlayerUid != currentUserId -> true
+            else -> true // Fallback to White for initiator / default
+        }
+    }
+
+    private fun isMyTurnToPlay(state: ChessState): Boolean {
+        if (!isOnlineMode) return true
+        val isWhiteTurn = state.turnColor == "WHITE"
+        val amIWhite = isCurrentUserWhite(state)
+        return (isWhiteTurn && amIWhite) || (!isWhiteTurn && !amIWhite)
+    }
+
     private fun updateModeUI() {
         if (isOnlineMode) {
             tvGameModeStatus.text = "Online Sync 🌐"
             tvGameModeStatus.setTextColor(0xFFE91E63.toInt())
-            tvTopPlayerName.text = partnerName
-            tvBottomPlayerName.text = "You ($currentUserName)"
         } else {
             tvGameModeStatus.text = "Pass & Play 📱"
             tvGameModeStatus.setTextColor(0xFF1976D2.toInt())
             tvTopPlayerName.text = "Player 2 (Black ♚)"
             tvBottomPlayerName.text = "Player 1 (White ♔)"
+            tvTopPlayerBadge.text = "♚"
+            tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
+            tvBottomPlayerBadge.text = "♔"
+            tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
         }
     }
 
@@ -201,9 +224,32 @@ class CoupleChessFragment : Fragment() {
         gameListener = repository.observeChessState(coupleId) { state ->
             if (!isAdded) return@observeChessState
 
-            // If empty, initialize online state with White player as current user
+            // If empty or unassigned in Firestore, seed online state with current user as White
             if (state.whitePlayerUid.isBlank() && state.blackPlayerUid.isBlank()) {
-                startNewOnlineGame()
+                val seedWhiteUid = currentUserId
+                val seedWhiteName = currentUserName
+                val seedBlackUid = partnerId.ifBlank { "partner" }
+                val seedBlackName = partnerName
+
+                val seeded = ChessState(
+                    id = "chess",
+                    board = ChessState.defaultChessBoard(),
+                    whitePlayerUid = seedWhiteUid,
+                    whitePlayerName = seedWhiteName,
+                    blackPlayerUid = seedBlackUid,
+                    blackPlayerName = seedBlackName,
+                    turnUid = seedWhiteUid,
+                    turnColor = "WHITE",
+                    wager = state.wager.ifBlank { "Winner picks our dinner date 🍽️" },
+                    status = "PLAYING"
+                )
+                gameState = seeded
+                isSubmittingMove = false
+                renderState(seeded)
+
+                lifecycleScope.launch {
+                    repository.updateChessState(coupleId, seeded)
+                }
                 return@observeChessState
             }
 
@@ -219,15 +265,50 @@ class CoupleChessFragment : Fragment() {
         chessBoardView.lastMoveTo = state.lastMoveTo
         tvActiveWager.text = state.wager
 
-        // If current user is Black player, orient board so Black is on bottom
-        val isCurrentUserBlack = isOnlineMode && state.blackPlayerUid == currentUserId
-        chessBoardView.isFlipped = isCurrentUserBlack
+        val amIWhite = if (isOnlineMode) isCurrentUserWhite(state) else true
+        // Orient board: If current user is Black, orient board so Black is on bottom
+        chessBoardView.isFlipped = !amIWhite
+
+        // Player Badges & Names
+        if (isOnlineMode) {
+            if (amIWhite) {
+                tvBottomPlayerBadge.text = "♔"
+                tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
+                tvBottomPlayerBadge.setTextColor(0xFFAD1457.toInt())
+                tvBottomPlayerName.text = "You ($currentUserName) • White"
+
+                tvTopPlayerBadge.text = "♚"
+                tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvTopPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
+                tvTopPlayerName.text = "$partnerName • Black"
+            } else {
+                tvBottomPlayerBadge.text = "♚"
+                tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvBottomPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
+                tvBottomPlayerName.text = "You ($currentUserName) • Black"
+
+                tvTopPlayerBadge.text = "♔"
+                tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
+                tvTopPlayerBadge.setTextColor(0xFFAD1457.toInt())
+                tvTopPlayerName.text = "$partnerName • White"
+            }
+        } else {
+            tvBottomPlayerBadge.text = "♔"
+            tvBottomPlayerBadge.setBackgroundResource(R.drawable.bg_vault_card)
+            tvBottomPlayerBadge.setTextColor(0xFFAD1457.toInt())
+            tvBottomPlayerName.text = "Player 1 (White ♔)"
+
+            tvTopPlayerBadge.text = "♚"
+            tvTopPlayerBadge.setBackgroundResource(R.drawable.bg_pill_dark)
+            tvTopPlayerBadge.setTextColor(0xFFFFFFFF.toInt())
+            tvTopPlayerName.text = "Player 2 (Black ♚)"
+        }
 
         // Captured pieces
         val whiteCapturedSymbols = state.capturedByWhite.joinToString(" ") { ChessEngine.getPieceSymbol(it) }
         val blackCapturedSymbols = state.capturedByBlack.joinToString(" ") { ChessEngine.getPieceSymbol(it) }
 
-        if (isCurrentUserBlack) {
+        if (amIWhite) {
             tvBottomCaptured.text = blackCapturedSymbols
             tvTopCaptured.text = whiteCapturedSymbols
         } else {
@@ -242,15 +323,11 @@ class CoupleChessFragment : Fragment() {
 
         // Turn & Status banners
         val isWhiteTurn = state.turnColor == "WHITE"
-        val isMyTurn = if (isOnlineMode) {
-            (isWhiteTurn && state.whitePlayerUid == currentUserId) ||
-            (!isWhiteTurn && state.blackPlayerUid == currentUserId)
-        } else {
-            true // In pass & play, players share screen
-        }
+        val myTurn = isMyTurnToPlay(state)
 
         if (state.status == "CHECKMATE") {
-            val winnerName = if (state.winnerUid == currentUserId) "You" else partnerName
+            val winnerIsMe = if (isOnlineMode) state.winnerUid == currentUserId else state.winnerUid == (if (amIWhite) "WHITE" else "BLACK")
+            val winnerName = if (winnerIsMe) "You" else partnerName
             tvTurnIcon.text = "👑"
             tvTurnStatus.text = "Checkmate! $winnerName won the duel! 🏆"
             cardTurnBanner.strokeColor = 0xFFFFD54F.toInt()
@@ -266,21 +343,38 @@ class CoupleChessFragment : Fragment() {
         } else {
             tvTurnIcon.text = if (isWhiteTurn) "♔" else "♚"
             if (isOnlineMode) {
-                if (isMyTurn) {
-                    tvTurnStatus.text = "Your Turn (${if (isWhiteTurn) "White ♔" else "Black ♚"})"
+                if (myTurn) {
+                    tvTurnStatus.text = "Your Turn (${if (amIWhite) "White ♔" else "Black ♚"})"
                     cardTurnBanner.strokeColor = 0xFFC8E6C9.toInt()
                 } else {
-                    tvTurnStatus.text = "$partnerName's Turn (${if (isWhiteTurn) "White ♔" else "Black ♚"})"
+                    tvTurnStatus.text = "$partnerName's Turn (${if (!amIWhite) "White ♔" else "Black ♚"})"
                     cardTurnBanner.strokeColor = 0xFFE0E0E0.toInt()
                 }
             } else {
-                tvTurnStatus.text = "${if (isWhiteTurn) "White's Turn ♔" else "Black's Turn ♚"}"
+                tvTurnStatus.text = if (isWhiteTurn) "White's Turn ♔" else "Black's Turn ♚"
                 cardTurnBanner.strokeColor = 0xFFE0E0E0.toInt()
             }
         }
 
-        tvBottomStatusChip.text = if (isMyTurn) "To Move 🌸" else "Waiting ⏳"
-        tvTopStatusChip.text = if (!isMyTurn) "To Move 🌸" else "Waiting ⏳"
+        // Status chips
+        if (isOnlineMode) {
+            if (myTurn) {
+                tvBottomStatusChip.text = "Your Turn 🌸"
+                tvBottomStatusChip.setTextColor(0xFF2E7D32.toInt())
+                tvTopStatusChip.text = "Waiting ⏳"
+                tvTopStatusChip.setTextColor(0xFF757575.toInt())
+            } else {
+                tvBottomStatusChip.text = "Waiting ⏳"
+                tvBottomStatusChip.setTextColor(0xFF757575.toInt())
+                tvTopStatusChip.text = "Their Turn 🌸"
+                tvTopStatusChip.setTextColor(0xFF2E7D32.toInt())
+            }
+        } else {
+            tvBottomStatusChip.text = if (isWhiteTurn) "To Move ♔" else "Waiting ⏳"
+            tvBottomStatusChip.setTextColor(if (isWhiteTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
+            tvTopStatusChip.text = if (!isWhiteTurn) "To Move ♚" else "Waiting ⏳"
+            tvTopStatusChip.setTextColor(if (!isWhiteTurn) 0xFF2E7D32.toInt() else 0xFF757575.toInt())
+        }
     }
 
     private fun onSquareClicked(index: Int) {
@@ -295,9 +389,7 @@ class CoupleChessFragment : Fragment() {
         // Online authorization check
         if (isOnlineMode) {
             if (isSubmittingMove) return
-            val isMyTurn = (activeState.turnColor == "WHITE" && activeState.whitePlayerUid == currentUserId) ||
-                           (activeState.turnColor == "BLACK" && activeState.blackPlayerUid == currentUserId)
-            if (!isMyTurn) {
+            if (!isMyTurnToPlay(activeState)) {
                 Toast.makeText(requireContext(), "Wait for $partnerName's move ⏳", Toast.LENGTH_SHORT).show()
                 return
             }
@@ -342,9 +434,23 @@ class CoupleChessFragment : Fragment() {
         val movingPiece = currentState.board.getOrElse(from) { "" }
         val simulatedBoard = ChessEngine.simulateMove(currentState.board, from, to)
 
+        val amIWhite = if (isOnlineMode) isCurrentUserWhite(currentState) else true
+        val effectiveWhiteUid = currentState.whitePlayerUid.ifBlank {
+            if (amIWhite) currentUserId else partnerId.ifBlank { "partner" }
+        }
+        val effectiveBlackUid = currentState.blackPlayerUid.ifBlank {
+            if (!amIWhite) currentUserId else partnerId.ifBlank { "partner" }
+        }
+        val effectiveWhiteName = currentState.whitePlayerName.ifBlank {
+            if (effectiveWhiteUid == currentUserId) currentUserName else partnerName
+        }
+        val effectiveBlackName = currentState.blackPlayerName.ifBlank {
+            if (effectiveBlackUid == currentUserId) currentUserName else partnerName
+        }
+
         val nextTurnColor = if (currentState.turnColor == "WHITE") "BLACK" else "WHITE"
         val nextTurnUid = if (isOnlineMode) {
-            if (nextTurnColor == "WHITE") currentState.whitePlayerUid else currentState.blackPlayerUid
+            if (nextTurnColor == "WHITE") effectiveWhiteUid else effectiveBlackUid
         } else ""
 
         // Check if captured piece
@@ -380,6 +486,10 @@ class CoupleChessFragment : Fragment() {
             board = simulatedBoard,
             turnColor = nextTurnColor,
             turnUid = nextTurnUid,
+            whitePlayerUid = effectiveWhiteUid,
+            whitePlayerName = effectiveWhiteName,
+            blackPlayerUid = effectiveBlackUid,
+            blackPlayerName = effectiveBlackName,
             lastMoveFrom = from,
             lastMoveTo = to,
             lastMovePiece = movingPiece,
@@ -422,21 +532,37 @@ class CoupleChessFragment : Fragment() {
         isSubmittingMove = false
 
         // Alternate starting player (White)
-        val nextWhiteUid = if (gameState.whitePlayerUid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
+        val prevWhiteUid = gameState.whitePlayerUid
+        val nextWhiteUid = if (prevWhiteUid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
         val nextWhiteName = if (nextWhiteUid == currentUserId) currentUserName else partnerName
         val nextBlackUid = if (nextWhiteUid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
         val nextBlackName = if (nextWhiteUid == currentUserId) partnerName else currentUserName
 
+        val newState = ChessState(
+            id = "chess",
+            board = ChessState.defaultChessBoard(),
+            whitePlayerUid = nextWhiteUid,
+            whitePlayerName = nextWhiteName,
+            blackPlayerUid = nextBlackUid,
+            blackPlayerName = nextBlackName,
+            turnUid = nextWhiteUid,
+            turnColor = "WHITE",
+            wager = gameState.wager.ifBlank { "Winner picks our dinner date 🍽️" },
+            status = "PLAYING"
+        )
+
+        gameState = newState
+        chessBoardView.selectedSquare = -1
+        chessBoardView.validMoves = emptyList()
+        renderState(newState)
+
         lifecycleScope.launch {
-            repository.resetChessGame(
-                coupleId = coupleId,
-                whitePlayerUid = nextWhiteUid,
-                whitePlayerName = nextWhiteName,
-                blackPlayerUid = nextBlackUid,
-                blackPlayerName = nextBlackName,
-                wager = gameState.wager.ifBlank { "Winner picks our dinner date 🍽️" }
-            )
-            Toast.makeText(requireContext(), "New Chess Duel Started! ♟️", Toast.LENGTH_SHORT).show()
+            val ok = repository.updateChessState(coupleId, newState)
+            if (ok) {
+                Toast.makeText(requireContext(), "New Chess Duel Started! ♟️", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "Failed to sync new duel with partner", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

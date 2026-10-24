@@ -1,8 +1,8 @@
 {
-  "versionCode": 79,
-  "versionName": "1.78",
+  "versionCode": 80,
+  "versionName": "1.79",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Couple Phone Wallpaper Studio 🖼️: Live Lock & Home screen generator with Days Together counter\\n• Real-time partner photo sync, custom scrim dimming, and presets",
+  "changelog": "fix(chess): resolve turn authorization, dynamic player color badges, and instant online sync in couple chess",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
