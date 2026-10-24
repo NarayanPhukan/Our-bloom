@@ -59,6 +59,8 @@ class CoupleChessFragment : Fragment() {
     private lateinit var tvTurnStatus: TextView
     private lateinit var tvTurnIcon: TextView
     private lateinit var cardTurnBanner: MaterialCardView
+    private lateinit var btnFlipBoard: ImageButton
+    private lateinit var btnBottomFlipBoard: MaterialButton
 
     private val romanticWagers = listOf(
         "Winner picks our dinner date 🍽️",
@@ -159,11 +161,14 @@ class CoupleChessFragment : Fragment() {
             }
         }
 
-        view.findViewById<ImageButton>(R.id.btn_flip_board)?.setOnClickListener {
+        btnFlipBoard = view.findViewById(R.id.btn_flip_board)
+        btnBottomFlipBoard = view.findViewById(R.id.btn_bottom_flip_board)
+
+        btnFlipBoard.setOnClickListener {
             flipBoard()
         }
 
-        view.findViewById<MaterialButton>(R.id.btn_bottom_flip_board)?.setOnClickListener {
+        btnBottomFlipBoard.setOnClickListener {
             flipBoard()
         }
 
@@ -269,11 +274,15 @@ class CoupleChessFragment : Fragment() {
     }
 
     private fun flipBoard() {
+        val activeState = if (isOnlineMode) gameState else localGameState
+        if (activeState.moveCount > 0) {
+            Toast.makeText(requireContext(), "Perspective is locked once the first move is made ♟️", Toast.LENGTH_SHORT).show()
+            return
+        }
         triggerHaptic()
         val currentEffectiveFlipped = chessBoardView.isFlipped
         val newFlipped = !currentEffectiveFlipped
         manualFlipOverride = newFlipped
-        val activeState = if (isOnlineMode) gameState else localGameState
         renderState(activeState)
         val bottomSide = if (newFlipped) "Black ♚" else "White ♔"
         Toast.makeText(requireContext(), "Board flipped • $bottomSide at bottom", Toast.LENGTH_SHORT).show()
@@ -284,6 +293,11 @@ class CoupleChessFragment : Fragment() {
         chessBoardView.lastMoveFrom = state.lastMoveFrom
         chessBoardView.lastMoveTo = state.lastMoveTo
         tvActiveWager.text = state.wager
+
+        // The flip board option disappears once the first move of the game is made
+        val canFlip = state.moveCount == 0
+        btnFlipBoard.visibility = if (canFlip) View.VISIBLE else View.GONE
+        btnBottomFlipBoard.visibility = if (canFlip) View.VISIBLE else View.GONE
 
         val isMeWhite = if (isOnlineMode) isCurrentUserWhite(state) else true
         val defaultFlipped = if (isOnlineMode) !isMeWhite else false

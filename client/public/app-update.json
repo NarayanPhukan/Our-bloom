@@ -1,8 +1,8 @@
 {
-  "versionCode": 81,
-  "versionName": "1.80",
+  "versionCode": 82,
+  "versionName": "1.81",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "feat(chess): add flip board button to toggle White and Black board perspective",
+  "changelog": "feat(chess): flip board option disappears after first move is made",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
