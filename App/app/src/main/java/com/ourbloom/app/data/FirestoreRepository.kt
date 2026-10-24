@@ -3018,6 +3018,156 @@ class FirestoreRepository {
             false
         }
     }
+
+    // ==========================================
+    // COUPLE CHESS & COUPLE LUDO
+    // ==========================================
+
+    fun observeChessState(
+        coupleId: String,
+        onUpdate: (com.ourbloom.app.games.models.ChessState) -> Unit
+    ): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("games")
+            .document("chess")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to Chess state", error)
+                    return@addSnapshotListener
+                }
+                val state = try {
+                    snapshot?.toObject(com.ourbloom.app.games.models.ChessState::class.java)
+                        ?: com.ourbloom.app.games.models.ChessState()
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Failed to deserialize ChessState", e)
+                    com.ourbloom.app.games.models.ChessState()
+                }
+                onUpdate(state)
+            }
+    }
+
+    suspend fun updateChessState(
+        coupleId: String,
+        state: com.ourbloom.app.games.models.ChessState
+    ): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("games")
+                .document("chess")
+                .set(state)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating Chess state", e)
+            false
+        }
+    }
+
+    suspend fun resetChessGame(
+        coupleId: String,
+        whitePlayerUid: String,
+        whitePlayerName: String,
+        blackPlayerUid: String,
+        blackPlayerName: String,
+        wager: String
+    ): Boolean {
+        val newState = com.ourbloom.app.games.models.ChessState(
+            id = "chess",
+            board = com.ourbloom.app.games.models.ChessState.defaultChessBoard(),
+            whitePlayerUid = whitePlayerUid,
+            whitePlayerName = whitePlayerName,
+            blackPlayerUid = blackPlayerUid,
+            blackPlayerName = blackPlayerName,
+            turnUid = whitePlayerUid,
+            turnColor = "WHITE",
+            wager = wager,
+            status = "PLAYING",
+            winnerUid = null,
+            lastMoveFrom = -1,
+            lastMoveTo = -1,
+            lastMovePiece = "",
+            capturedByWhite = emptyList(),
+            capturedByBlack = emptyList(),
+            moveCount = 0,
+            lastMoveTimestamp = System.currentTimeMillis()
+        )
+        return updateChessState(coupleId, newState)
+    }
+
+    fun observeLudoState(
+        coupleId: String,
+        onUpdate: (com.ourbloom.app.games.models.LudoState) -> Unit
+    ): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("games")
+            .document("ludo")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to Ludo state", error)
+                    return@addSnapshotListener
+                }
+                val state = try {
+                    snapshot?.toObject(com.ourbloom.app.games.models.LudoState::class.java)
+                        ?: com.ourbloom.app.games.models.LudoState()
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Failed to deserialize LudoState", e)
+                    com.ourbloom.app.games.models.LudoState()
+                }
+                onUpdate(state)
+            }
+    }
+
+    suspend fun updateLudoState(
+        coupleId: String,
+        state: com.ourbloom.app.games.models.LudoState
+    ): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("games")
+                .document("ludo")
+                .set(state)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating Ludo state", e)
+            false
+        }
+    }
+
+    suspend fun resetLudoGame(
+        coupleId: String,
+        player1Uid: String,
+        player1Name: String,
+        player2Uid: String,
+        player2Name: String,
+        wager: String
+    ): Boolean {
+        val newState = com.ourbloom.app.games.models.LudoState(
+            id = "ludo",
+            player1Uid = player1Uid,
+            player1Name = player1Name,
+            player2Uid = player2Uid,
+            player2Name = player2Name,
+            player1Tokens = listOf(-1, -1, -1, -1),
+            player2Tokens = listOf(-1, -1, -1, -1),
+            turnPlayer = 1,
+            turnUid = player1Uid,
+            currentDiceValue = 0,
+            hasRolledDice = false,
+            status = "PLAYING",
+            winnerUid = null,
+            wager = wager,
+            lastActionMessage = "Duel reset! $player1Name rolls first 🎲",
+            consecutiveSixes = 0,
+            moveCount = 0,
+            lastMoveTimestamp = System.currentTimeMillis()
+        )
+        return updateLudoState(coupleId, newState)
+    }
 }
 
 data class ServerAuthResult(

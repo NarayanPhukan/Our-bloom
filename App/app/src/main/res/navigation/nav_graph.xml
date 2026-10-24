@@ -138,4 +138,16 @@
         android:label="Would You Rather"
         tools:layout="@layout/fragment_would_you_rather" />
 
+    <fragment
+        android:id="@+id/coupleChessFragment"
+        android:name="com.ourbloom.app.games.chess.CoupleChessFragment"
+        android:label="Couple Chess"
+        tools:layout="@layout/fragment_couple_chess" />
+
+    <fragment
+        android:id="@+id/coupleLudoFragment"
+        android:name="com.ourbloom.app.games.ludo.CoupleLudoFragment"
+        android:label="Couple Ludo"
+        tools:layout="@layout/fragment_couple_ludo" />
+
 </navigation>

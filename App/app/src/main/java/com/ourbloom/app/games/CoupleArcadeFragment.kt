@@ -54,7 +54,23 @@ class CoupleArcadeFragment : Fragment() {
             findNavController().navigate(R.id.wouldYouRatherFragment)
         }
 
-        // Game 4: ThumbKiss
+        // Game 4: Couple Chess
+        view.findViewById<MaterialCardView>(R.id.card_game_chess).setOnClickListener {
+            findNavController().navigate(R.id.coupleChessFragment)
+        }
+        view.findViewById<MaterialButton>(R.id.btn_play_chess).setOnClickListener {
+            findNavController().navigate(R.id.coupleChessFragment)
+        }
+
+        // Game 5: Heartland Ludo
+        view.findViewById<MaterialCardView>(R.id.card_game_ludo).setOnClickListener {
+            findNavController().navigate(R.id.coupleLudoFragment)
+        }
+        view.findViewById<MaterialButton>(R.id.btn_play_ludo).setOnClickListener {
+            findNavController().navigate(R.id.coupleLudoFragment)
+        }
+
+        // Game 6: ThumbKiss
         view.findViewById<MaterialCardView>(R.id.card_game_thumbkiss).setOnClickListener {
             val intent = Intent(requireContext(), ThumbKissActivity::class.java)
             startActivity(intent)

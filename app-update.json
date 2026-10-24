@@ -1,8 +1,8 @@
 {
-  "versionCode": 77,
-  "versionName": "1.76",
+  "versionCode": 78,
+  "versionName": "1.77",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Real-time synchronization of Razorpay UPI payments into Couple Vault\\n• Instant ledger transaction display and automated background reconciliation",
+  "changelog": "• New Couple Games: Heartland Ludo 🎲 & Couple Chess ♟️\\n• Real-time multiplayer synchronization and romantic love wagers",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
