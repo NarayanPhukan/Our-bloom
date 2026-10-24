@@ -1,8 +1,8 @@
 {
-  "versionCode": 78,
-  "versionName": "1.77",
+  "versionCode": 79,
+  "versionName": "1.78",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• New Couple Games: Heartland Ludo 🎲 & Couple Chess ♟️\\n• Real-time multiplayer synchronization and romantic love wagers",
+  "changelog": "• Couple Phone Wallpaper Studio 🖼️: Live Lock & Home screen generator with Days Together counter\\n• Real-time partner photo sync, custom scrim dimming, and presets",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <!-- Package visibility declarations for UPI and Payment apps (Android 11+) -->
     <queries>

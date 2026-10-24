@@ -3168,6 +3168,52 @@ class FirestoreRepository {
         )
         return updateLudoState(coupleId, newState)
     }
+
+    // ==========================================
+    // SHARED COUPLE WALLPAPER
+    // ==========================================
+
+    fun observeCoupleWallpaper(
+        coupleId: String,
+        onUpdate: (com.ourbloom.app.data.models.CoupleWallpaperConfig) -> Unit
+    ): ListenerRegistration {
+        return db.collection("couples")
+            .document(coupleId)
+            .collection("customization")
+            .document("wallpaper")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("FirestoreRepo", "Error listening to couple wallpaper", error)
+                    return@addSnapshotListener
+                }
+                val config = try {
+                    snapshot?.toObject(com.ourbloom.app.data.models.CoupleWallpaperConfig::class.java)
+                        ?: com.ourbloom.app.data.models.CoupleWallpaperConfig()
+                } catch (e: Exception) {
+                    Log.e("FirestoreRepo", "Failed to deserialize CoupleWallpaperConfig", e)
+                    com.ourbloom.app.data.models.CoupleWallpaperConfig()
+                }
+                onUpdate(config)
+            }
+    }
+
+    suspend fun updateCoupleWallpaper(
+        coupleId: String,
+        config: com.ourbloom.app.data.models.CoupleWallpaperConfig
+    ): Boolean {
+        return try {
+            db.collection("couples")
+                .document(coupleId)
+                .collection("customization")
+                .document("wallpaper")
+                .set(config)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating couple wallpaper", e)
+            false
+        }
+    }
 }
 
 data class ServerAuthResult(

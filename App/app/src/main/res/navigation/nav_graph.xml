@@ -150,4 +150,10 @@
         android:label="Couple Ludo"
         tools:layout="@layout/fragment_couple_ludo" />
 
+    <fragment
+        android:id="@+id/coupleWallpaperFragment"
+        android:name="com.ourbloom.app.wallpaper.CoupleWallpaperFragment"
+        android:label="Couple Wallpaper"
+        tools:layout="@layout/fragment_couple_wallpaper" />
+
 </navigation>

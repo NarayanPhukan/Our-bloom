@@ -113,6 +113,13 @@ class DashboardFragment : Fragment() {
             }
         }
 
+        // Couple Phone Wallpaper Studio
+        val openWallpaperStudio = {
+            findNavController().navigate(R.id.coupleWallpaperFragment)
+        }
+        view.findViewById<View>(R.id.card_couple_phone_wallpaper)?.setOnClickListener { openWallpaperStudio() }
+        view.findViewById<View>(R.id.btn_open_wallpaper_studio)?.setOnClickListener { openWallpaperStudio() }
+
         // Real-time Heartbeat button
         val btnSendHeartbeat = view.findViewById<MaterialButton>(R.id.btn_send_heartbeat)
         val ivHeartIcon = view.findViewById<ImageView>(R.id.iv_heartbeat_icon)
