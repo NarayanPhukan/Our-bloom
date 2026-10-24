@@ -261,6 +261,7 @@ class AdminRevenueFragment : Fragment() {
         swipeRefresh.setOnRefreshListener {
             viewLifecycleOwner.lifecycleScope.launch {
                 repository.syncPayUSettlements()
+                repository.syncRazorpayPayments()
                 repository.syncHistoricalFeesToRevenueLedger()
                 swipeRefresh.isRefreshing = false
             }
@@ -268,10 +269,11 @@ class AdminRevenueFragment : Fragment() {
 
         btnSyncPayU.setOnClickListener {
             viewLifecycleOwner.lifecycleScope.launch {
-                Toast.makeText(requireContext(), "Syncing PayU settlements...", Toast.LENGTH_SHORT).show()
-                val ok = repository.syncPayUSettlements()
-                if (ok) {
-                    Toast.makeText(requireContext(), "PayU settlements synchronized 🌸", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Syncing PayU & Razorpay settlements...", Toast.LENGTH_SHORT).show()
+                val okPayU = repository.syncPayUSettlements()
+                val okRzp = repository.syncRazorpayPayments()
+                if (okPayU || okRzp) {
+                    Toast.makeText(requireContext(), "Gateways synchronized 🌸", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(requireContext(), "Settlement sync completed.", Toast.LENGTH_SHORT).show()
                 }

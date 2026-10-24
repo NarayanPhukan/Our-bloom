@@ -881,6 +881,23 @@ mongoose
           }
         }, 6 * 60 * 60 * 1000);
 
+        // Automated Razorpay captured payments sync (initial delay on boot + every 15 minutes)
+        setTimeout(() => {
+          if (razorpayRoutes.syncCapturedPayments) {
+            razorpayRoutes.syncCapturedPayments(50).catch(err => {
+              console.warn('✿ Startup Razorpay payment sync error:', err.message);
+            });
+          }
+        }, 10000);
+
+        setInterval(() => {
+          if (razorpayRoutes.syncCapturedPayments) {
+            razorpayRoutes.syncCapturedPayments(50).catch(err => {
+              console.warn('✿ Background Razorpay payment sync error:', err.message);
+            });
+          }
+        }, 15 * 60 * 1000);
+
         // Keepalive self-ping on Render free tier to prevent 50s cold-start sleep
         if (process.env.RENDER) {
           const https = require('https');

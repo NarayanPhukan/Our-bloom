@@ -202,16 +202,23 @@ async function executeVaultCreditTransaction({
 }) {
   const db = getFirestore();
   await db.runTransaction(async (transaction) => {
-    // A. Check ledger duplication
+    // 1. ALL READS FIRST (Strict Firestore rule: no reads after any writes)
     const ledgerRef = db.collection('savings_transactions').doc(`LEDGER_${txnid}`);
     const ledgerDoc = await transaction.get(ledgerRef);
     if (ledgerDoc.exists) return;
 
-    // B. Update Wallet Balance
     const walletRef = db.collection('savings_wallets').doc(coupleId);
     const walletDoc = await transaction.get(walletRef);
-    const wData = walletDoc.exists ? walletDoc.data() : {};
 
+    let goalRef = null;
+    let goalDoc = null;
+    if (goalId) {
+      goalRef = db.collection('savings_goals').doc(goalId);
+      goalDoc = await transaction.get(goalRef);
+    }
+
+    // 2. COMPUTE
+    const wData = walletDoc.exists ? walletDoc.data() : {};
     const currentTotalPaise = Number(wData.totalBalancePaise ?? Math.round((Number(wData.totalBalance) || 0) * 100));
     const currentAvailablePaise = Number(wData.availableBalancePaise ?? currentTotalPaise);
     const currentFeesPaise = Number(wData.totalPlatformFeesPaise || 0);
@@ -225,6 +232,7 @@ async function executeVaultCreditTransaction({
     const nextUser1 = isUser1 ? (Number(wData.user1Total) || 0) + userDepositRupees : Number(wData.user1Total) || 0;
     const nextUser2 = !isUser1 ? (Number(wData.user2Total) || 0) + userDepositRupees : Number(wData.user2Total) || 0;
 
+    // 3. ALL WRITES AFTER READS
     transaction.set(walletRef, {
       coupleId,
       totalBalancePaise: nextTotalPaise,
@@ -239,58 +247,55 @@ async function executeVaultCreditTransaction({
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
-    // C. Update Goal (if specified)
-    if (goalId) {
-      const goalRef = db.collection('savings_goals').doc(goalId);
-      const goalDoc = await transaction.get(goalRef);
-      if (goalDoc.exists) {
-        const gData = goalDoc.data();
-        const currentG = Number(gData.currentAmount) || 0;
-        const targetG = Number(gData.targetAmount) || 0;
-        const newG = currentG + userDepositRupees;
-        transaction.update(goalRef, {
-          currentAmount: newG,
-          isCompleted: (targetG > 0 && newG >= targetG),
-          updatedAt: FieldValue.serverTimestamp()
-        });
-      }
+    if (goalRef && goalDoc && goalDoc.exists) {
+      const gData = goalDoc.data();
+      const currentG = Number(gData.currentAmount) || 0;
+      const targetG = Number(gData.targetAmount) || 0;
+      const newG = currentG + userDepositRupees;
+      transaction.update(goalRef, {
+        currentAmount: newG,
+        isCompleted: (targetG > 0 && newG >= targetG),
+        updatedAt: FieldValue.serverTimestamp()
+      });
     }
 
-    // D. Record Savings Transaction
     transaction.set(ledgerRef, {
+      id: `LEDGER_${txnid}`,
       ledgerId: `LEDGER_${txnid}`,
       requestId: txnid,
       coupleId,
       userId,
-      userName,
+      userName: userName || 'Partner',
       type: 'deposit',
       vaultAmountPaise,
       platformFeePaise,
       payableAmountPaise,
-      platformFeeBps: CONFIG.PLATFORM_FEE_BPS,
-      pricingModel: 'FEE_ON_TOP',
-      currency: 'INR',
-      providerTxnId: paymentId,
-      providerBankReference: orderOrLinkId,
-      status: 'COMPLETED',
       grossAmountPaise: payableAmountPaise,
       netVaultCreditPaise: vaultAmountPaise,
-      settlementStatus: 'PENDING',
       amountPaise: vaultAmountPaise,
       amount: vaultAmountPaise / 100,
       grossAmount: payableAmountPaise / 100,
       platformFee: platformFeePaise / 100,
       netVaultCredit: vaultAmountPaise / 100,
+      pricingModel: 'FEE_ON_TOP',
+      platformFeeBps: CONFIG.PLATFORM_FEE_BPS,
+      currency: 'INR',
+      providerTxnId: paymentId,
+      providerBankReference: orderOrLinkId,
+      status: 'COMPLETED',
+      settlementStatus: 'PENDING',
       txnid,
       platformTransactionId: txnid,
       utrNumber: paymentId,
       goalId: goalId || '',
+      goalTitle: '',
+      note: `Razorpay UPI Deposit (${paymentId})`,
+      category: 'Savings',
       paymentMethod: 'Razorpay',
       timestamp: Date.now(),
       createdAt: FieldValue.serverTimestamp()
     });
 
-    // E. Record Platform Fee & Company Revenue
     if (platformFeePaise > 0) {
       const revRef = db.collection('revenue_records').doc(`REV_RZP_${txnid}`);
       transaction.set(revRef, {
@@ -299,11 +304,13 @@ async function executeVaultCreditTransaction({
         sourceTransactionId: txnid,
         type: 'FEE',
         title: '2% Deposit Platform Fee',
+        amountPaise: platformFeePaise,
+        feePaise: platformFeePaise,
         grossAmountPaise: platformFeePaise,
         netRevenuePaise: platformFeePaise,
         coupleId,
         userId,
-        userName,
+        userName: userName || 'Partner',
         paymentMethod: 'Razorpay',
         referenceId: paymentId,
         timestamp: Date.now(),
@@ -324,13 +331,32 @@ async function executeVaultCreditTransaction({
       });
     }
 
-    // F. Update Intent to COMPLETED
-    transaction.update(db.collection('payment_intents').doc(txnid), {
+    const alertRef = db.collection('admin_alerts').doc(`ALERT_${txnid}`);
+    transaction.set(alertRef, {
+      type: 'deposit',
+      coupleId,
+      userId,
+      userName: userName || 'Partner',
+      amount: vaultAmountPaise / 100,
+      utrNumber: paymentId,
+      note: `Razorpay UPI Deposit (${paymentId})`,
+      timestamp: Date.now(),
+      status: 'VERIFIED'
+    }, { merge: true });
+
+    transaction.set(db.collection('payment_intents').doc(txnid), {
       status: 'COMPLETED',
       paymentId: paymentId,
+      orderOrLinkId,
+      coupleId,
+      userId,
+      userName: userName || 'Partner',
+      vaultAmountPaise,
+      platformFeePaise,
+      payableAmountPaise,
       completedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
-    });
+    }, { merge: true });
   });
 }
 
@@ -764,8 +790,199 @@ router.post('/webhook', async (req, res) => {
   const event = req.body.event;
   console.log(`🌸 Razorpay webhook event received: ${event}`);
 
-  // Immediate acknowledge
+  // Immediate acknowledge to Razorpay (prevents webhook retries)
   res.status(200).json({ status: 'ok' });
+
+  // Process capture asynchronously
+  try {
+    if (event === 'payment.captured' || event === 'payment_link.paid' || event === 'order.paid') {
+      const payment = req.body.payload?.payment?.entity;
+      const paymentLink = req.body.payload?.payment_link?.entity;
+      const order = req.body.payload?.order?.entity;
+
+      const paymentId = payment?.id || paymentLink?.payments?.[0]?.payment_id;
+      const notes = payment?.notes || paymentLink?.notes || order?.notes || {};
+      let { coupleId, userId, userName, txnid, goalId, vaultAmountPaise, platformFeePaise } = notes;
+
+      const grossAmountPaise = Number(payment?.amount || paymentLink?.amount || order?.amount || 0);
+
+      if (!txnid) {
+        txnid = notes.txnid || `RZP_${paymentId || Date.now()}`;
+      }
+
+      // If coupleId is missing in notes, look up user by email or contact
+      if (!coupleId && (payment?.email || payment?.contact)) {
+        const db = getFirestore();
+        if (payment.email && payment.email !== 'void@razorpay.com') {
+          const uSnap = await db.collection('users').where('email', '==', payment.email).limit(1).get();
+          if (!uSnap.empty) {
+            coupleId = uSnap.docs[0].data().coupleId;
+            userId = userId || uSnap.docs[0].id;
+            userName = userName || uSnap.docs[0].data().name;
+          }
+        }
+        if (!coupleId && payment.contact) {
+          const cleanPhone = payment.contact.replace(/\D/g, '').slice(-10);
+          const uSnap = await db.collection('users').where('phone', '==', cleanPhone).limit(1).get();
+          if (!uSnap.empty) {
+            coupleId = uSnap.docs[0].data().coupleId;
+            userId = userId || uSnap.docs[0].id;
+            userName = userName || uSnap.docs[0].data().name;
+          }
+        }
+      }
+
+      if (coupleId && grossAmountPaise > 0) {
+        let vPaise = Number(vaultAmountPaise);
+        let fPaise = Number(platformFeePaise);
+        if (!vPaise || !fPaise) {
+          vPaise = Math.round((grossAmountPaise * 100) / 102);
+          fPaise = grossAmountPaise - vPaise;
+        }
+
+        await executeVaultCreditTransaction({
+          txnid,
+          coupleId: String(coupleId),
+          userId: String(userId || 'guest'),
+          userName: userName || 'Partner',
+          vaultAmountPaise: vPaise,
+          platformFeePaise: fPaise,
+          payableAmountPaise: grossAmountPaise,
+          goalId: goalId || '',
+          paymentId: paymentId || txnid,
+          orderOrLinkId: paymentLink?.id || order?.id || 'WEBHOOK'
+        });
+        console.log(`🌸 Webhook: Successfully credited Razorpay payment ${paymentId} (₹${vPaise / 100}) to couple ${coupleId}`);
+      }
+    }
+  } catch (webhookErr) {
+    console.error('Error processing Razorpay webhook event:', webhookErr);
+  }
+});
+
+/**
+ * Reconciles captured payments from Razorpay API against Firestore ledger.
+ * Guarantees that any payment captured on Razorpay is recorded in savings_transactions,
+ * savings_wallets, and revenue_records.
+ */
+async function syncCapturedPayments(limit = 50) {
+  if (!razorpay) return { success: false, error: 'Razorpay not configured' };
+  const db = getFirestore();
+
+  try {
+    const paymentsList = await razorpay.payments.all({ count: limit });
+    const items = paymentsList.items || [];
+    let syncedCount = 0;
+    const results = [];
+
+    for (const p of items) {
+      if (p.status !== 'captured') continue;
+
+      const pId = p.id;
+      // 1. Check if already recorded in savings_transactions
+      const existingByUtr = await db.collection('savings_transactions')
+        .where('utrNumber', '==', pId)
+        .limit(1)
+        .get();
+
+      if (!existingByUtr.empty) continue;
+
+      const existingByProvider = await db.collection('savings_transactions')
+        .where('providerTxnId', '==', pId)
+        .limit(1)
+        .get();
+
+      if (!existingByProvider.empty) continue;
+
+      // 2. Extract metadata
+      const notes = p.notes || {};
+      let coupleId = notes.coupleId;
+      let userId = notes.userId;
+      let userName = notes.userName;
+      let goalId = notes.goalId;
+      let txnid = notes.txnid || `RZP_${pId}`;
+
+      // 3. If notes empty, try payment link description
+      if (!coupleId && p.description && p.description.startsWith('#')) {
+        const linkId = `plink_${p.description.substring(1)}`;
+        try {
+          const plink = await razorpay.paymentLink.fetch(linkId);
+          if (plink && plink.notes) {
+            coupleId = coupleId || plink.notes.coupleId;
+            userId = userId || plink.notes.userId;
+            goalId = goalId || plink.notes.goalId;
+            txnid = txnid || plink.notes.txnid;
+            userName = userName || plink.customer?.name;
+          }
+        } catch (_) {}
+      }
+
+      // 4. If still missing, resolve user by email / phone
+      if (!coupleId) {
+        if (p.email && p.email !== 'void@razorpay.com') {
+          const uSnap = await db.collection('users').where('email', '==', p.email).limit(1).get();
+          if (!uSnap.empty) {
+            coupleId = uSnap.docs[0].data().coupleId;
+            userId = userId || uSnap.docs[0].id;
+            userName = userName || uSnap.docs[0].data().name;
+          }
+        }
+        if (!coupleId && p.contact) {
+          const cleanPhone = p.contact.replace(/\D/g, '').slice(-10);
+          const uSnap = await db.collection('users').where('phone', '==', cleanPhone).limit(1).get();
+          if (!uSnap.empty) {
+            coupleId = uSnap.docs[0].data().coupleId;
+            userId = userId || uSnap.docs[0].id;
+            userName = userName || uSnap.docs[0].data().name;
+          }
+        }
+      }
+
+      // 5. If coupleId resolved, credit the vault
+      if (coupleId) {
+        const grossAmountPaise = Number(p.amount);
+        let vaultAmountPaise = Number(notes.vaultAmountPaise);
+        let platformFeePaise = Number(notes.platformFeePaise);
+
+        if (!vaultAmountPaise || !platformFeePaise) {
+          vaultAmountPaise = Math.round((grossAmountPaise * 100) / 102);
+          platformFeePaise = grossAmountPaise - vaultAmountPaise;
+        }
+
+        await executeVaultCreditTransaction({
+          txnid,
+          coupleId: String(coupleId),
+          userId: String(userId || 'guest'),
+          userName: userName || 'Partner',
+          vaultAmountPaise,
+          platformFeePaise,
+          payableAmountPaise: grossAmountPaise,
+          goalId: goalId || '',
+          paymentId: pId,
+          orderOrLinkId: p.order_id || 'RZP_SYNC'
+        });
+
+        syncedCount++;
+        results.push({ paymentId: pId, amount: grossAmountPaise / 100, coupleId });
+        console.log(`🌸 Razorpay Sync: Successfully credited payment ${pId} (₹${vaultAmountPaise / 100}) to couple ${coupleId}`);
+      }
+    }
+
+    return { success: true, syncedCount, results };
+  } catch (err) {
+    console.error('Error in syncCapturedPayments:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * GET & POST /api/razorpay/sync
+ * Admin or auto-reconciliation endpoint to sync captured payments
+ */
+router.all('/sync', async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '50', 10);
+  const result = await syncCapturedPayments(count);
+  res.json(result);
 });
 
 /**
@@ -787,4 +1004,5 @@ router.get('/settlements', async (req, res) => {
   }
 });
 
+router.syncCapturedPayments = syncCapturedPayments;
 module.exports = router;

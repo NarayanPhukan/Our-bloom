@@ -110,6 +110,7 @@ class AdminDashboardFragment : Fragment() {
         swipeRefresh.setOnRefreshListener {
             viewLifecycleOwner.lifecycleScope.launch {
                 repository.syncPayUSettlements()
+                repository.syncRazorpayPayments()
                 repository.syncHistoricalFeesToRevenueLedger()
                 swipeRefresh.isRefreshing = false
             }
@@ -200,9 +201,10 @@ class AdminDashboardFragment : Fragment() {
     }
 
     private fun setupListeners() {
-        // Trigger automatic PayU settlement sync and fee sync on launch
+        // Trigger automatic PayU & Razorpay settlement sync and fee sync on launch
         viewLifecycleOwner.lifecycleScope.launch {
             repository.syncPayUSettlements()
+            repository.syncRazorpayPayments()
             repository.syncHistoricalFeesToRevenueLedger()
         }
 

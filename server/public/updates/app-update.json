@@ -1,8 +1,8 @@
 {
-  "versionCode": 76,
-  "versionName": "1.75",
+  "versionCode": 77,
+  "versionName": "1.76",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fixed Razorpay checkout initialization and callback URL\\n• Instant UPI payments via Google Pay, PhonePe, Paytm & BHIM\\n• Resolved chat message delivery permissions",
+  "changelog": "• Real-time synchronization of Razorpay UPI payments into Couple Vault\\n• Instant ledger transaction display and automated background reconciliation",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

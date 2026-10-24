@@ -26,6 +26,9 @@ import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.ourbloom.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -343,6 +346,30 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
                 val linkId = data.optString("id", "")
                 currentPaymentLinkId = linkId
                 Log.d(TAG, "Direct Razorpay Payment Link created: $shortUrl (id: $linkId)")
+
+                // Save intent into Firestore so backend / reconciliation can track it
+                try {
+                    val db = FirebaseFirestore.getInstance()
+                    val intentData = hashMapOf(
+                        "txnid" to generatedTxnId,
+                        "paymentLinkId" to linkId,
+                        "paymentUrl" to shortUrl,
+                        "gateway" to "RAZORPAY",
+                        "status" to "INITIATED",
+                        "coupleId" to coupleId,
+                        "userId" to userId,
+                        "userName" to userName,
+                        "vaultAmountPaise" to Math.round(vaultAmount * 100),
+                        "payableAmountPaise" to amountPaise,
+                        "platformFeePaise" to (amountPaise - Math.round(vaultAmount * 100)),
+                        "goalId" to (goalId ?: ""),
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )
+                    db.collection("payment_intents").document(generatedTxnId).set(intentData, SetOptions.merge())
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed writing payment_intent: ${e.message}")
+                }
+
                 Pair(shortUrl, generatedTxnId)
             } else {
                 val errDesc = try {
@@ -445,6 +472,20 @@ class RazorpayCheckoutActivity : AppCompatActivity() {
             }
 
             if (isPaid) {
+                try {
+                    val db = FirebaseFirestore.getInstance()
+                    db.collection("payment_intents").document(currentTxnId).set(
+                        mapOf(
+                            "status" to "COMPLETED",
+                            "paymentId" to (currentPaymentLinkId.ifBlank { currentTxnId }),
+                            "completedAt" to FieldValue.serverTimestamp()
+                        ),
+                        SetOptions.merge()
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed updating payment_intent to COMPLETED: ${e.message}")
+                }
+
                 withContext(Dispatchers.Main) {
                     onPaymentVerifiedSuccess(currentPaymentLinkId.ifBlank { currentTxnId })
                 }

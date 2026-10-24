@@ -575,6 +575,29 @@ class AdminFirestoreRepository {
         }
     }
 
+    suspend fun syncRazorpayPayments(count: Int = 50): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("https://our-bloom.onrender.com/api/razorpay/sync?count=$count")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 10000
+                readTimeout = 15000
+            }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val responseStr = conn.inputStream.bufferedReader().readText()
+                Log.i(TAG, "Razorpay payments sync response: $responseStr")
+                true
+            } else {
+                Log.w(TAG, "Razorpay sync failed with HTTP $code")
+                false
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Razorpay sync error: ${e.message}")
+            false
+        }
+    }
+
     suspend fun manualCreditDeposit(
         coupleId: String,
         amount: Double,
