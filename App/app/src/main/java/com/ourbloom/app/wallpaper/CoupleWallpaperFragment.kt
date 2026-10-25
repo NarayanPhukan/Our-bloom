@@ -7,11 +7,13 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -22,7 +24,6 @@ import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
-import com.ourbloom.app.fcm.DirectFcmSender
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -32,9 +33,11 @@ import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.CoupleWallpaperConfig
+import com.ourbloom.app.fcm.DirectFcmSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,6 +61,7 @@ class CoupleWallpaperFragment : Fragment() {
     private var lastGeneratedWallpaper: Bitmap? = null
     private var wallpaperListener: ListenerRegistration? = null
     private var selectedLocalUri: Uri? = null
+    private val currentSlotBitmaps = mutableListOf<Bitmap>()
 
     // Views
     private lateinit var ivWallpaperPreview: ImageView
@@ -68,11 +72,20 @@ class CoupleWallpaperFragment : Fragment() {
     private lateinit var switchCoupleNames: MaterialSwitch
     private lateinit var switchAutoApply: MaterialSwitch
     private lateinit var sliderDimLevel: Slider
+    private lateinit var llCollageControls: LinearLayout
 
     private val pickPhotoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             selectedLocalUri = uri
+            currentConfig = currentConfig.copy(templateId = "CLASSIC")
+            llCollageControls.visibility = View.GONE
             loadBitmapFromUri(uri)
+        }
+    }
+
+    private val pickMultiplePhotosLauncher = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            loadBitmapsFromUris(uris)
         }
     }
 
@@ -120,6 +133,7 @@ class CoupleWallpaperFragment : Fragment() {
         switchCoupleNames = view.findViewById(R.id.switch_couple_names)
         switchAutoApply = view.findViewById(R.id.switch_auto_apply)
         sliderDimLevel = view.findViewById(R.id.slider_dim_level)
+        llCollageControls = view.findViewById(R.id.ll_collage_controls)
 
         val wallpaperPrefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
         switchAutoApply.isChecked = wallpaperPrefs.getBoolean("auto_apply_partner_wallpaper", true)
@@ -134,28 +148,61 @@ class CoupleWallpaperFragment : Fragment() {
             findNavController().navigateUp()
         }
 
+        // Templates Button
+        view.findViewById<MaterialButton>(R.id.btn_choose_template).setOnClickListener {
+            showTemplatesDialog()
+        }
+
+        // Single Photo Button
         view.findViewById<MaterialButton>(R.id.btn_pick_photo).setOnClickListener {
             pickPhotoLauncher.launch("image/*")
         }
 
+        // Color Themes Button
         view.findViewById<MaterialButton>(R.id.btn_theme_presets).setOnClickListener {
+            llCollageControls.visibility = View.GONE
             showThemePresetsDialog()
+        }
+
+        // Collage Controls
+        view.findViewById<MaterialButton>(R.id.btn_shuffle_memories).setOnClickListener {
+            shuffleAndRenderCollage()
+        }
+
+        view.findViewById<MaterialButton>(R.id.btn_reload_gallery).setOnClickListener {
+            loadPhotosFromMemoriesGallery()
+        }
+
+        view.findViewById<MaterialButton>(R.id.btn_pick_device_photos).setOnClickListener {
+            pickMultiplePhotosLauncher.launch("image/*")
         }
 
         switchDaysCounter.setOnCheckedChangeListener { _, isChecked ->
             currentConfig = currentConfig.copy(showDaysCounter = isChecked)
-            renderWallpaperPreview()
+            if (currentConfig.templateId == "HEART_MEMORIES" && currentSlotBitmaps.isNotEmpty()) {
+                renderHeartCollage()
+            } else {
+                renderWallpaperPreview()
+            }
         }
 
         switchCoupleNames.setOnCheckedChangeListener { _, isChecked ->
             currentConfig = currentConfig.copy(showCoupleNames = isChecked)
-            renderWallpaperPreview()
+            if (currentConfig.templateId == "HEART_MEMORIES" && currentSlotBitmaps.isNotEmpty()) {
+                renderHeartCollage()
+            } else {
+                renderWallpaperPreview()
+            }
         }
 
         sliderDimLevel.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
                 currentConfig = currentConfig.copy(dimLevel = value)
-                renderWallpaperPreview()
+                if (currentConfig.templateId == "HEART_MEMORIES" && currentSlotBitmaps.isNotEmpty()) {
+                    renderHeartCollage()
+                } else {
+                    renderWallpaperPreview()
+                }
             }
         }
 
@@ -232,7 +279,13 @@ class CoupleWallpaperFragment : Fragment() {
                 val clamped = config.dimLevel.coerceIn(sliderDimLevel.valueFrom, sliderDimLevel.valueTo)
                 sliderDimLevel.value = Math.round(clamped * 100f) / 100f
             } catch (e: Exception) {
-                android.util.Log.e("CoupleWallpaper", "Failed to set sliderDimLevel value: ${config.dimLevel}", e)
+                Log.e("CoupleWallpaper", "Failed to set sliderDimLevel value: ${config.dimLevel}", e)
+            }
+
+            if (config.templateId == "HEART_MEMORIES") {
+                llCollageControls.visibility = View.VISIBLE
+            } else {
+                llCollageControls.visibility = View.GONE
             }
 
             if (config.updatedByName.isNotBlank() && config.updatedByUid != currentUserId) {
@@ -275,6 +328,178 @@ class CoupleWallpaperFragment : Fragment() {
         }
     }
 
+    private fun showTemplatesDialog() {
+        val templates = arrayOf(
+            "💖 Heart Memories Collage (First Template)\n     • 18 photo slots with watercolor bows",
+            "📷 Classic Single Photo\n     • Full-screen custom photo with overlay",
+            "🎨 Romantic Color Themes\n     • Rose Sunset, Starry Love, Cherry Blossom"
+        )
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Choose Wallpaper Template 🖼️")
+            .setItems(templates) { _, which ->
+                when (which) {
+                    0 -> {
+                        // Heart Memories Collage (First Template)
+                        currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES")
+                        loadPhotosFromMemoriesGallery()
+                    }
+                    1 -> {
+                        // Classic Single Photo
+                        llCollageControls.visibility = View.GONE
+                        currentConfig = currentConfig.copy(templateId = "CLASSIC")
+                        pickPhotoLauncher.launch("image/*")
+                    }
+                    2 -> {
+                        // Romantic Color Themes
+                        llCollageControls.visibility = View.GONE
+                        currentConfig = currentConfig.copy(templateId = "CLASSIC")
+                        showThemePresetsDialog()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun loadPhotosFromMemoriesGallery() {
+        if (coupleId.isBlank()) {
+            Toast.makeText(requireContext(), "Pair with your partner first! 🌸", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        pbWallpaperLoading.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Fetching photos from your Love Gallery... 📸", Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val memories = repository.getAllMemories(coupleId)
+                val validUrls = memories.mapNotNull { it.imageUrl.takeIf { url -> url.isNotBlank() } }
+
+                if (validUrls.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        pbWallpaperLoading.visibility = View.GONE
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("No Photos in Gallery Yet 🌸")
+                            .setMessage("Your couple gallery doesn't have photos yet. Would you like to select photos from your device to prepare your Heart Collage?")
+                            .setPositiveButton("Choose Photos 📱") { _, _ ->
+                                pickMultiplePhotosLauncher.launch("image/*")
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                    return@launch
+                }
+
+                val loadedBitmaps = mutableListOf<Bitmap>()
+                for (url in validUrls.take(18)) {
+                    try {
+                        val bmp = Glide.with(requireContext())
+                            .asBitmap()
+                            .load(url)
+                            .submit(500, 500)
+                            .get(10, TimeUnit.SECONDS)
+                        if (bmp != null) loadedBitmaps.add(bmp)
+                    } catch (e: Exception) {
+                        Log.w("CoupleWallpaper", "Failed loading memory photo: $url", e)
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    pbWallpaperLoading.visibility = View.GONE
+                    if (loadedBitmaps.isNotEmpty()) {
+                        currentSlotBitmaps.clear()
+                        currentSlotBitmaps.addAll(loadedBitmaps)
+                        selectedLocalUri = null
+                        currentConfig = currentConfig.copy(
+                            templateId = "HEART_MEMORIES",
+                            presetTheme = "CUSTOM",
+                            memoryPhotoUrls = validUrls
+                        )
+                        renderHeartCollage()
+                        Toast.makeText(requireContext(), "Heart Collage created with ${loadedBitmaps.size} gallery photos! 💖", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(requireContext(), "Could not download gallery photos. Please check internet connection.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    pbWallpaperLoading.visibility = View.GONE
+                    Toast.makeText(requireContext(), "Failed loading gallery: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun loadBitmapsFromUris(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        pbWallpaperLoading.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            val bitmaps = mutableListOf<Bitmap>()
+            for (uri in uris.take(18)) {
+                try {
+                    val input = requireContext().contentResolver.openInputStream(uri)
+                    val bmp = BitmapFactory.decodeStream(input)
+                    input?.close()
+                    if (bmp != null) bitmaps.add(bmp)
+                } catch (e: Exception) {
+                    Log.w("CoupleWallpaper", "Error loading uri: $uri", e)
+                }
+            }
+            withContext(Dispatchers.Main) {
+                pbWallpaperLoading.visibility = View.GONE
+                if (bitmaps.isNotEmpty()) {
+                    currentSlotBitmaps.clear()
+                    currentSlotBitmaps.addAll(bitmaps)
+                    selectedLocalUri = null
+                    currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES", presetTheme = "CUSTOM")
+                    renderHeartCollage()
+                    Toast.makeText(requireContext(), "Heart collage updated with ${bitmaps.size} photos! 💖", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun shuffleAndRenderCollage() {
+        if (currentSlotBitmaps.isEmpty()) {
+            loadPhotosFromMemoriesGallery()
+            return
+        }
+        currentSlotBitmaps.shuffle()
+        renderHeartCollage()
+        Toast.makeText(requireContext(), "Collage photos shuffled! 🔀", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun renderHeartCollage() {
+        val displayMetrics = resources.displayMetrics
+        val screenW = if (displayMetrics.widthPixels > 0) displayMetrics.widthPixels else 1080
+        val screenH = if (displayMetrics.heightPixels > 0) displayMetrics.heightPixels else 2400
+
+        pbWallpaperLoading.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.Default) {
+            val collage = WallpaperGenerator.generateHeartCollageBitmap(
+                context = requireContext().applicationContext,
+                photos = currentSlotBitmaps,
+                config = currentConfig,
+                daysTogether = daysTogether,
+                coupleNames = coupleNamesDisplay,
+                anniversaryDateStr = anniversaryDateStr,
+                targetWidth = screenW,
+                targetHeight = screenH
+            )
+            currentSourceBitmap = collage
+            lastGeneratedWallpaper = collage
+
+            withContext(Dispatchers.Main) {
+                pbWallpaperLoading.visibility = View.GONE
+                if (isAdded) {
+                    ivWallpaperPreview.setImageBitmap(collage)
+                    llCollageControls.visibility = View.VISIBLE
+                }
+            }
+        }
+    }
+
     private fun loadBitmapFromUri(uri: Uri) {
         pbWallpaperLoading.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
@@ -285,7 +510,7 @@ class CoupleWallpaperFragment : Fragment() {
 
                 withContext(Dispatchers.Main) {
                     currentSourceBitmap = bmp
-                    currentConfig = currentConfig.copy(presetTheme = "CUSTOM")
+                    currentConfig = currentConfig.copy(presetTheme = "CUSTOM", templateId = "CLASSIC")
                     pbWallpaperLoading.visibility = View.GONE
                     renderWallpaperPreview()
                 }
@@ -401,17 +626,31 @@ class CoupleWallpaperFragment : Fragment() {
         lifecycleScope.launch {
             var uploadedUrl = currentConfig.imageUrl
 
-            // If user selected a local photo, upload it first
+            // 1. If user selected a local photo, upload it
             val localUri = selectedLocalUri
             if (localUri != null) {
                 val url = repository.uploadImage(requireContext(), localUri)
                 if (!url.isNullOrBlank()) {
                     uploadedUrl = url
                 }
+            } else if (currentConfig.templateId == "HEART_MEMORIES" && lastGeneratedWallpaper != null) {
+                // 2. If Heart Collage template is active, upload the generated custom collage composite
+                try {
+                    val stream = ByteArrayOutputStream()
+                    lastGeneratedWallpaper!!.compress(Bitmap.CompressFormat.JPEG, 92, stream)
+                    val bytes = stream.toByteArray()
+                    val url = repository.uploadImageBytes(bytes, "wallpaper_heart_collage_${coupleId}_${System.currentTimeMillis()}.jpg")
+                    if (!url.isNullOrBlank()) {
+                        uploadedUrl = url
+                    }
+                } catch (e: Exception) {
+                    Log.e("CoupleWallpaper", "Error uploading heart collage composite: ${e.message}", e)
+                }
             }
 
             val updatedConfig = currentConfig.copy(
                 imageUrl = uploadedUrl,
+                templateId = currentConfig.templateId,
                 updatedByUid = currentUserId,
                 updatedByName = currentUserName,
                 updatedAt = System.currentTimeMillis()
@@ -433,15 +672,27 @@ class CoupleWallpaperFragment : Fragment() {
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
                         val partnerFcmToken = repository.getPartnerFcmToken(currentCoupleId, currentUid) ?: ""
+                        val notifTitle = if (updatedConfig.templateId == "HEART_MEMORIES") {
+                            "$myName sent a Heart Memories Wallpaper! 💖"
+                        } else {
+                            "$myName updated Couple Wallpaper! 💕"
+                        }
+                        val notifBody = if (updatedConfig.templateId == "HEART_MEMORIES") {
+                            "18 gallery memories framed with love! Tap to preview & apply ✨"
+                        } else {
+                            "Tap to view or sync your matching couple wallpaper ✨"
+                        }
+
                         val pushData = mapOf(
                             "type" to "couple_wallpaper",
                             "action" to "open_couple_wallpaper",
                             "coupleId" to currentCoupleId,
                             "senderId" to currentUid,
                             "senderName" to myName,
-                            "title" to "$myName updated Couple Wallpaper! 💕",
-                            "body" to "Tap to view or sync your matching couple wallpaper ✨",
+                            "title" to notifTitle,
+                            "body" to notifBody,
                             "imageUrl" to (updatedConfig.imageUrl ?: ""),
+                            "templateId" to updatedConfig.templateId,
                             "presetTheme" to updatedConfig.presetTheme,
                             "dimLevel" to updatedConfig.dimLevel.toString(),
                             "showDaysCounter" to updatedConfig.showDaysCounter.toString(),
@@ -456,12 +707,12 @@ class CoupleWallpaperFragment : Fragment() {
                         DirectFcmSender.sendPush(
                             context = requireContext().applicationContext,
                             token = partnerFcmToken,
-                            title = "$myName updated Couple Wallpaper! 💕",
-                            body = "Tap to view or sync your matching couple wallpaper ✨",
+                            title = notifTitle,
+                            body = notifBody,
                             data = pushData
                         )
                     } catch (e: Exception) {
-                        android.util.Log.e("CoupleWallpaper", "Failed sending wallpaper push to partner", e)
+                        Log.e("CoupleWallpaper", "Failed sending wallpaper push to partner", e)
                     }
                 }
             } else {
@@ -489,7 +740,7 @@ class CoupleWallpaperFragment : Fragment() {
             .setItems(presets) { _, which ->
                 currentSourceBitmap = null
                 selectedLocalUri = null
-                currentConfig = currentConfig.copy(presetTheme = presetKeys[which])
+                currentConfig = currentConfig.copy(presetTheme = presetKeys[which], templateId = "CLASSIC")
                 renderWallpaperPreview()
             }
             .setNegativeButton("Cancel", null)

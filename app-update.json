@@ -1,8 +1,8 @@
 {
-  "versionCode": 88,
-  "versionName": "1.87",
+  "versionCode": 89,
+  "versionName": "1.88",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Couple Wallpaper auto-apply background service\\n• High-priority push notifications when partner syncs wallpaper\\n• Dedicated auto-apply toggle switch and settings in Wallpaper Studio",
+  "changelog": "• Wallpaper Templates: 18-photo Heart Memories Collage template with watercolor ribbons\\n• Auto-fill collage with love photos from the Gallery section\\n• Shuffle, reload, or pick photos from phone\\n• Instant partner sync and auto-apply",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

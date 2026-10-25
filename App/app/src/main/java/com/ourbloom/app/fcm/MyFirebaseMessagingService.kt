@@ -153,6 +153,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         val coupleNames = remoteMessage.data["coupleNames"] ?: "Our Bloom 🌸"
                         val anniversaryDateStr = remoteMessage.data["anniversaryDateStr"] ?: "Together Always"
 
+                        val templateId = remoteMessage.data["templateId"] ?: "CLASSIC"
                         val config = CoupleWallpaperConfig(
                             imageUrl = imageUrl,
                             showDaysCounter = showDaysCounter,
@@ -160,6 +161,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                             showMilestone = showMilestone,
                             dimLevel = dimLevel,
                             presetTheme = presetTheme,
+                            templateId = templateId,
                             badgePosition = badgePosition,
                             quoteText = quoteText,
                             updatedByName = senderName
@@ -207,9 +209,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     }
                 }
 
-                val notifTitle = "$senderName updated Couple Wallpaper! 💕"
+                val templateId = remoteMessage.data["templateId"] ?: "CLASSIC"
+                val notifTitle = if (templateId == "HEART_MEMORIES") {
+                    "$senderName sent a Heart Memories Wallpaper! 💖"
+                } else {
+                    "$senderName updated Couple Wallpaper! 💕"
+                }
                 val notifBody = if (autoApply && appliedSuccessfully) {
                     "Applied to your home & lock screens! Tap to customize ✨"
+                } else if (templateId == "HEART_MEMORIES") {
+                    "18 gallery memories framed with love! Tap to preview & apply ✨"
                 } else {
                     "Tap to preview and set your matching couple wallpaper ✨"
                 }

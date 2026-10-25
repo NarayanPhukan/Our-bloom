@@ -129,19 +129,32 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="10dp"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_pick_photo"
+                    android:id="@+id/btn_choose_template"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:text="Choose Photo 📸"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1.2"
+                    android:text="Templates 🖼️"
+                    android:textColor="#AD1457"
+                    app:backgroundTint="#FCE4EC"
                     app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_add_a_photo" />
+                    app:icon="@drawable/ic_photo_library_rounded"
+                    app:iconTint="#AD1457" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_pick_photo"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="Photo 📸"
+                    app:cornerRadius="16dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_theme_presets"
@@ -149,8 +162,50 @@
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:text="Color Themes 🎨"
+                    android:text="Themes 🎨"
                     app:cornerRadius="16dp" />
+            </LinearLayout>
+
+            <!-- Collage Controls (Visible when Heart Memories Collage is active) -->
+            <LinearLayout
+                android:id="@+id/ll_collage_controls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_shuffle_memories"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="Shuffle 🔀"
+                    android:textSize="12sp"
+                    app:cornerRadius="14dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_reload_gallery"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1.2"
+                    android:text="Gallery Memories 📸"
+                    android:textSize="11sp"
+                    app:cornerRadius="14dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_pick_device_photos"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:text="Device 📱"
+                    android:textSize="11sp"
+                    app:cornerRadius="14dp" />
             </LinearLayout>
 
             <!-- Customization Settings Card -->

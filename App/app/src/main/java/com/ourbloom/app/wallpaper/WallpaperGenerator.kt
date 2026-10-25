@@ -1,6 +1,8 @@
 package com.ourbloom.app.wallpaper
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -8,10 +10,47 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
+import com.ourbloom.app.R
 import com.ourbloom.app.data.models.CoupleWallpaperConfig
 import kotlin.math.max
 
 object WallpaperGenerator {
+
+    data class CollageSlot(
+        val relX: Float,
+        val relY: Float,
+        val relW: Float,
+        val relH: Float
+    )
+
+    val HEART_COLLAGE_SLOTS = listOf(
+        // Centerpiece (Most prominent)
+        CollageSlot(0.2882f, 0.2871f, 0.4410f, 0.2881f), // 0: Centerpiece
+        // Left & Right Upper Wings
+        CollageSlot(0.0035f, 0.2451f, 0.2778f, 0.1289f), // 1: Big Left Wing
+        CollageSlot(0.7326f, 0.2402f, 0.2674f, 0.1309f), // 2: Big Right Wing
+        // Top Lobes
+        CollageSlot(0.1458f, 0.1826f, 0.1372f, 0.0576f), // 3: Top Left Lobe
+        CollageSlot(0.7309f, 0.1787f, 0.1372f, 0.0576f), // 4: Top Right Lobe
+        // Top Inner Cleft
+        CollageSlot(0.2934f, 0.2217f, 0.1562f, 0.0586f), // 5: Top Inner Left
+        CollageSlot(0.5625f, 0.2197f, 0.1580f, 0.0596f), // 6: Top Inner Right
+        // Mid Wings
+        CollageSlot(0.1024f, 0.3789f, 0.1753f, 0.0996f), // 7: Mid Left Box
+        CollageSlot(0.7361f, 0.3760f, 0.1823f, 0.1006f), // 8: Mid Right Box
+        // Lower Taper
+        CollageSlot(0.1719f, 0.4844f, 0.1076f, 0.0605f), // 9: Lower Left
+        CollageSlot(0.7396f, 0.4824f, 0.1094f, 0.0615f), // 10: Lower Right
+        // Bottom Point
+        CollageSlot(0.4306f, 0.5811f, 0.1597f, 0.0771f), // 11: Bottom Center
+        CollageSlot(0.3385f, 0.5811f, 0.0816f, 0.0459f), // 12: Bottom Point Left
+        CollageSlot(0.6007f, 0.5811f, 0.0816f, 0.0459f), // 13: Bottom Point Right
+        // Outer Accents
+        CollageSlot(0.0625f, 0.2041f, 0.0747f, 0.0371f), // 14: Top Outer Left Tab
+        CollageSlot(0.8802f, 0.1982f, 0.0764f, 0.0381f), // 15: Top Outer Right Tab
+        CollageSlot(0.0156f, 0.3799f, 0.0781f, 0.0439f), // 16: Mid Outer Left Tab
+        CollageSlot(0.9253f, 0.3760f, 0.0747f, 0.0439f)  // 17: Mid Outer Right Tab
+    )
 
     fun generateWallpaperBitmap(
         sourceBitmap: Bitmap?,
@@ -81,6 +120,118 @@ object WallpaperGenerator {
         return output
     }
 
+    /**
+     * Generates a romantic Heart Memories Collage wallpaper from multiple gallery photos,
+     * framed with the vintage watercolor bows and ribbons.
+     */
+    fun generateHeartCollageBitmap(
+        context: Context,
+        photos: List<Bitmap>,
+        config: CoupleWallpaperConfig,
+        daysTogether: Long,
+        coupleNames: String,
+        anniversaryDateStr: String,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Bitmap {
+        val width = if (targetWidth > 0) targetWidth else 1080
+        val height = if (targetHeight > 0) targetHeight else 2400
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        // 1. Draw base soft romantic background
+        canvas.drawColor(Color.parseColor("#F5F5F7"))
+
+        // 2. Draw the 18 photo slots
+        val fallbackColors = intArrayOf(
+            Color.parseColor("#FF5E7E"), Color.parseColor("#FF8FAB"),
+            Color.parseColor("#FFB3C6"), Color.parseColor("#C9184A"),
+            Color.parseColor("#A4133C"), Color.parseColor("#FF69B4"),
+            Color.parseColor("#FFC0CB"), Color.parseColor("#FF1493")
+        )
+
+        for (i in HEART_COLLAGE_SLOTS.indices) {
+            val slot = HEART_COLLAGE_SLOTS[i]
+            val left = (slot.relX * width) - 2f
+            val top = (slot.relY * height) - 2f
+            val right = (slot.relX + slot.relW) * width + 2f
+            val bottom = (slot.relY + slot.relH) * height + 2f
+            val rect = RectF(left, top, right, bottom)
+
+            if (photos.isNotEmpty()) {
+                val photo = photos[i % photos.size]
+                drawCenterCropToRect(canvas, photo, rect)
+            } else {
+                val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = fallbackColors[i % fallbackColors.size]
+                }
+                canvas.drawRect(rect, p)
+            }
+        }
+
+        // 3. Draw the watercolor bows and frame overlay on top
+        try {
+            val frameBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.template_heart_ribbon_frame)
+            if (frameBitmap != null) {
+                val dstRect = Rect(0, 0, width, height)
+                val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+                canvas.drawBitmap(frameBitmap, null, dstRect, paint)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperGenerator", "Error loading template_heart_ribbon_frame", e)
+        }
+
+        // 4. Subtle bottom scrim for dock and widget readability
+        val dimAlpha = (config.dimLevel.coerceIn(0.05f, 0.6f) * 255).toInt()
+        val bottomScrimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, height * 0.70f,
+                0f, height.toFloat(),
+                Color.TRANSPARENT,
+                Color.argb(dimAlpha, 15, 15, 25),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, height * 0.70f, width.toFloat(), height.toFloat(), bottomScrimPaint)
+
+        // 5. Draw Romantic Couple Overlay Card below the heart collage at y = 0.76f
+        val badgeY = height * 0.76f
+        drawCoupleCardOverlay(
+            canvas = canvas,
+            width = width,
+            centerY = badgeY,
+            days = daysTogether,
+            names = if (config.showCoupleNames) coupleNames else "",
+            dateStr = anniversaryDateStr,
+            quote = if (config.showMilestone) config.quoteText else "",
+            showDays = config.showDaysCounter
+        )
+
+        return output
+    }
+
+    private fun drawCenterCropToRect(canvas: Canvas, source: Bitmap, dstRect: RectF) {
+        if (source.isRecycled) return
+        val srcW = source.width.toFloat()
+        val srcH = source.height.toFloat()
+        val dstW = dstRect.width()
+        val dstH = dstRect.height()
+
+        val scale = max(dstW / srcW, dstH / srcH)
+        val scaledW = srcW * scale
+        val scaledH = srcH * scale
+        val left = dstRect.centerX() - scaledW / 2f
+        val top = dstRect.centerY() - scaledH / 2f
+
+        canvas.save()
+        canvas.clipRect(dstRect)
+        val drawRect = RectF(left, top, left + scaledW, top + scaledH)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        canvas.drawBitmap(source, null, drawRect, paint)
+        canvas.restore()
+    }
+
     private fun drawCenterCropBitmap(canvas: Canvas, source: Bitmap, targetW: Int, targetH: Int) {
         val srcW = source.width.toFloat()
         val srcH = source.height.toFloat()
@@ -129,42 +280,43 @@ object WallpaperGenerator {
         val cardBottom = cardTop + cardHeight
         val cardRect = RectF(cardLeft, cardTop, cardRight, cardBottom)
 
-        // Frosted Card Background with soft blush glow
-        val cardBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(140, 25, 20, 30) // Frosted glass dark tint
+        // Frosted Glass Background
+        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(135, 20, 20, 30) // Translucent dark glass
         }
-        val cardBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(120, 255, 205, 210) // Soft rose gold outline
+        canvas.drawRoundRect(cardRect, 48f, 48f, cardPaint)
+
+        // Subtle Rose Border
+        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 3f
+            color = Color.argb(160, 255, 182, 193) // Light pink glow
         }
-        canvas.drawRoundRect(cardRect, 48f, 48f, cardBgPaint)
-        canvas.drawRoundRect(cardRect, 48f, 48f, cardBorderPaint)
+        canvas.drawRoundRect(cardRect, 48f, 48f, borderPaint)
 
-        // Days Badge
         var currentY = cardTop + 72f
+
+        // Days Counter
         if (showDays) {
-            val daysText = "✦  $days DAYS TOGETHER  ✦"
-            val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#FF80AB") // Glowing Rose Pink
+            val daysNumberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#FFFFFF")
                 textAlign = Paint.Align.CENTER
-                textSize = 38f
-                isFakeBoldText = true
-                letterSpacing = 0.08f
-                setShadowLayer(8f, 0f, 2f, Color.argb(180, 233, 30, 99))
+                textSize = 62f
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                setShadowLayer(8f, 0f, 4f, Color.argb(160, 0, 0, 0))
             }
-            canvas.drawText(daysText, width / 2f, currentY, badgePaint)
+            canvas.drawText("$days Days Together 💕", width / 2f, currentY, daysNumberPaint)
             currentY += 68f
         }
 
         // Couple Names
         if (names.isNotBlank()) {
             val namesPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
+                color = Color.parseColor("#FF80AB")
                 textAlign = Paint.Align.CENTER
-                textSize = 52f
-                isFakeBoldText = true
-                setShadowLayer(6f, 0f, 3f, Color.BLACK)
+                textSize = 40f
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                setShadowLayer(6f, 0f, 3f, Color.argb(160, 0, 0, 0))
             }
             canvas.drawText(names, width / 2f, currentY, namesPaint)
             currentY += 56f
