@@ -14,6 +14,13 @@ data class WallpaperTemplate(
 object WallpaperTemplateRegistry {
     val TEMPLATES = listOf(
         WallpaperTemplate(
+            id = "VINTAGE_SCRAPBOOK",
+            title = "Vintage Scrapbook 💋",
+            badge = "Kiss & Thumbprint Heart",
+            description = "Handmade paper, newspaper scrap, botanical blossom & kiss print",
+            previewRes = R.drawable.preview_template_vintage_scrapbook
+        ),
+        WallpaperTemplate(
             id = "HEART_MEMORIES",
             title = "Heart Memories 💖",
             badge = "18 Photo Slots • Bows",

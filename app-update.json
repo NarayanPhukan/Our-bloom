@@ -1,8 +1,8 @@
 {
-  "versionCode": 95,
-  "versionName": "1.94",
+  "versionCode": 96,
+  "versionName": "1.95",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Wallpaper: Visual template selection with phone previews • Ready for custom templates",
+  "changelog": "• New Template: Vintage Scrapbook with kiss stamp & thumbprint heart • Visual template picker",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

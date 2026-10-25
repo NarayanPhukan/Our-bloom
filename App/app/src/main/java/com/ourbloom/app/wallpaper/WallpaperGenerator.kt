@@ -53,7 +53,33 @@ object WallpaperGenerator {
         anniversaryDateStr: String,
         targetWidth: Int,
         targetHeight: Int
+    ): Bitmap = generateWallpaperBitmap(
+        null, sourceBitmap, config, daysTogether, coupleNames, anniversaryDateStr, targetWidth, targetHeight
+    )
+
+    fun generateWallpaperBitmap(
+        context: Context?,
+        sourceBitmap: Bitmap?,
+        config: CoupleWallpaperConfig,
+        daysTogether: Long,
+        coupleNames: String,
+        anniversaryDateStr: String,
+        targetWidth: Int,
+        targetHeight: Int
     ): Bitmap {
+        if (config.templateId == "VINTAGE_SCRAPBOOK" && context != null) {
+            return generateVintageScrapbookBitmap(
+                context = context,
+                sourceBitmap = sourceBitmap,
+                config = config,
+                daysTogether = daysTogether,
+                coupleNames = coupleNames,
+                anniversaryDateStr = anniversaryDateStr,
+                targetWidth = targetWidth,
+                targetHeight = targetHeight
+            )
+        }
+
         val width = if (targetWidth > 0) targetWidth else 1080
         val height = if (targetHeight > 0) targetHeight else 2400
 
@@ -239,7 +265,112 @@ object WallpaperGenerator {
         return output
     }
 
-    private fun drawCenterCropToRect(canvas: Canvas, source: Bitmap, dstRect: RectF) {
+    /**
+     * Generates a romantic Vintage Scrapbook wallpaper:
+     * Handmade paper background, vintage newspaper scrap & black leaves,
+     * central couple photo framed with pink kiss print & thumbprint heart,
+     * and a botanical charcoal flower blossom with custom typewriter caption.
+     */
+    fun generateVintageScrapbookBitmap(
+        context: Context,
+        sourceBitmap: Bitmap?,
+        config: CoupleWallpaperConfig,
+        daysTogether: Long,
+        coupleNames: String,
+        anniversaryDateStr: String,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Bitmap {
+        val width = if (targetWidth > 0) targetWidth else 1080
+        val height = if (targetHeight > 0) targetHeight else 2400
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        // 1. Soft natural paper tone
+        canvas.drawColor(Color.parseColor("#F4F0E8"))
+
+        // 2. Central rectangular photo slot
+        // Normalized coordinates from 576x1024:
+        // x0=107/576, y0=381/1024, x1=455/576, y1=642/1024
+        val relX = 107f / 576f
+        val relY = 381f / 1024f
+        val relW = 348f / 576f
+        val relH = 261f / 1024f
+
+        val photoRect = RectF(relX * width, relY * height, (relX + relW) * width, (relY + relH) * height)
+
+        val photoToDraw = if (sourceBitmap != null && !sourceBitmap.isRecycled) {
+            sourceBitmap
+        } else {
+            BitmapFactory.decodeResource(context.resources, R.drawable.sample_couple_portrait)
+        }
+
+        if (photoToDraw != null && !photoToDraw.isRecycled) {
+            drawCenterCropToRect(canvas, photoToDraw, photoRect, applyMonochrome = true)
+        }
+
+        // 3. Draw seamless scrapbook frame (torn newspaper, black leaves, pink kiss mark, pink thumbprint heart, charcoal blossom)
+        try {
+            val frameBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.template_vintage_scrapbook_frame)
+            if (frameBitmap != null) {
+                val framePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+                canvas.drawBitmap(frameBitmap, null, RectF(0f, 0f, width.toFloat(), height.toFloat()), framePaint)
+            }
+        } catch (e: Exception) {
+            // Frame rendering fallback
+        }
+
+        val density = width / 1080f
+
+        // 4. Draw Romantic Caption below photo
+        val caption = if (config.quoteText.isNotBlank()) config.quoteText else "eyes speak louder than words."
+        val captionY = (668f / 1024f) * height
+        val captionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#383431")
+            textAlign = Paint.Align.CENTER
+            textSize = 21f * density
+            letterSpacing = 0.04f
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.NORMAL)
+        }
+        val maxTextWidth = width * 0.75f
+        val measuredW = captionPaint.measureText(caption)
+        if (measuredW > maxTextWidth) {
+            captionPaint.textSize = (21f * density) * (maxTextWidth / measuredW)
+        }
+        canvas.drawText(caption, width / 2f, captionY, captionPaint)
+
+        // 5. Draw Couple Nicknames / Days Together below caption (if enabled)
+        if (config.showCoupleNames && coupleNames.isNotBlank()) {
+            val namesY = captionY + 36f * density
+            val namesText = if (config.showDaysCounter && daysTogether > 0) {
+                "$coupleNames  •  $daysTogether Days"
+            } else {
+                coupleNames
+            }
+            val namesPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#7D6F77")
+                textAlign = Paint.Align.CENTER
+                textSize = 17f * density
+                letterSpacing = 0.03f
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
+            }
+            val measuredNamesW = namesPaint.measureText(namesText)
+            if (measuredNamesW > maxTextWidth) {
+                namesPaint.textSize = (17f * density) * (maxTextWidth / measuredNamesW)
+            }
+            canvas.drawText(namesText, width / 2f, namesY, namesPaint)
+        }
+
+        return output
+    }
+
+    private fun drawCenterCropToRect(
+        canvas: Canvas,
+        source: Bitmap,
+        dstRect: RectF,
+        applyMonochrome: Boolean = false
+    ) {
         if (source.isRecycled) return
         val srcW = source.width.toFloat()
         val srcH = source.height.toFloat()
@@ -255,7 +386,12 @@ object WallpaperGenerator {
         canvas.save()
         canvas.clipRect(dstRect)
         val drawRect = RectF(left, top, left + scaledW, top + scaledH)
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
+            if (applyMonochrome) {
+                val cm = android.graphics.ColorMatrix().apply { setSaturation(0f) }
+                colorFilter = android.graphics.ColorMatrixColorFilter(cm)
+            }
+        }
         canvas.drawBitmap(source, null, drawRect, paint)
         canvas.restore()
     }

@@ -82,7 +82,8 @@ class CoupleWallpaperFragment : Fragment() {
     private val pickPhotoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             selectedLocalUri = uri
-            currentConfig = currentConfig.copy(templateId = "CLASSIC")
+            val targetTemplateId = if (currentConfig.templateId == "VINTAGE_SCRAPBOOK") "VINTAGE_SCRAPBOOK" else "CLASSIC"
+            currentConfig = currentConfig.copy(templateId = targetTemplateId)
             llCollageControls.visibility = View.GONE
             loadBitmapFromUri(uri)
         }
@@ -366,6 +367,7 @@ class CoupleWallpaperFragment : Fragment() {
 
         val currentActiveId = when {
             currentConfig.templateId == "HEART_MEMORIES" -> "HEART_MEMORIES"
+            currentConfig.templateId == "VINTAGE_SCRAPBOOK" -> "VINTAGE_SCRAPBOOK"
             currentSourceBitmap != null -> "CLASSIC"
             else -> "THEMES"
         }
@@ -376,6 +378,15 @@ class CoupleWallpaperFragment : Fragment() {
         ) { template ->
             bottomSheet.dismiss()
             when (template.id) {
+                "VINTAGE_SCRAPBOOK" -> {
+                    llCollageControls.visibility = View.GONE
+                    currentConfig = currentConfig.copy(templateId = "VINTAGE_SCRAPBOOK")
+                    if (currentSourceBitmap == null) {
+                        pickPhotoLauncher.launch("image/*")
+                    } else {
+                        renderWallpaperPreview()
+                    }
+                }
                 "HEART_MEMORIES" -> {
                     currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES")
                     loadPhotosFromMemoriesGallery()
@@ -550,7 +561,8 @@ class CoupleWallpaperFragment : Fragment() {
 
                 withContext(Dispatchers.Main) {
                     currentSourceBitmap = bmp
-                    currentConfig = currentConfig.copy(presetTheme = "CUSTOM", templateId = "CLASSIC")
+                    val targetTemplateId = if (currentConfig.templateId == "VINTAGE_SCRAPBOOK") "VINTAGE_SCRAPBOOK" else "CLASSIC"
+                    currentConfig = currentConfig.copy(presetTheme = "CUSTOM", templateId = targetTemplateId)
                     pbWallpaperLoading.visibility = View.GONE
                     renderWallpaperPreview()
                 }
@@ -621,6 +633,7 @@ class CoupleWallpaperFragment : Fragment() {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val wallpaper = WallpaperGenerator.generateWallpaperBitmap(
+                context = context,
                 sourceBitmap = currentSourceBitmap,
                 config = currentConfig,
                 daysTogether = daysTogether,
@@ -742,15 +755,15 @@ class CoupleWallpaperFragment : Fragment() {
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
                         val partnerFcmToken = repository.getPartnerFcmToken(currentCoupleId, currentUid) ?: ""
-                        val notifTitle = if (updatedConfig.templateId == "HEART_MEMORIES") {
-                            "$myName sent a Heart Memories Wallpaper! 💖"
-                        } else {
-                            "$myName updated Couple Wallpaper! 💕"
+                        val notifTitle = when (updatedConfig.templateId) {
+                            "HEART_MEMORIES" -> "$myName sent a Heart Memories Wallpaper! 💖"
+                            "VINTAGE_SCRAPBOOK" -> "$myName sent a Vintage Scrapbook Wallpaper! 💋"
+                            else -> "$myName updated Couple Wallpaper! 💕"
                         }
-                        val notifBody = if (updatedConfig.templateId == "HEART_MEMORIES") {
-                            "18 gallery memories framed with love! Tap to preview & apply ✨"
-                        } else {
-                            "Tap to view or sync your matching couple wallpaper ✨"
+                        val notifBody = when (updatedConfig.templateId) {
+                            "HEART_MEMORIES" -> "18 gallery memories framed with love! Tap to preview & apply ✨"
+                            "VINTAGE_SCRAPBOOK" -> "Framed with kiss prints & thumbprint heart! Tap to preview & apply ✨"
+                            else -> "Tap to view or sync your matching couple wallpaper ✨"
                         }
 
                         val pushData = mapOf(

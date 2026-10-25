@@ -174,15 +174,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     }
                 }
 
-                val notifTitle = if (templateId == "HEART_MEMORIES") {
-                    "$senderName sent a Heart Memories Wallpaper! 💖"
-                } else {
-                    "$senderName updated Couple Wallpaper! 💕"
+                val notifTitle = when (templateId) {
+                    "HEART_MEMORIES" -> "$senderName sent a Heart Memories Wallpaper! 💖"
+                    "VINTAGE_SCRAPBOOK" -> "$senderName sent a Vintage Scrapbook Wallpaper! 💋"
+                    else -> "$senderName updated Couple Wallpaper! 💕"
                 }
                 val notifBody = if (autoApply && appliedSuccessfully) {
                     "Applied to your home & lock screens! Tap to customize ✨"
                 } else if (templateId == "HEART_MEMORIES") {
                     "18 gallery memories framed with love! Tap to preview & apply ✨"
+                } else if (templateId == "VINTAGE_SCRAPBOOK") {
+                    "Framed with kiss prints & thumbprint heart! Tap to preview & apply ✨"
                 } else {
                     "Tap to preview and set your matching couple wallpaper ✨"
                 }
