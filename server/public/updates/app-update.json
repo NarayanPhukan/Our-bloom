@@ -1,8 +1,8 @@
 {
-  "versionCode": 92,
-  "versionName": "1.91",
+  "versionCode": 93,
+  "versionName": "1.92",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix gallery & memory upload: Attach Firebase ID token & couple ID to media upload requests • Enhance server media upload routing with safe fallbacks",
+  "changelog": "• Fix wallpaper partner sync: Ensure 100% identical matching wallpaper delivery across devices without double badges • Fix auto-apply in background: Guaranteed completion with runBlocking and OEM lock-screen fallback resilience",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

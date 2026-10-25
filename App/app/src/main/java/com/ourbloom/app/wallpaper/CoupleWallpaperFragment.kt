@@ -288,41 +288,21 @@ class CoupleWallpaperFragment : Fragment() {
                 llCollageControls.visibility = View.GONE
             }
 
-            if (config.updatedByName.isNotBlank() && config.updatedByUid != currentUserId) {
+            val isPartnerUpdate = config.updatedByName.isNotBlank() && config.updatedByUid != currentUserId
+            if (isPartnerUpdate) {
                 tvWallpaperStatusBadge.text = "Updated by ${config.updatedByName} 💕"
-                val prefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
-                val autoApply = prefs.getBoolean("auto_apply_partner_wallpaper", true)
-                val lastAppliedAt = prefs.getLong("last_applied_wallpaper_ts", 0L)
-                if (autoApply && config.updatedAt > lastAppliedAt) {
-                    prefs.edit().putLong("last_applied_wallpaper_ts", config.updatedAt).apply()
-                    lifecycleScope.launch(Dispatchers.Default) {
-                        val wallpaper = WallpaperGenerator.generateWallpaperBitmap(
-                            sourceBitmap = currentSourceBitmap,
-                            config = config,
-                            daysTogether = daysTogether,
-                            coupleNames = coupleNamesDisplay,
-                            anniversaryDateStr = anniversaryDateStr,
-                            targetWidth = resources.displayMetrics.widthPixels,
-                            targetHeight = resources.displayMetrics.heightPixels
-                        )
-                        lastGeneratedWallpaper = wallpaper
-                        val applied = WallpaperHelper.applyWallpaper(requireContext(), wallpaper, WallpaperTarget.BOTH)
-                        if (applied) {
-                            withContext(Dispatchers.Main) {
-                                if (isAdded) {
-                                    Toast.makeText(requireContext(), "Matching wallpaper updated by ${config.updatedByName}! 💕", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    }
-                }
             } else {
                 tvWallpaperStatusBadge.text = "Synced for Both 💕"
             }
 
             if (config.imageUrl.isNotBlank() && selectedLocalUri == null) {
-                loadBitmapFromUrl(config.imageUrl)
-            } else {
+                loadBitmapFromUrl(
+                    url = config.imageUrl,
+                    isPartnerUpdate = isPartnerUpdate,
+                    updatedAt = config.updatedAt,
+                    partnerName = config.updatedByName
+                )
+            } else if (selectedLocalUri == null) {
                 renderWallpaperPreview()
             }
         }
@@ -523,7 +503,12 @@ class CoupleWallpaperFragment : Fragment() {
         }
     }
 
-    private fun loadBitmapFromUrl(url: String) {
+    private fun loadBitmapFromUrl(
+        url: String,
+        isPartnerUpdate: Boolean = false,
+        updatedAt: Long = 0L,
+        partnerName: String = ""
+    ) {
         pbWallpaperLoading.visibility = View.VISIBLE
         Glide.with(this)
             .asBitmap()
@@ -531,8 +516,31 @@ class CoupleWallpaperFragment : Fragment() {
             .into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                     currentSourceBitmap = resource
+                    lastGeneratedWallpaper = resource
                     pbWallpaperLoading.visibility = View.GONE
-                    renderWallpaperPreview()
+                    if (isAdded) {
+                        ivWallpaperPreview.setImageBitmap(resource)
+                    }
+
+                    if (isPartnerUpdate && isAdded) {
+                        val prefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
+                        val autoApply = prefs.getBoolean("auto_apply_partner_wallpaper", true)
+                        val lastAppliedAt = prefs.getLong("last_applied_wallpaper_ts", 0L)
+                        if (autoApply && updatedAt > lastAppliedAt) {
+                            prefs.edit().putLong("last_applied_wallpaper_ts", updatedAt).apply()
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                val applied = WallpaperHelper.applyWallpaper(requireContext(), resource, WallpaperTarget.BOTH)
+                                if (applied) {
+                                    withContext(Dispatchers.Main) {
+                                        if (isAdded) {
+                                            val name = partnerName.ifBlank { "Sweetheart" }
+                                            Toast.makeText(requireContext(), "Matching wallpaper updated by $name applied! 💕", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 override fun onLoadCleared(placeholder: Drawable?) {
@@ -626,25 +634,20 @@ class CoupleWallpaperFragment : Fragment() {
         lifecycleScope.launch {
             var uploadedUrl = currentConfig.imageUrl
 
-            // 1. If user selected a local photo, upload it
-            val localUri = selectedLocalUri
-            if (localUri != null) {
-                val url = repository.uploadImage(requireContext(), localUri, coupleId)
-                if (!url.isNullOrBlank()) {
-                    uploadedUrl = url
-                }
-            } else if (currentConfig.templateId == "HEART_MEMORIES" && lastGeneratedWallpaper != null) {
-                // 2. If Heart Collage template is active, upload the generated custom collage composite
+            // Always upload the exact rendered wallpaper so partner gets the 100% identical wallpaper!
+            val wallpaperToUpload = lastGeneratedWallpaper
+            if (wallpaperToUpload != null && !wallpaperToUpload.isRecycled) {
                 try {
                     val stream = ByteArrayOutputStream()
-                    lastGeneratedWallpaper!!.compress(Bitmap.CompressFormat.JPEG, 98, stream)
+                    wallpaperToUpload.compress(Bitmap.CompressFormat.JPEG, 98, stream)
                     val bytes = stream.toByteArray()
-                    val url = repository.uploadImageBytes(bytes, "wallpaper_heart_collage_${coupleId}_${System.currentTimeMillis()}.jpg", coupleId)
+                    val filename = "wallpaper_${coupleId}_${System.currentTimeMillis()}.jpg"
+                    val url = repository.uploadImageBytes(bytes, filename, coupleId)
                     if (!url.isNullOrBlank()) {
                         uploadedUrl = url
                     }
                 } catch (e: Exception) {
-                    Log.e("CoupleWallpaper", "Error uploading heart collage composite: ${e.message}", e)
+                    Log.e("CoupleWallpaper", "Error uploading wallpaper composite: ${e.message}", e)
                 }
             }
 
@@ -662,6 +665,11 @@ class CoupleWallpaperFragment : Fragment() {
             if (success) {
                 selectedLocalUri = null
                 currentConfig = updatedConfig
+
+                // Automatically apply locally too so both sweethearts match instantly
+                if (wallpaperToUpload != null && !wallpaperToUpload.isRecycled) {
+                    WallpaperHelper.applyWallpaper(requireContext(), wallpaperToUpload, WallpaperTarget.BOTH)
+                }
                 Toast.makeText(requireContext(), "Wallpaper synchronized with $partnerName! 💕", Toast.LENGTH_LONG).show()
 
                 // Dispatch instant high-priority FCM push notification to partner
@@ -693,6 +701,7 @@ class CoupleWallpaperFragment : Fragment() {
                             "body" to notifBody,
                             "imageUrl" to (updatedConfig.imageUrl ?: ""),
                             "templateId" to updatedConfig.templateId,
+                            "updatedAt" to updatedConfig.updatedAt.toString(),
                             "presetTheme" to updatedConfig.presetTheme,
                             "dimLevel" to updatedConfig.dimLevel.toString(),
                             "showDaysCounter" to updatedConfig.showDaysCounter.toString(),

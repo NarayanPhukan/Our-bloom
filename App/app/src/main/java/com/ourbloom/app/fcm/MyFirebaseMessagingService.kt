@@ -36,6 +36,7 @@ import com.bumptech.glide.Glide
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -137,79 +138,42 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val wallpaperPrefs = getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
             val autoApply = wallpaperPrefs.getBoolean("auto_apply_partner_wallpaper", true)
 
-            CoroutineScope(Dispatchers.IO).launch {
+            runBlocking(Dispatchers.IO) {
                 var appliedSuccessfully = false
-                if (autoApply) {
+                val imageUrl = remoteMessage.data["imageUrl"] ?: ""
+                val templateId = remoteMessage.data["templateId"] ?: "CLASSIC"
+                val coupleId = remoteMessage.data["coupleId"] ?: ""
+                val updatedAt = remoteMessage.data["updatedAt"]?.toLongOrNull() ?: System.currentTimeMillis()
+
+                if (autoApply && imageUrl.isNotBlank()) {
                     try {
-                        val imageUrl = remoteMessage.data["imageUrl"] ?: ""
-                        val presetTheme = remoteMessage.data["presetTheme"] ?: "ROSE_SUNSET"
-                        val dimLevel = remoteMessage.data["dimLevel"]?.toFloatOrNull() ?: 0.25f
-                        val showDaysCounter = remoteMessage.data["showDaysCounter"]?.toBoolean() ?: true
-                        val showCoupleNames = remoteMessage.data["showCoupleNames"]?.toBoolean() ?: true
-                        val showMilestone = remoteMessage.data["showMilestone"]?.toBoolean() ?: true
-                        val badgePosition = remoteMessage.data["badgePosition"] ?: "BOTTOM"
-                        val quoteText = remoteMessage.data["quoteText"] ?: "Forever & Always 💕"
-                        val daysTogether = remoteMessage.data["daysTogether"]?.toLongOrNull() ?: 1L
-                        val coupleNames = remoteMessage.data["coupleNames"] ?: "Our Bloom 🌸"
-                        val anniversaryDateStr = remoteMessage.data["anniversaryDateStr"] ?: "Together Always"
-
-                        val templateId = remoteMessage.data["templateId"] ?: "CLASSIC"
-                        val config = CoupleWallpaperConfig(
-                            imageUrl = imageUrl,
-                            showDaysCounter = showDaysCounter,
-                            showCoupleNames = showCoupleNames,
-                            showMilestone = showMilestone,
-                            dimLevel = dimLevel,
-                            presetTheme = presetTheme,
-                            templateId = templateId,
-                            badgePosition = badgePosition,
-                            quoteText = quoteText,
-                            updatedByName = senderName
-                        )
-
-                        var sourceBitmap: Bitmap? = null
-                        if (imageUrl.isNotBlank()) {
-                            try {
-                                sourceBitmap = Glide.with(this@MyFirebaseMessagingService)
-                                    .asBitmap()
-                                    .load(imageUrl)
-                                    .submit()
-                                    .get(15, java.util.concurrent.TimeUnit.SECONDS)
-                            } catch (e: Exception) {
-                                Log.w(TAG, "Failed downloading partner wallpaper photo, fallback to gradient: ${e.message}")
-                            }
+                        val downloadedBitmap = try {
+                            Glide.with(this@MyFirebaseMessagingService)
+                                .asBitmap()
+                                .load(imageUrl)
+                                .submit()
+                                .get(15, java.util.concurrent.TimeUnit.SECONDS)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed downloading synced wallpaper from $imageUrl: ${e.message}")
+                            null
                         }
 
-                        val displayMetrics = resources.displayMetrics
-                        val screenW = if (displayMetrics.widthPixels > 0) displayMetrics.widthPixels else 1080
-                        val screenH = if (displayMetrics.heightPixels > 0) displayMetrics.heightPixels else 2400
-
-                        val generatedBitmap = WallpaperGenerator.generateWallpaperBitmap(
-                            sourceBitmap = sourceBitmap,
-                            config = config,
-                            daysTogether = daysTogether,
-                            coupleNames = coupleNames,
-                            anniversaryDateStr = anniversaryDateStr,
-                            targetWidth = screenW,
-                            targetHeight = screenH
-                        )
-
-                        appliedSuccessfully = WallpaperHelper.applyWallpaper(
-                            this@MyFirebaseMessagingService,
-                            generatedBitmap,
-                            WallpaperTarget.BOTH
-                        )
-
-                        if (appliedSuccessfully) {
-                            wallpaperPrefs.edit().putLong("last_applied_wallpaper_ts", System.currentTimeMillis()).apply()
-                            Log.d(TAG, "Successfully auto-applied couple wallpaper updated by $senderName in background!")
+                        if (downloadedBitmap != null) {
+                            appliedSuccessfully = WallpaperHelper.applyWallpaper(
+                                this@MyFirebaseMessagingService,
+                                downloadedBitmap,
+                                WallpaperTarget.BOTH
+                            )
+                            if (appliedSuccessfully) {
+                                wallpaperPrefs.edit().putLong("last_applied_wallpaper_ts", updatedAt).apply()
+                                Log.d(TAG, "Successfully auto-applied matching couple wallpaper from $senderName in background!")
+                            }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error auto-applying wallpaper in background: ${e.message}", e)
                     }
                 }
 
-                val templateId = remoteMessage.data["templateId"] ?: "CLASSIC"
                 val notifTitle = if (templateId == "HEART_MEMORIES") {
                     "$senderName sent a Heart Memories Wallpaper! 💖"
                 } else {
@@ -226,7 +190,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 sendWallpaperNotification(
                     title = notifTitle,
                     messageBody = notifBody,
-                    coupleId = remoteMessage.data["coupleId"] ?: ""
+                    coupleId = coupleId
                 )
             }
             return

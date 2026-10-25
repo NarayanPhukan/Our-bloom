@@ -24,20 +24,51 @@ object WallpaperHelper {
     private const val TAG = "WallpaperHelper"
 
     fun applyWallpaper(context: Context, bitmap: Bitmap, target: WallpaperTarget): Boolean {
+        if (bitmap.isRecycled) return false
         return try {
             val wallpaperManager = WallpaperManager.getInstance(context)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                val flag = when (target) {
-                    WallpaperTarget.LOCK_SCREEN -> WallpaperManager.FLAG_LOCK
-                    WallpaperTarget.HOME_SCREEN -> WallpaperManager.FLAG_SYSTEM
-                    WallpaperTarget.BOTH -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+                when (target) {
+                    WallpaperTarget.LOCK_SCREEN -> {
+                        wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
+                        true
+                    }
+                    WallpaperTarget.HOME_SCREEN -> {
+                        wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
+                        true
+                    }
+                    WallpaperTarget.BOTH -> {
+                        var success = false
+                        try {
+                            wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+                            success = true
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Combined FLAG_SYSTEM or FLAG_LOCK failed, trying separate targets: ${e.message}")
+                            try {
+                                wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
+                                success = true
+                            } catch (e1: Exception) {
+                                Log.w(TAG, "FLAG_SYSTEM fallback failed: ${e1.message}")
+                            }
+                            try {
+                                wallpaperManager.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
+                                success = true
+                            } catch (e2: Exception) {
+                                Log.w(TAG, "FLAG_LOCK fallback failed: ${e2.message}")
+                            }
+                            if (!success) {
+                                wallpaperManager.setBitmap(bitmap)
+                                success = true
+                            }
+                        }
+                        success
+                    }
                 }
-                wallpaperManager.setBitmap(bitmap, null, true, flag)
             } else {
                 wallpaperManager.setBitmap(bitmap)
+                true
             }
-            true
         } catch (e: Exception) {
             Log.e(TAG, "Failed applying wallpaper: ${e.message}", e)
             false
