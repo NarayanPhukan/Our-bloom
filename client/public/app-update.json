@@ -1,8 +1,8 @@
 {
-  "versionCode": 84,
-  "versionName": "1.83",
+  "versionCode": 85,
+  "versionName": "1.84",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix Ludo track direction: pieces now move correctly clockwise\\n• Add 3D hop and jump animation with physical parabolic arc, ground shadow, and capture retreat",
+  "changelog": "• Align Chess layout with standard reference: local player is always at the bottom and partner at the top\\n• Fix automatic board perspective for Black and White",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
