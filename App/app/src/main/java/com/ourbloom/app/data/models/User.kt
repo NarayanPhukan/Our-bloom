@@ -1,7 +1,9 @@
 package com.ourbloom.app.data.models
 
+import androidx.annotation.Keep
 import com.google.firebase.firestore.IgnoreExtraProperties
 
+@Keep
 @IgnoreExtraProperties
 data class User(
     var uid: String = "",

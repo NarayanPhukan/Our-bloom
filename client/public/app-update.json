@@ -1,8 +1,8 @@
 {
-  "versionCode": 82,
-  "versionName": "1.81",
+  "versionCode": 83,
+  "versionName": "1.82",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "feat(chess): flip board option disappears after first move is made",
+  "changelog": "• Fix crash in wallpaper dim level slider for couple wallpaper customization\\n• Harden Firestore models against obfuscation and deserialization errors\\n• Add chess flip board toggle options",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

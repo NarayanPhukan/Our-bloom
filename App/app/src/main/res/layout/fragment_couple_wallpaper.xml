@@ -237,8 +237,7 @@
                         android:layout_height="wrap_content"
                         android:value="0.25"
                         android:valueFrom="0.10"
-                        android:valueTo="0.75"
-                        android:stepSize="0.05" />
+                        android:valueTo="0.75" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

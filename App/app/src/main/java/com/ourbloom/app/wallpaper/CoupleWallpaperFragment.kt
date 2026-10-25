@@ -215,8 +215,12 @@ class CoupleWallpaperFragment : Fragment() {
 
             currentConfig = config
             switchDaysCounter.isChecked = config.showDaysCounter
-            switchCoupleNames.isChecked = config.showCoupleNames
-            sliderDimLevel.value = config.dimLevel.coerceIn(0.10f, 0.75f)
+            try {
+                val clamped = config.dimLevel.coerceIn(sliderDimLevel.valueFrom, sliderDimLevel.valueTo)
+                sliderDimLevel.value = Math.round(clamped * 100f) / 100f
+            } catch (e: Exception) {
+                android.util.Log.e("CoupleWallpaper", "Failed to set sliderDimLevel value: ${config.dimLevel}", e)
+            }
 
             if (config.updatedByName.isNotBlank() && config.updatedByUid != currentUserId) {
                 tvWallpaperStatusBadge.text = "Updated by ${config.updatedByName} 💕"

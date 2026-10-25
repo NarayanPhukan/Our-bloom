@@ -4,11 +4,23 @@
 
 # Keep Data Models
 -keep class com.ourbloom.app.data.** { *; }
+-keepclassmembers class com.ourbloom.app.data.** { *; }
 -keep class com.ourbloom.app.chat.** { *; }
+-keepclassmembers class com.ourbloom.app.chat.** { *; }
 -keep class com.ourbloom.app.updates.** { *; }
+-keepclassmembers class com.ourbloom.app.updates.** { *; }
 -keep class com.ourbloom.app.games.** { *; }
+-keepclassmembers class com.ourbloom.app.games.** { *; }
 -keep class com.ourbloom.app.touch.** { *; }
+-keepclassmembers class com.ourbloom.app.touch.** { *; }
 -keep class com.ourbloom.app.arcade.** { *; }
+-keepclassmembers class com.ourbloom.app.arcade.** { *; }
+
+# Annotation & Keep Rules
+-keep @androidx.annotation.Keep class * { *; }
+-keepclassmembers class * {
+    @androidx.annotation.Keep *;
+}
 
 # Firebase Keep Rules
 -keepattributes *Annotation*
@@ -18,6 +30,9 @@
 
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
+-keepclassmembers class * {
+    @com.google.firebase.firestore.** *;
+}
 
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
