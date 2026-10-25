@@ -99,6 +99,7 @@ object WallpaperGenerator {
             else -> height * 0.72f // BOTTOM (recommended for lock/home screen icons)
         }
 
+        val isLight = config.presetTheme == "CHERRY_BLOSSOM"
         drawCoupleCardOverlay(
             canvas = canvas,
             width = width,
@@ -107,7 +108,8 @@ object WallpaperGenerator {
             names = if (config.showCoupleNames) coupleNames else "",
             dateStr = anniversaryDateStr,
             quote = if (config.showMilestone) config.quoteText else "",
-            showDays = config.showDaysCounter
+            showDays = config.showDaysCounter,
+            isLightBackground = isLight
         )
 
         return output
@@ -220,8 +222,8 @@ object WallpaperGenerator {
         }
         canvas.drawRect(0f, height * 0.70f, width.toFloat(), height.toFloat(), bottomScrimPaint)
 
-        // 6. Draw Romantic Couple Overlay Card below the heart collage at y = 0.76f
-        val badgeY = height * 0.76f
+        // 6. Draw Minimalist & Elegant Romantic Couple Overlay Card below the heart collage at y = 0.765f
+        val badgeY = height * 0.765f
         drawCoupleCardOverlay(
             canvas = canvas,
             width = width,
@@ -230,7 +232,8 @@ object WallpaperGenerator {
             names = if (config.showCoupleNames) coupleNames else "",
             dateStr = anniversaryDateStr,
             quote = if (config.showMilestone) config.quoteText else "",
-            showDays = config.showDaysCounter
+            showDays = config.showDaysCounter,
+            isLightBackground = true
         )
 
         return output
@@ -287,6 +290,10 @@ object WallpaperGenerator {
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
     }
 
+    /**
+     * Draws a minimalistic, elegant, and clean floating frosted pill badge on the wallpaper.
+     * Adapts gracefully to light/paper themes (pearl glass) and dark themes (obsidian glass).
+     */
     private fun drawCoupleCardOverlay(
         canvas: Canvas,
         width: Int,
@@ -295,80 +302,116 @@ object WallpaperGenerator {
         names: String,
         dateStr: String,
         quote: String,
-        showDays: Boolean
+        showDays: Boolean,
+        isLightBackground: Boolean = false
     ) {
-        val cardWidth = width * 0.88f
-        val cardHeight = 320f
+        if (!showDays && names.isBlank() && dateStr.isBlank() && quote.isBlank()) {
+            return
+        }
+
+        val density = width / 1080f
+        val cardWidth = width * 0.76f
+        val hasQuote = quote.isNotBlank()
+        val cardHeight = if (hasQuote) 190f * density else 156f * density
         val cardLeft = (width - cardWidth) / 2f
         val cardTop = centerY - cardHeight / 2f
         val cardRight = cardLeft + cardWidth
         val cardBottom = cardTop + cardHeight
         val cardRect = RectF(cardLeft, cardTop, cardRight, cardBottom)
+        val pillRadius = cardHeight / 2f
 
-        // Frosted Glass Background
-        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(135, 20, 20, 30) // Translucent dark glass
+        // 1. Subtle Outer Ambient Shadow
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(20, 0, 0, 0)
         }
-        canvas.drawRoundRect(cardRect, 48f, 48f, cardPaint)
+        val shadowRect = RectF(
+            cardLeft + 2f * density,
+            cardTop + 3f * density,
+            cardRight - 2f * density,
+            cardBottom + 5f * density
+        )
+        canvas.drawRoundRect(shadowRect, pillRadius, pillRadius, shadowPaint)
 
-        // Subtle Rose Border
+        // 2. Translucent Glass Capsule Fill
+        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (isLightBackground) {
+                Color.argb(225, 255, 255, 255) // Translucent pearl glass
+            } else {
+                Color.argb(175, 25, 25, 32) // Translucent obsidian glass
+            }
+        }
+        canvas.drawRoundRect(cardRect, pillRadius, pillRadius, cardPaint)
+
+        // 3. Delicate Hairline Border
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = 3f
-            color = Color.argb(160, 255, 182, 193) // Light pink glow
+            strokeWidth = 1.8f * density
+            color = if (isLightBackground) {
+                Color.argb(190, 215, 195, 200) // Soft rose-quartz hairline
+            } else {
+                Color.argb(80, 255, 255, 255) // Subtle translucent white
+            }
         }
-        canvas.drawRoundRect(cardRect, 48f, 48f, borderPaint)
+        canvas.drawRoundRect(cardRect, pillRadius, pillRadius, borderPaint)
 
-        var currentY = cardTop + 72f
+        // 4. Refined Minimalist Typography
+        val titleColor = if (isLightBackground) Color.parseColor("#2C2C2E") else Color.parseColor("#FFFFFF")
+        val subtitleColor = if (isLightBackground) Color.parseColor("#825A66") else Color.parseColor("#FF80AB")
+        val dateColor = if (isLightBackground) Color.parseColor("#8E8E93") else Color.parseColor("#E0E0E0")
 
-        // Days Counter
+        val hasSubtitle = names.isNotBlank() || dateStr.isNotBlank()
+        var currentY = when {
+            showDays && hasSubtitle -> cardTop + 58f * density
+            showDays || hasSubtitle -> cardTop + (cardHeight * 0.58f)
+            else -> cardTop + (cardHeight * 0.50f)
+        }
+
+        // Days Counter: Clean, tracked uppercase
         if (showDays) {
-            val daysNumberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#FFFFFF")
+            val daysPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = titleColor
                 textAlign = Paint.Align.CENTER
-                textSize = 62f
+                textSize = 34f * density
+                letterSpacing = 0.08f
                 typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-                setShadowLayer(8f, 0f, 4f, Color.argb(160, 0, 0, 0))
+                if (!isLightBackground) {
+                    setShadowLayer(4f, 0f, 2f, Color.argb(120, 0, 0, 0))
+                }
             }
-            canvas.drawText("$days Days Together 💕", width / 2f, currentY, daysNumberPaint)
-            currentY += 68f
+            canvas.drawText("$days DAYS TOGETHER", width / 2f, currentY, daysPaint)
+            currentY += 46f * density
         }
 
-        // Couple Names
-        if (names.isNotBlank()) {
-            val namesPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#FF80AB")
+        // Subtitle: Couple Names & Anniversary/Date combined gracefully
+        val cleanDate = dateStr.replace("Together since ", "Since ")
+        val subtitleText = when {
+            names.isNotBlank() && cleanDate.isNotBlank() -> "$names  •  $cleanDate"
+            names.isNotBlank() -> names
+            cleanDate.isNotBlank() -> cleanDate
+            else -> ""
+        }
+
+        if (subtitleText.isNotBlank()) {
+            val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = subtitleColor
                 textAlign = Paint.Align.CENTER
-                textSize = 40f
-                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-                setShadowLayer(6f, 0f, 3f, Color.argb(160, 0, 0, 0))
+                textSize = 23f * density
+                letterSpacing = 0.02f
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
             }
-            canvas.drawText(names, width / 2f, currentY, namesPaint)
-            currentY += 56f
+            canvas.drawText(subtitleText, width / 2f, currentY, subPaint)
+            currentY += 38f * density
         }
 
-        // Anniversary / Since date
-        if (dateStr.isNotBlank()) {
-            val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#E0E0E0")
-                textAlign = Paint.Align.CENTER
-                textSize = 30f
-                letterSpacing = 0.04f
-                setShadowLayer(4f, 0f, 2f, Color.BLACK)
-            }
-            canvas.drawText(dateStr, width / 2f, currentY, datePaint)
-            currentY += 46f
-        }
-
-        // Quote / Milestone
+        // Optional Quote / Milestone
         if (quote.isNotBlank()) {
             val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#FFCDD2")
+                color = dateColor
                 textAlign = Paint.Align.CENTER
-                textSize = 28f
-                setShadowLayer(4f, 0f, 2f, Color.BLACK)
+                textSize = 20f * density
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.ITALIC)
             }
-            canvas.drawText(quote, width / 2f, currentY, quotePaint)
+            canvas.drawText("“$quote”", width / 2f, currentY, quotePaint)
         }
     }
 }

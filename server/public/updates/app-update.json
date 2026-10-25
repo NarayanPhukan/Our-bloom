@@ -1,8 +1,8 @@
 {
-  "versionCode": 90,
-  "versionName": "1.89",
+  "versionCode": 91,
+  "versionName": "1.90",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• HD Wallpaper Quality Fix: Programmatic anti-aliased vector frames and 1080p ribbon background\n• Lossless high-res photo rendering without downsampling",
+  "changelog": "• Minimalist & Elegant Wallpaper Badge: Redesigned floating frosted pearl glass capsule with clean luxury typography",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
