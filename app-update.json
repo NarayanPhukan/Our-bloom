@@ -1,8 +1,8 @@
 {
-  "versionCode": 87,
-  "versionName": "1.86",
+  "versionCode": 88,
+  "versionName": "1.87",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Auto-perspective board alignment in Heartland Ludo (local player always at bottom)\\n• Player banners and respective team colors (Rose Hearts vs Sky Stars) stay aligned to device owner\\n• Flip board option available before first move",
+  "changelog": "• Couple Wallpaper auto-apply background service\\n• High-priority push notifications when partner syncs wallpaper\\n• Dedicated auto-apply toggle switch and settings in Wallpaper Studio",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

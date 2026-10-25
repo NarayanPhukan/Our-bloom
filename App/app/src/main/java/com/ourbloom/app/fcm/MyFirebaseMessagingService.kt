@@ -28,6 +28,11 @@ import com.google.firebase.messaging.RemoteMessage
 import com.ourbloom.app.MainActivity
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
+import com.ourbloom.app.data.models.CoupleWallpaperConfig
+import com.ourbloom.app.wallpaper.WallpaperGenerator
+import com.ourbloom.app.wallpaper.WallpaperHelper
+import com.ourbloom.app.wallpaper.WallpaperTarget
+import com.bumptech.glide.Glide
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,12 +69,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val isVideoCall = type == "video_call" || type == "call" || type == "audio_call" || isAudioOnly
         val isDailyNote = type == "daily_note" || type == "note" || action == "open_love_notes"
         val isSavings = type == "savings" || type == "vault" || action == "open_vault" || type == "savings_deposit" || type == "savings_withdrawal"
+        val isWallpaper = type == "couple_wallpaper" || type == "wallpaper" || action == "open_couple_wallpaper"
         val isUpdate = type == "app_update" || type == "update" ||
             remoteMessage.data.containsKey("versionCode")
-        val isChat = type == "chat" || 
+        val isChat = !isWallpaper && (type == "chat" || 
             remoteMessage.data.containsKey("messageText") || 
             remoteMessage.data.containsKey("audioUrl") || 
-            remoteMessage.data.containsKey("imageUrl")
+            (remoteMessage.data.containsKey("imageUrl") && type != "couple_wallpaper"))
 
         if (isUpdate) {
             val payloadCode = remoteMessage.data["versionCode"]?.toIntOrNull()
@@ -122,6 +128,97 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error handling FCM update message", e)
                 }
+            }
+            return
+        }
+
+        if (isWallpaper) {
+            val senderName = remoteMessage.data["senderName"]?.ifBlank { "Your Sweetheart" } ?: "Your Sweetheart"
+            val wallpaperPrefs = getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
+            val autoApply = wallpaperPrefs.getBoolean("auto_apply_partner_wallpaper", true)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                var appliedSuccessfully = false
+                if (autoApply) {
+                    try {
+                        val imageUrl = remoteMessage.data["imageUrl"] ?: ""
+                        val presetTheme = remoteMessage.data["presetTheme"] ?: "ROSE_SUNSET"
+                        val dimLevel = remoteMessage.data["dimLevel"]?.toFloatOrNull() ?: 0.25f
+                        val showDaysCounter = remoteMessage.data["showDaysCounter"]?.toBoolean() ?: true
+                        val showCoupleNames = remoteMessage.data["showCoupleNames"]?.toBoolean() ?: true
+                        val showMilestone = remoteMessage.data["showMilestone"]?.toBoolean() ?: true
+                        val badgePosition = remoteMessage.data["badgePosition"] ?: "BOTTOM"
+                        val quoteText = remoteMessage.data["quoteText"] ?: "Forever & Always 💕"
+                        val daysTogether = remoteMessage.data["daysTogether"]?.toLongOrNull() ?: 1L
+                        val coupleNames = remoteMessage.data["coupleNames"] ?: "Our Bloom 🌸"
+                        val anniversaryDateStr = remoteMessage.data["anniversaryDateStr"] ?: "Together Always"
+
+                        val config = CoupleWallpaperConfig(
+                            imageUrl = imageUrl,
+                            showDaysCounter = showDaysCounter,
+                            showCoupleNames = showCoupleNames,
+                            showMilestone = showMilestone,
+                            dimLevel = dimLevel,
+                            presetTheme = presetTheme,
+                            badgePosition = badgePosition,
+                            quoteText = quoteText,
+                            updatedByName = senderName
+                        )
+
+                        var sourceBitmap: Bitmap? = null
+                        if (imageUrl.isNotBlank()) {
+                            try {
+                                sourceBitmap = Glide.with(this@MyFirebaseMessagingService)
+                                    .asBitmap()
+                                    .load(imageUrl)
+                                    .submit()
+                                    .get(15, java.util.concurrent.TimeUnit.SECONDS)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed downloading partner wallpaper photo, fallback to gradient: ${e.message}")
+                            }
+                        }
+
+                        val displayMetrics = resources.displayMetrics
+                        val screenW = if (displayMetrics.widthPixels > 0) displayMetrics.widthPixels else 1080
+                        val screenH = if (displayMetrics.heightPixels > 0) displayMetrics.heightPixels else 2400
+
+                        val generatedBitmap = WallpaperGenerator.generateWallpaperBitmap(
+                            sourceBitmap = sourceBitmap,
+                            config = config,
+                            daysTogether = daysTogether,
+                            coupleNames = coupleNames,
+                            anniversaryDateStr = anniversaryDateStr,
+                            targetWidth = screenW,
+                            targetHeight = screenH
+                        )
+
+                        appliedSuccessfully = WallpaperHelper.applyWallpaper(
+                            this@MyFirebaseMessagingService,
+                            generatedBitmap,
+                            WallpaperTarget.BOTH
+                        )
+
+                        if (appliedSuccessfully) {
+                            wallpaperPrefs.edit().putLong("last_applied_wallpaper_ts", System.currentTimeMillis()).apply()
+                            Log.d(TAG, "Successfully auto-applied couple wallpaper updated by $senderName in background!")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error auto-applying wallpaper in background: ${e.message}", e)
+                    }
+                }
+
+                val notifTitle = "$senderName updated Couple Wallpaper! 💕"
+                val notifBody = if (autoApply && appliedSuccessfully) {
+                    "Applied to your home & lock screens! Tap to customize ✨"
+                } else {
+                    "Tap to preview and set your matching couple wallpaper ✨"
+                }
+
+                sendWallpaperNotification(
+                    title = notifTitle,
+                    messageBody = notifBody,
+                    coupleId = remoteMessage.data["coupleId"] ?: ""
+                )
             }
             return
         }
@@ -651,6 +748,69 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         canvas.drawText(initial, radius, yPos, textPaint)
 
         return bitmap
+    }
+
+    private fun sendWallpaperNotification(
+        title: String,
+        messageBody: String,
+        coupleId: String
+    ) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "ourbloom_wallpaper_channel"
+        val channelName = "Couple Wallpapers"
+
+        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                channelName,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 200, 150, 200)
+                setSound(soundUri, audioAttributes)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setShowBadge(true)
+                description = "Alerts when your partner syncs a matching couple wallpaper"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("action", "open_couple_wallpaper")
+            putExtra("type", "couple_wallpaper")
+            putExtra("coupleId", coupleId)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            5555,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.drawable.ic_favorite)
+            .setContentTitle(title)
+            .setContentText(messageBody)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setSound(soundUri)
+            .setVibrate(longArrayOf(0, 200, 150, 200))
+            .setContentIntent(pendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setWhen(System.currentTimeMillis())
+            .setShowWhen(true)
+
+        notificationManager.notify(5555, notificationBuilder.build())
     }
 
     companion object {

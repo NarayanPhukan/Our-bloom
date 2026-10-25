@@ -1,5 +1,6 @@
 package com.ourbloom.app.wallpaper
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
@@ -21,6 +22,7 @@ import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
+import com.ourbloom.app.fcm.DirectFcmSender
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -64,6 +66,7 @@ class CoupleWallpaperFragment : Fragment() {
     private lateinit var pbWallpaperLoading: ProgressBar
     private lateinit var switchDaysCounter: MaterialSwitch
     private lateinit var switchCoupleNames: MaterialSwitch
+    private lateinit var switchAutoApply: MaterialSwitch
     private lateinit var sliderDimLevel: Slider
 
     private val pickPhotoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -115,7 +118,17 @@ class CoupleWallpaperFragment : Fragment() {
         pbWallpaperLoading = view.findViewById(R.id.pb_wallpaper_loading)
         switchDaysCounter = view.findViewById(R.id.switch_days_counter)
         switchCoupleNames = view.findViewById(R.id.switch_couple_names)
+        switchAutoApply = view.findViewById(R.id.switch_auto_apply)
         sliderDimLevel = view.findViewById(R.id.slider_dim_level)
+
+        val wallpaperPrefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
+        switchAutoApply.isChecked = wallpaperPrefs.getBoolean("auto_apply_partner_wallpaper", true)
+        switchAutoApply.setOnCheckedChangeListener { _, isChecked ->
+            wallpaperPrefs.edit().putBoolean("auto_apply_partner_wallpaper", isChecked).apply()
+            val msg = if (isChecked) "Auto-apply enabled! Sweetheart's updates will set automatically 💕"
+                      else "Auto-apply off. You'll receive alerts to apply manually ✨"
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+        }
 
         view.findViewById<ImageButton>(R.id.btn_back_wallpaper).setOnClickListener {
             findNavController().navigateUp()
@@ -224,6 +237,32 @@ class CoupleWallpaperFragment : Fragment() {
 
             if (config.updatedByName.isNotBlank() && config.updatedByUid != currentUserId) {
                 tvWallpaperStatusBadge.text = "Updated by ${config.updatedByName} 💕"
+                val prefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
+                val autoApply = prefs.getBoolean("auto_apply_partner_wallpaper", true)
+                val lastAppliedAt = prefs.getLong("last_applied_wallpaper_ts", 0L)
+                if (autoApply && config.updatedAt > lastAppliedAt) {
+                    prefs.edit().putLong("last_applied_wallpaper_ts", config.updatedAt).apply()
+                    lifecycleScope.launch(Dispatchers.Default) {
+                        val wallpaper = WallpaperGenerator.generateWallpaperBitmap(
+                            sourceBitmap = currentSourceBitmap,
+                            config = config,
+                            daysTogether = daysTogether,
+                            coupleNames = coupleNamesDisplay,
+                            anniversaryDateStr = anniversaryDateStr,
+                            targetWidth = resources.displayMetrics.widthPixels,
+                            targetHeight = resources.displayMetrics.heightPixels
+                        )
+                        lastGeneratedWallpaper = wallpaper
+                        val applied = WallpaperHelper.applyWallpaper(requireContext(), wallpaper, WallpaperTarget.BOTH)
+                        if (applied) {
+                            withContext(Dispatchers.Main) {
+                                if (isAdded) {
+                                    Toast.makeText(requireContext(), "Matching wallpaper updated by ${config.updatedByName}! 💕", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 tvWallpaperStatusBadge.text = "Synced for Both 💕"
             }
@@ -385,6 +424,46 @@ class CoupleWallpaperFragment : Fragment() {
                 selectedLocalUri = null
                 currentConfig = updatedConfig
                 Toast.makeText(requireContext(), "Wallpaper synchronized with $partnerName! 💕", Toast.LENGTH_LONG).show()
+
+                // Dispatch instant high-priority FCM push notification to partner
+                val currentCoupleId = coupleId
+                val currentUid = currentUserId
+                val myName = currentUserName.ifBlank { "Your sweetheart" }
+
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        val partnerFcmToken = repository.getPartnerFcmToken(currentCoupleId, currentUid) ?: ""
+                        val pushData = mapOf(
+                            "type" to "couple_wallpaper",
+                            "action" to "open_couple_wallpaper",
+                            "coupleId" to currentCoupleId,
+                            "senderId" to currentUid,
+                            "senderName" to myName,
+                            "title" to "$myName updated Couple Wallpaper! 💕",
+                            "body" to "Tap to view or sync your matching couple wallpaper ✨",
+                            "imageUrl" to (updatedConfig.imageUrl ?: ""),
+                            "presetTheme" to updatedConfig.presetTheme,
+                            "dimLevel" to updatedConfig.dimLevel.toString(),
+                            "showDaysCounter" to updatedConfig.showDaysCounter.toString(),
+                            "showCoupleNames" to updatedConfig.showCoupleNames.toString(),
+                            "showMilestone" to updatedConfig.showMilestone.toString(),
+                            "badgePosition" to updatedConfig.badgePosition,
+                            "quoteText" to updatedConfig.quoteText,
+                            "daysTogether" to daysTogether.toString(),
+                            "coupleNames" to coupleNamesDisplay,
+                            "anniversaryDateStr" to anniversaryDateStr
+                        )
+                        DirectFcmSender.sendPush(
+                            context = requireContext().applicationContext,
+                            token = partnerFcmToken,
+                            title = "$myName updated Couple Wallpaper! 💕",
+                            body = "Tap to view or sync your matching couple wallpaper ✨",
+                            data = pushData
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("CoupleWallpaper", "Failed sending wallpaper push to partner", e)
+                    }
+                }
             } else {
                 Toast.makeText(requireContext(), "Failed to sync wallpaper. Check internet connection.", Toast.LENGTH_SHORT).show()
             }

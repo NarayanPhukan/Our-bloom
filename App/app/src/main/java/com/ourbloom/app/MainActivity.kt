@@ -203,6 +203,9 @@ class MainActivity : AppCompatActivity() {
         val isSavingsVault = intent?.getStringExtra("action") == "open_vault" ||
                              intent?.getStringExtra("type") == "savings" ||
                              intent?.getStringExtra("type") == "vault"
+        val isWallpaper = intent?.getStringExtra("action") == "open_couple_wallpaper" ||
+                          intent?.getStringExtra("type") == "couple_wallpaper" ||
+                          intent?.getStringExtra("type") == "wallpaper"
 
         if (isVideoCall) {
             val coupleId = intent?.getStringExtra("coupleId") ?: ""
@@ -226,6 +229,12 @@ class MainActivity : AppCompatActivity() {
         } else if (isSavingsVault) {
             try {
                 navController.navigate(R.id.savingsVaultFragment)
+            } catch (_: Exception) {}
+        } else if (isWallpaper) {
+            try {
+                if (navController.currentDestination?.id != R.id.coupleWallpaperFragment) {
+                    navController.navigate(R.id.coupleWallpaperFragment)
+                }
             } catch (_: Exception) {}
         } else if (isUpdate) {
             try {
@@ -257,6 +266,9 @@ class MainActivity : AppCompatActivity() {
         val isSavingsVault = intent.getStringExtra("action") == "open_vault" ||
                              intent.getStringExtra("type") == "savings" ||
                              intent.getStringExtra("type") == "vault"
+        val isWallpaper = intent.getStringExtra("action") == "open_couple_wallpaper" ||
+                          intent.getStringExtra("type") == "couple_wallpaper" ||
+                          intent.getStringExtra("type") == "wallpaper"
 
         if (isVideoCall) {
             val coupleId = intent.getStringExtra("coupleId") ?: ""
@@ -280,6 +292,12 @@ class MainActivity : AppCompatActivity() {
         } else if (isSavingsVault) {
             try {
                 navController?.navigate(R.id.savingsVaultFragment)
+            } catch (_: Exception) {}
+        } else if (isWallpaper) {
+            try {
+                if (navController?.currentDestination?.id != R.id.coupleWallpaperFragment) {
+                    navController?.navigate(R.id.coupleWallpaperFragment)
+                }
             } catch (_: Exception) {}
         } else if (isUpdate) {
             try {

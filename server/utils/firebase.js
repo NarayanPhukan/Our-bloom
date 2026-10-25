@@ -85,18 +85,20 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
     const isChat = data.type === 'chat';
     const isVideoCall = data.type === 'video_call' || data.type === 'call' || data.type === 'audio_call';
     const isSavings = data.type === 'savings' || data.type === 'vault';
+    const isWallpaper = data.type === 'couple_wallpaper' || data.type === 'wallpaper';
     const channelId = isHeartbeat 
       ? 'ourbloom_heartbeat_channel' 
-      : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : (isSavings ? 'ourbloom_savings_channel' : 'ourbloom_fcm_channel')));
+      : (isChat ? 'ourbloom_chat_heads_up_v3' : (isVideoCall ? 'ourbloom_call_channel' : (isSavings ? 'ourbloom_savings_channel' : (isWallpaper ? 'ourbloom_wallpaper_channel' : 'ourbloom_fcm_channel'))));
 
-    // For video calls, maintain pure data-only payload so MyFirebaseMessagingService can launch
-    // IncomingCallActivity with fullScreenIntent and high-priority ringing.
+    // For video calls and couple wallpaper auto-apply, maintain pure data-only payload so MyFirebaseMessagingService can launch
+    // IncomingCallActivity with fullScreenIntent or auto-apply wallpaper and post heads-up notification in background.
     // For all other notifications (chat, heartbeat, note, savings, broadcast, update), include both
     // `notification` and `data` blocks + high priority. This guarantees Google Play Services displays
     // the heads-up notification on Android 12-15 even when the app process is terminated or in deep Doze.
+    const isDataOnly = isVideoCall || isWallpaper;
     const message = {
       token: fcmToken,
-      ...(isVideoCall ? {} : {
+      ...(isDataOnly ? {} : {
         notification: {
           title: String(title),
           body: String(body)
@@ -110,7 +112,7 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
       },
       android: {
         priority: 'high',
-        ...(!isVideoCall ? {
+        ...(!isDataOnly ? {
           notification: {
             channelId: channelId,
             priority: 'max',
