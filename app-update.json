@@ -1,8 +1,8 @@
 {
-  "versionCode": 94,
-  "versionName": "1.93",
+  "versionCode": 95,
+  "versionName": "1.94",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Wallpaper: Display couple nicknames on badge • UI: Fix button text clipping and bottom scroll padding",
+  "changelog": "• Wallpaper: Visual template selection with phone previews • Ready for custom templates",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

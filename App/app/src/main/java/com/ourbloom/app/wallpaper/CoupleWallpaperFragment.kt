@@ -21,9 +21,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -350,37 +353,53 @@ class CoupleWallpaperFragment : Fragment() {
     }
 
     private fun showTemplatesDialog() {
-        val templates = arrayOf(
-            "💖 Heart Memories Collage (First Template)\n     • 18 photo slots with watercolor bows",
-            "📷 Classic Single Photo\n     • Full-screen custom photo with overlay",
-            "🎨 Romantic Color Themes\n     • Rose Sunset, Starry Love, Cherry Blossom"
-        )
+        val bottomSheet = BottomSheetDialog(requireContext())
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_wallpaper_templates, null)
+        bottomSheet.setContentView(sheetView)
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Choose Wallpaper Template 🖼️")
-            .setItems(templates) { _, which ->
-                when (which) {
-                    0 -> {
-                        // Heart Memories Collage (First Template)
-                        currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES")
-                        loadPhotosFromMemoriesGallery()
-                    }
-                    1 -> {
-                        // Classic Single Photo
-                        llCollageControls.visibility = View.GONE
-                        currentConfig = currentConfig.copy(templateId = "CLASSIC")
-                        pickPhotoLauncher.launch("image/*")
-                    }
-                    2 -> {
-                        // Romantic Color Themes
-                        llCollageControls.visibility = View.GONE
-                        currentConfig = currentConfig.copy(templateId = "CLASSIC")
-                        showThemePresetsDialog()
-                    }
+        val rvTemplates = sheetView.findViewById<RecyclerView>(R.id.rv_wallpaper_templates)
+        val btnClose = sheetView.findViewById<View>(R.id.btn_close_template_sheet)
+
+        btnClose.setOnClickListener {
+            bottomSheet.dismiss()
+        }
+
+        val currentActiveId = when {
+            currentConfig.templateId == "HEART_MEMORIES" -> "HEART_MEMORIES"
+            currentSourceBitmap != null -> "CLASSIC"
+            else -> "THEMES"
+        }
+
+        val adapter = WallpaperTemplateAdapter(
+            templates = WallpaperTemplateRegistry.TEMPLATES,
+            selectedTemplateId = currentActiveId
+        ) { template ->
+            bottomSheet.dismiss()
+            when (template.id) {
+                "HEART_MEMORIES" -> {
+                    currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES")
+                    loadPhotosFromMemoriesGallery()
+                }
+                "CLASSIC" -> {
+                    llCollageControls.visibility = View.GONE
+                    currentConfig = currentConfig.copy(templateId = "CLASSIC")
+                    pickPhotoLauncher.launch("image/*")
+                }
+                "THEMES" -> {
+                    llCollageControls.visibility = View.GONE
+                    currentConfig = currentConfig.copy(templateId = "CLASSIC")
+                    showThemePresetsDialog()
+                }
+                else -> {
+                    Toast.makeText(requireContext(), "${template.title} selected!", Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }
+
+        rvTemplates.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        rvTemplates.adapter = adapter
+
+        bottomSheet.show()
     }
 
     private fun loadPhotosFromMemoriesGallery() {

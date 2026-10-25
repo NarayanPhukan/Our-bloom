@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/card_template_root"
+    android:layout_width="168dp"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="14dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <!-- Mini Phone Frame Preview Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_template_frame"
+        android:layout_width="156dp"
+        android:layout_height="260dp"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="22dp"
+        app:cardElevation="3dp"
+        app:strokeColor="#F8BBD0"
+        app:strokeWidth="1.5dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/iv_template_preview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Template Preview"
+                android:scaleType="centerCrop"
+                tools:src="@drawable/preview_template_heart_collage" />
+
+            <!-- Active Selected Checkmark Badge -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/badge_selected_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|end"
+                android:layout_margin="10dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#E85D75"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                tools:visibility="visible">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="✓ Active"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </com.google.android.material.card.MaterialCardView>
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Template Name -->
+    <TextView
+        android:id="@+id/tv_template_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="@color/sheet_title"
+        android:textSize="13sp"
+        android:fontFamily="sans-serif-medium"
+        android:textStyle="bold"
+        tools:text="Heart Memories 💖" />
+
+    <!-- Template Badge / Tag -->
+    <TextView
+        android:id="@+id/tv_template_tag"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#AD1457"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        tools:text="18 Photos with Bows" />
+
+    <!-- Template Description -->
+    <TextView
+        android:id="@+id/tv_template_desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textColor="@color/sheet_subtitle"
+        android:textSize="10sp"
+        tools:text="Vintage ribbon collage framed with watercolor bows" />
+
+    <!-- Quick Action / Select Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_select_template"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="8dp"
+        android:paddingHorizontal="4dp"
+        android:paddingVertical="0dp"
+        android:text="Select ✨"
+        android:textColor="#AD1457"
+        android:textSize="11sp"
+        app:backgroundTint="#FCE4EC"
+        app:cornerRadius="12dp" />
+
+</LinearLayout>
