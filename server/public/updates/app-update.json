@@ -1,8 +1,8 @@
 {
-  "versionCode": 91,
-  "versionName": "1.90",
+  "versionCode": 92,
+  "versionName": "1.91",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Minimalist & Elegant Wallpaper Badge: Redesigned floating frosted pearl glass capsule with clean luxury typography",
+  "changelog": "• Fix gallery & memory upload: Attach Firebase ID token & couple ID to media upload requests • Enhance server media upload routing with safe fallbacks",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

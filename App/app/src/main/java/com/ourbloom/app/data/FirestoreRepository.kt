@@ -53,6 +53,44 @@ class FirestoreRepository {
     private var cachedPartnerUid: String? = null
     private var cachedPartnerFcmToken: String? = null
     private var lastTokenFetchTime: Long = 0L
+    private var cachedCoupleId: String? = null
+
+    private suspend fun getAuthToken(): String? {
+        val user = auth.currentUser ?: return null
+        return try {
+            user.getIdToken(false).await()?.token
+                ?: user.getIdToken(true).await()?.token
+        } catch (e: Exception) {
+            try {
+                user.getIdToken(true).await()?.token
+            } catch (e2: Exception) {
+                Log.e("FirestoreRepo", "Failed to retrieve Firebase ID token: ${e2.message}")
+                null
+            }
+        }
+    }
+
+    private suspend fun resolveEffectiveCoupleId(explicitCoupleId: String? = null): String? {
+        if (!explicitCoupleId.isNullOrBlank() && explicitCoupleId != "null") {
+            cachedCoupleId = explicitCoupleId
+            return explicitCoupleId
+        }
+        if (!cachedCoupleId.isNullOrBlank() && cachedCoupleId != "null") {
+            return cachedCoupleId
+        }
+        val uid = auth.currentUser?.uid ?: return null
+        return try {
+            val user = getUser(uid)
+            val cid = user?.coupleId?.takeIf { it.isNotBlank() && it != "null" }
+            if (!cid.isNullOrBlank()) {
+                cachedCoupleId = cid
+            }
+            cid
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 
     suspend fun getPartnerFcmToken(coupleId: String, currentUid: String): String? {
         val now = System.currentTimeMillis()
@@ -246,6 +284,9 @@ class FirestoreRepository {
                 }
             }
 
+            if (!resolvedUser.coupleId.isNullOrBlank() && resolvedUser.coupleId != "null") {
+                cachedCoupleId = resolvedUser.coupleId
+            }
             return resolvedUser
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error resolving user and couple", e)
@@ -499,7 +540,7 @@ class FirestoreRepository {
             val resolvedGoogleEmail = user?.connectedGoogleEmail?.takeIf { it.isNotBlank() } ?: doc.getString("connectedGoogleEmail") ?: ""
             val resolvedPremium = user?.isPremium ?: doc.getBoolean("isPremium") ?: false
 
-            User(
+            val resultUser = User(
                 uid = resolvedUid,
                 name = resolvedName,
                 email = resolvedEmail,
@@ -510,6 +551,10 @@ class FirestoreRepository {
                 connectedGoogleEmail = resolvedGoogleEmail,
                 fcmToken = resolvedFcm
             )
+            if (resolvedCoupleId.isNotBlank() && userId == auth.currentUser?.uid) {
+                cachedCoupleId = resolvedCoupleId
+            }
+            resultUser
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error fetching user $userId", e)
             null
@@ -857,7 +902,7 @@ class FirestoreRepository {
         return 0L
     }
 
-    suspend fun uploadImage(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+    suspend fun uploadImage(context: Context, uri: Uri, coupleId: String? = null): String? = withContext(Dispatchers.IO) {
         try {
             // Read 100% untouched original file bytes directly from Uri without ANY enhancement or recompression
             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
@@ -872,22 +917,30 @@ class FirestoreRepository {
                 else -> "jpg"
             }
             val filename = "${UUID.randomUUID()}.$extension"
+            val idToken = getAuthToken()
+            val effectiveCoupleId = resolveEffectiveCoupleId(coupleId)
 
-            val requestBody = MultipartBody.Builder()
+            val multipartBuilder = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "file",
                     filename,
                     bytes.toRequestBody(mimeType.toMediaTypeOrNull())
                 )
-                .build()
 
-            val request = Request.Builder()
+            if (!effectiveCoupleId.isNullOrBlank()) {
+                multipartBuilder.addFormDataPart("coupleId", effectiveCoupleId)
+            }
+
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/upload")
-                .post(requestBody)
-                .build()
+                .post(multipartBuilder.build())
 
-            val response = client.newCall(request).execute()
+            if (!idToken.isNullOrBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $idToken")
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
                 if (responseBody != null) {
@@ -897,6 +950,9 @@ class FirestoreRepository {
                         return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
                     }
                 }
+            } else {
+                val errBody = response.body?.string() ?: ""
+                Log.e("FirestoreRepo", "uploadImage failed: HTTP ${response.code} - $errBody")
             }
             null
         } catch (e: Exception) {
@@ -905,23 +961,32 @@ class FirestoreRepository {
         }
     }
 
-    suspend fun uploadImageBytes(bytes: ByteArray, filename: String = "${UUID.randomUUID()}.jpg"): String? = withContext(Dispatchers.IO) {
+    suspend fun uploadImageBytes(bytes: ByteArray, filename: String = "${UUID.randomUUID()}.jpg", coupleId: String? = null): String? = withContext(Dispatchers.IO) {
         try {
-            val requestBody = MultipartBody.Builder()
+            val idToken = getAuthToken()
+            val effectiveCoupleId = resolveEffectiveCoupleId(coupleId)
+
+            val multipartBuilder = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "file",
                     filename,
                     bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
                 )
-                .build()
 
-            val request = Request.Builder()
+            if (!effectiveCoupleId.isNullOrBlank()) {
+                multipartBuilder.addFormDataPart("coupleId", effectiveCoupleId)
+            }
+
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/upload")
-                .post(requestBody)
-                .build()
+                .post(multipartBuilder.build())
 
-            val response = client.newCall(request).execute()
+            if (!idToken.isNullOrBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $idToken")
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
                 if (responseBody != null) {
@@ -931,6 +996,9 @@ class FirestoreRepository {
                         return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
                     }
                 }
+            } else {
+                val errBody = response.body?.string() ?: ""
+                Log.e("FirestoreRepo", "uploadImageBytes failed: HTTP ${response.code} - $errBody")
             }
             null
         } catch (e: Exception) {
@@ -939,27 +1007,35 @@ class FirestoreRepository {
         }
     }
 
-    suspend fun uploadAudioFile(file: File): String? = withContext(Dispatchers.IO) {
+    suspend fun uploadAudioFile(file: File, coupleId: String? = null): String? = withContext(Dispatchers.IO) {
         try {
             if (!file.exists() || file.length() == 0L) return@withContext null
             val bytes = file.readBytes()
             val filename = "voice_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}.m4a"
+            val idToken = getAuthToken()
+            val effectiveCoupleId = resolveEffectiveCoupleId(coupleId)
 
-            val requestBody = MultipartBody.Builder()
+            val multipartBuilder = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "file",
                     filename,
                     bytes.toRequestBody("audio/mp4".toMediaTypeOrNull())
                 )
-                .build()
 
-            val request = Request.Builder()
+            if (!effectiveCoupleId.isNullOrBlank()) {
+                multipartBuilder.addFormDataPart("coupleId", effectiveCoupleId)
+            }
+
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/upload")
-                .post(requestBody)
-                .build()
+                .post(multipartBuilder.build())
 
-            val response = client.newCall(request).execute()
+            if (!idToken.isNullOrBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $idToken")
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
                 if (responseBody != null) {
@@ -969,6 +1045,9 @@ class FirestoreRepository {
                         return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
                     }
                 }
+            } else {
+                val errBody = response.body?.string() ?: ""
+                Log.e("FirestoreRepo", "uploadAudioFile failed: HTTP ${response.code} - $errBody")
             }
             null
         } catch (e: Exception) {
@@ -977,7 +1056,7 @@ class FirestoreRepository {
         }
     }
 
-    suspend fun uploadAudio(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+    suspend fun uploadAudio(context: Context, uri: Uri, coupleId: String? = null): String? = withContext(Dispatchers.IO) {
         try {
             val bytes = if (uri.scheme == "file" && uri.path != null) {
                 File(uri.path!!).readBytes()
@@ -992,22 +1071,30 @@ class FirestoreRepository {
             val ext = if (isM4a) "m4a" else "3gp"
             val mime = if (isM4a) "audio/mp4" else "audio/3gpp"
             val filename = "${UUID.randomUUID()}.$ext"
+            val idToken = getAuthToken()
+            val effectiveCoupleId = resolveEffectiveCoupleId(coupleId)
 
-            val requestBody = MultipartBody.Builder()
+            val multipartBuilder = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
                     "file",
                     filename,
                     bytes.toRequestBody(mime.toMediaTypeOrNull())
                 )
-                .build()
 
-            val request = Request.Builder()
+            if (!effectiveCoupleId.isNullOrBlank()) {
+                multipartBuilder.addFormDataPart("coupleId", effectiveCoupleId)
+            }
+
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/upload")
-                .post(requestBody)
-                .build()
+                .post(multipartBuilder.build())
 
-            val response = client.newCall(request).execute()
+            if (!idToken.isNullOrBlank()) {
+                requestBuilder.addHeader("Authorization", "Bearer $idToken")
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
                 if (responseBody != null) {
@@ -1017,6 +1104,9 @@ class FirestoreRepository {
                         return@withContext if (urlPath.startsWith("http")) urlPath else baseUrl + urlPath
                     }
                 }
+            } else {
+                val errBody = response.body?.string() ?: ""
+                Log.e("FirestoreRepo", "uploadAudio failed: HTTP ${response.code} - $errBody")
             }
             null
         } catch (e: Exception) {

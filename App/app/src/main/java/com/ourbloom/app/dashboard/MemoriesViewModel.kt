@@ -76,22 +76,31 @@ class MemoriesViewModel : ViewModel() {
     }
 
     fun addMemory(context: android.content.Context, uri: Uri, title: String, dateStr: String, audioUri: Uri? = null) {
-        val cid = coupleId
-        if (cid == null) {
-            _error.value = "Cannot upload: coupleId is null"
-            return
-        }
-
         viewModelScope.launch {
             _isLoading.value = true
-            _uploadStatus.value = "Uploading image..."
+            _uploadStatus.value = "Preparing upload..."
             try {
-                val imageUrl = repository.uploadImage(context, uri)
+                var cid = coupleId
+                if (cid.isNullOrBlank()) {
+                    val user = repository.getCurrentUser()
+                    cid = user?.coupleId?.takeIf { it.isNotBlank() && it != "null" }
+                    if (!cid.isNullOrBlank()) {
+                        coupleId = cid
+                    }
+                }
+
+                if (cid.isNullOrBlank()) {
+                    _error.value = "Cannot upload: couple profile is not linked yet"
+                    return@launch
+                }
+
+                _uploadStatus.value = "Uploading image..."
+                val imageUrl = repository.uploadImage(context, uri, cid)
                 if (imageUrl != null) {
                     var audioUrl = ""
                     if (audioUri != null) {
                         _uploadStatus.value = "Uploading audio..."
-                        audioUrl = repository.uploadAudio(context, audioUri) ?: ""
+                        audioUrl = repository.uploadAudio(context, audioUri, cid) ?: ""
                     }
                     _uploadStatus.value = "Saving memory..."
                     val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""

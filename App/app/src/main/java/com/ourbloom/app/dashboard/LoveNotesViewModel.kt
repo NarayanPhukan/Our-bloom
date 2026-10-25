@@ -87,7 +87,7 @@ class LoveNotesViewModel : ViewModel() {
                 if (user != null && !user.coupleId.isNullOrEmpty()) {
                     var uploadedImageUrl = ""
                     if (imageUri != null) {
-                        val result = repository.uploadImage(context, imageUri)
+                        val result = repository.uploadImage(context, imageUri, user.coupleId)
                         if (result != null) {
                             uploadedImageUrl = result
                         } else {
@@ -99,7 +99,7 @@ class LoveNotesViewModel : ViewModel() {
 
                     var uploadedAudioUrl = ""
                     if (audioFile != null && audioFile.exists()) {
-                        val audioResult = repository.uploadAudioFile(audioFile)
+                        val audioResult = repository.uploadAudioFile(audioFile, user.coupleId)
                         if (audioResult != null) {
                             uploadedAudioUrl = audioResult
                         } else {

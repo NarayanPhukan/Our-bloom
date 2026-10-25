@@ -629,7 +629,7 @@ class CoupleWallpaperFragment : Fragment() {
             // 1. If user selected a local photo, upload it
             val localUri = selectedLocalUri
             if (localUri != null) {
-                val url = repository.uploadImage(requireContext(), localUri)
+                val url = repository.uploadImage(requireContext(), localUri, coupleId)
                 if (!url.isNullOrBlank()) {
                     uploadedUrl = url
                 }
@@ -639,7 +639,7 @@ class CoupleWallpaperFragment : Fragment() {
                     val stream = ByteArrayOutputStream()
                     lastGeneratedWallpaper!!.compress(Bitmap.CompressFormat.JPEG, 98, stream)
                     val bytes = stream.toByteArray()
-                    val url = repository.uploadImageBytes(bytes, "wallpaper_heart_collage_${coupleId}_${System.currentTimeMillis()}.jpg")
+                    val url = repository.uploadImageBytes(bytes, "wallpaper_heart_collage_${coupleId}_${System.currentTimeMillis()}.jpg", coupleId)
                     if (!url.isNullOrBlank()) {
                         uploadedUrl = url
                     }

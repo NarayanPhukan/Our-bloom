@@ -158,21 +158,26 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     const userId = req.user.firebaseUid || req.user.userId?.toString();
     const targetCoupleId = req.body.coupleId || req.user.coupleId?.toString();
 
-    if (!targetCoupleId) {
-      return res.status(400).json({ error: 'Couple ID is required for media storage' });
-    }
-
-    // 1. Verify Couple Membership
+    // 1. Verify Couple Membership if a coupleId is specified
     const db = getFirestore();
-    if (db) {
-      const coupleDoc = await db.collection('couples').doc(targetCoupleId).get();
-      if (coupleDoc.exists) {
-        const cData = coupleDoc.data();
-        const isMember = cData.user1 === userId || cData.user2 === userId ||
-                         cData.user1 === req.user.userId?.toString() || cData.user2 === req.user.userId?.toString();
-        if (!isMember) {
-          return res.status(403).json({ error: 'Forbidden: You do not belong to this couple workspace' });
+    if (targetCoupleId && db) {
+      try {
+        const coupleDoc = await db.collection('couples').doc(targetCoupleId).get();
+        if (coupleDoc.exists) {
+          const cData = coupleDoc.data();
+          const u1 = cData.user1?.toString();
+          const u2 = cData.user2?.toString();
+          const currentFirebaseUid = req.user.firebaseUid?.toString();
+          const currentMongoId = (req.user.userId || req.user._id || req.user.id)?.toString();
+          const isMember = (currentFirebaseUid && (u1 === currentFirebaseUid || u2 === currentFirebaseUid)) ||
+                           (currentMongoId && (u1 === currentMongoId || u2 === currentMongoId));
+          if (!isMember) {
+            console.warn(`[Upload] User ${userId} unauthorized for couple ${targetCoupleId}`);
+            return res.status(403).json({ error: 'Forbidden: You do not belong to this couple workspace' });
+          }
         }
+      } catch (err) {
+        console.warn('✿ Couple membership check error in /api/upload:', err.message);
       }
     }
 
@@ -195,26 +200,30 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     const todayDate = new Date().toISOString().split('T')[0];
     const quotaDocId = `${userId}_${todayDate}`;
     if (db) {
-      const quotaRef = db.collection('user_upload_quotas').doc(quotaDocId);
-      const quotaDoc = await quotaRef.get();
-      const currentCount = quotaDoc.exists ? (quotaDoc.data().count || 0) : 0;
+      try {
+        const quotaRef = db.collection('user_upload_quotas').doc(quotaDocId);
+        const quotaDoc = await quotaRef.get();
+        const currentCount = quotaDoc.exists ? (quotaDoc.data().count || 0) : 0;
 
-      if (currentCount >= DAILY_UPLOAD_LIMIT_PER_USER) {
-        return res.status(429).json({
-          error: `Daily upload limit reached (${DAILY_UPLOAD_LIMIT_PER_USER} uploads/day). Please try again tomorrow.`
-        });
+        if (currentCount >= DAILY_UPLOAD_LIMIT_PER_USER) {
+          return res.status(429).json({
+            error: `Daily upload limit reached (${DAILY_UPLOAD_LIMIT_PER_USER} uploads/day). Please try again tomorrow.`
+          });
+        }
+
+        await quotaRef.set({
+          userId,
+          date: todayDate,
+          count: currentCount + 1,
+          updatedAt: Date.now()
+        }, { merge: true });
+      } catch (quotaErr) {
+        console.warn('✿ Upload quota check error in /api/upload:', quotaErr.message);
       }
-
-      await quotaRef.set({
-        userId,
-        date: todayDate,
-        count: currentCount + 1,
-        updatedAt: Date.now()
-      }, { merge: true });
     }
 
     // 5. Store File with Safe UUID Path (Stripping Client Filename)
-    const storageFolder = `couples/${targetCoupleId}/media`;
+    const storageFolder = targetCoupleId ? `couples/${targetCoupleId}/media` : `users/${userId}/media`;
     const secureUrl = await uploadToFirebase(null, req.file, storageFolder, {
       ext: fileInfo.ext,
       mime: fileInfo.mime
