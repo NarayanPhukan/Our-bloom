@@ -61,16 +61,32 @@
                         android:textColor="#E91E63" />
                 </LinearLayout>
 
-                <ImageButton
-                    android:id="@+id/btn_switch_mode"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Switch Mode"
-                    android:src="@drawable/ic_settings_rounded"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageButton
+                        android:id="@+id/btn_flip_board"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Flip Board"
+                        android:src="@drawable/ic_flip_board"
+                        app:tint="?attr/colorOnSurfaceVariant" />
+
+                    <ImageButton
+                        android:id="@+id/btn_switch_mode"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Switch Mode"
+                        android:src="@drawable/ic_settings_rounded"
+                        app:tint="?attr/colorOnSurfaceVariant" />
+                </LinearLayout>
             </RelativeLayout>
 
             <!-- Wager Banner -->
@@ -139,9 +155,9 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Top Player 2 Banner (Sky Stars) -->
+            <!-- Top Player Banner (Partner) -->
             <LinearLayout
-                android:id="@+id/layout_p2_header"
+                android:id="@+id/layout_top_player_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
@@ -149,6 +165,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/tv_top_player_icon"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@drawable/bg_pill_dark"
@@ -165,7 +182,7 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/tv_p2_name"
+                        android:id="@+id/tv_top_player_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Partner (Sky Team)"
@@ -174,7 +191,7 @@
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/tv_p2_home_count"
+                        android:id="@+id/tv_top_player_home_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0/4 in Heartland 💖"
@@ -183,7 +200,7 @@
                 </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tv_p2_turn_chip"
+                    android:id="@+id/tv_top_player_turn_chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_whatsapp_pill"
@@ -210,9 +227,9 @@
                     android:layout_height="wrap_content" />
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Bottom Player 1 Banner (Rose Hearts) -->
+            <!-- Bottom Player Banner (Local Player / You) -->
             <LinearLayout
-                android:id="@+id/layout_p1_header"
+                android:id="@+id/layout_bottom_player_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -221,6 +238,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/tv_bottom_player_icon"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@drawable/bg_vault_card"
@@ -237,7 +255,7 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/tv_p1_name"
+                        android:id="@+id/tv_bottom_player_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="You (Rose Team)"
@@ -246,7 +264,7 @@
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/tv_p1_home_count"
+                        android:id="@+id/tv_bottom_player_home_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0/4 in Heartland 💖"
@@ -255,7 +273,7 @@
                 </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tv_p1_turn_chip"
+                    android:id="@+id/tv_bottom_player_turn_chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_whatsapp_pill"

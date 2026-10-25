@@ -1,8 +1,8 @@
 {
-  "versionCode": 86,
-  "versionName": "1.85",
+  "versionCode": 87,
+  "versionName": "1.86",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix vertical clipping on Cherished Memories Polaroid cards above Love Counter Widget\\n• Ensure card captions and borders render completely with optimal spacing",
+  "changelog": "• Auto-perspective board alignment in Heartland Ludo (local player always at bottom)\\n• Player banners and respective team colors (Rose Hearts vs Sky Stars) stay aligned to device owner\\n• Flip board option available before first move",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

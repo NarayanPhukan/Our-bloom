@@ -52,18 +52,23 @@ class CoupleLudoFragment : Fragment() {
 
     // Views
     private lateinit var ludoBoardView: LudoBoardView
+    private lateinit var btnFlipBoard: ImageButton
     private lateinit var tvGameModeStatus: TextView
     private lateinit var tvActiveWager: TextView
-    private lateinit var tvP1Name: TextView
-    private lateinit var tvP1HomeCount: TextView
-    private lateinit var tvP1TurnChip: TextView
-    private lateinit var tvP2Name: TextView
-    private lateinit var tvP2HomeCount: TextView
-    private lateinit var tvP2TurnChip: TextView
+    private lateinit var tvTopPlayerIcon: TextView
+    private lateinit var tvTopPlayerName: TextView
+    private lateinit var tvTopPlayerHomeCount: TextView
+    private lateinit var tvTopPlayerTurnChip: TextView
+    private lateinit var tvBottomPlayerIcon: TextView
+    private lateinit var tvBottomPlayerName: TextView
+    private lateinit var tvBottomPlayerHomeCount: TextView
+    private lateinit var tvBottomPlayerTurnChip: TextView
     private lateinit var btnRollDice: MaterialCardView
     private lateinit var tvDiceDisplay: TextView
     private lateinit var tvDiceHint: TextView
     private lateinit var tvLudoActionMessage: TextView
+
+    private var manualFlipOverride: Boolean? = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -126,14 +131,17 @@ class CoupleLudoFragment : Fragment() {
 
     private fun initViews(view: View) {
         ludoBoardView = view.findViewById(R.id.ludo_board_view)
+        btnFlipBoard = view.findViewById(R.id.btn_flip_board)
         tvGameModeStatus = view.findViewById(R.id.tv_game_mode_status)
         tvActiveWager = view.findViewById(R.id.tv_active_wager)
-        tvP1Name = view.findViewById(R.id.tv_p1_name)
-        tvP1HomeCount = view.findViewById(R.id.tv_p1_home_count)
-        tvP1TurnChip = view.findViewById(R.id.tv_p1_turn_chip)
-        tvP2Name = view.findViewById(R.id.tv_p2_name)
-        tvP2HomeCount = view.findViewById(R.id.tv_p2_home_count)
-        tvP2TurnChip = view.findViewById(R.id.tv_p2_turn_chip)
+        tvTopPlayerIcon = view.findViewById(R.id.tv_top_player_icon)
+        tvTopPlayerName = view.findViewById(R.id.tv_top_player_name)
+        tvTopPlayerHomeCount = view.findViewById(R.id.tv_top_player_home_count)
+        tvTopPlayerTurnChip = view.findViewById(R.id.tv_top_player_turn_chip)
+        tvBottomPlayerIcon = view.findViewById(R.id.tv_bottom_player_icon)
+        tvBottomPlayerName = view.findViewById(R.id.tv_bottom_player_name)
+        tvBottomPlayerHomeCount = view.findViewById(R.id.tv_bottom_player_home_count)
+        tvBottomPlayerTurnChip = view.findViewById(R.id.tv_bottom_player_turn_chip)
         btnRollDice = view.findViewById(R.id.btn_roll_dice)
         tvDiceDisplay = view.findViewById(R.id.tv_dice_display)
         tvDiceHint = view.findViewById(R.id.tv_dice_hint)
@@ -141,6 +149,19 @@ class CoupleLudoFragment : Fragment() {
 
         view.findViewById<ImageButton>(R.id.btn_back_ludo).setOnClickListener {
             findNavController().navigateUp()
+        }
+
+        btnFlipBoard.setOnClickListener {
+            val currentFlipped = ludoBoardView.isFlipped
+            manualFlipOverride = !currentFlipped
+            val currentState = if (isOnlineMode) gameState else localGameState
+            renderState(currentState)
+            triggerHaptic()
+            Toast.makeText(
+                requireContext(),
+                if (ludoBoardView.isFlipped) "Board flipped (Sky team at bottom) 🔄" else "Board flipped (Rose team at bottom) 🔄",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         view.findViewById<ImageButton>(R.id.btn_switch_mode).setOnClickListener {
@@ -180,14 +201,12 @@ class CoupleLudoFragment : Fragment() {
         if (isOnlineMode) {
             tvGameModeStatus.text = "Online Sync 🌐"
             tvGameModeStatus.setTextColor(0xFFE91E63.toInt())
-            tvP1Name.text = "You ($currentUserName) ♡"
-            tvP2Name.text = "$partnerName ⭐️"
         } else {
             tvGameModeStatus.text = "Pass & Play 📱"
             tvGameModeStatus.setTextColor(0xFF1976D2.toInt())
-            tvP1Name.text = "Player 1 (Rose Hearts ♡)"
-            tvP2Name.text = "Player 2 (Sky Stars ⭐️)"
         }
+        val currentState = if (isOnlineMode) gameState else localGameState
+        renderState(currentState)
     }
 
     private fun toggleGameMode() {
@@ -329,20 +348,150 @@ class CoupleLudoFragment : Fragment() {
         tvActiveWager.text = state.wager
         tvLudoActionMessage.text = state.lastActionMessage
 
-        val p1Home = state.player1Tokens.count { it == LudoLogic.HOME_POS }
-        val p2Home = state.player2Tokens.count { it == LudoLogic.HOME_POS }
-        tvP1HomeCount.text = "$p1Home/4 in Heartland 💖"
-        tvP2HomeCount.text = "$p2Home/4 in Heartland 💖"
-
-        val isP1Turn = state.turnPlayer == 1
-        val isMyTurn = if (isOnlineMode) {
-            (isP1Turn && state.player1Uid == currentUserId) || (!isP1Turn && state.player2Uid == currentUserId)
+        val isMePlayer1 = if (isOnlineMode) {
+            if (state.player1Uid.isNotBlank() && state.player1Uid == currentUserId) true
+            else if (state.player2Uid.isNotBlank() && state.player2Uid == currentUserId) false
+            else true
         } else {
             true
         }
 
-        tvP1TurnChip.text = if (isP1Turn) "Rolling 🎲" else "Waiting ⏳"
-        tvP2TurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+        // Auto-perspective alignment:
+        // When playing as Player 2 (Sky Stars ⭐️), board naturally defaults to flipped so Sky is at the bottom.
+        val defaultFlipped = if (isOnlineMode) !isMePlayer1 else false
+        val effectiveFlipped = manualFlipOverride ?: defaultFlipped
+        ludoBoardView.isFlipped = effectiveFlipped
+
+        // The flip board option disappears once the first move of the game is made
+        val canFlip = state.moveCount == 0
+        btnFlipBoard.visibility = if (canFlip) View.VISIBLE else View.GONE
+
+        val p1Home = state.player1Tokens.count { it == LudoLogic.HOME_POS }
+        val p2Home = state.player2Tokens.count { it == LudoLogic.HOME_POS }
+        val isP1Turn = state.turnPlayer == 1
+
+        val isMyTurn = if (isOnlineMode) {
+            (isP1Turn && isMePlayer1) || (!isP1Turn && !isMePlayer1)
+        } else {
+            if (!effectiveFlipped) isP1Turn else !isP1Turn
+        }
+
+        // Player Badges, Names, and Colors:
+        // Local device owner ("You") is ALWAYS rendered at the bottom banner,
+        // and the partner is ALWAYS rendered at the top banner,
+        // with the respective team colors showing on each player's side.
+        if (isOnlineMode) {
+            if (isMePlayer1) {
+                // Bottom: You (Rose Hearts ♡)
+                tvBottomPlayerName.text = "You ($currentUserName) ♡"
+                tvBottomPlayerIcon.text = "♡"
+                tvBottomPlayerIcon.setTextColor(0xFFE91E63.toInt())
+                tvBottomPlayerIcon.setBackgroundResource(R.drawable.bg_vault_card)
+                tvBottomPlayerHomeCount.text = "$p1Home/4 in Heartland 💖"
+                tvBottomPlayerHomeCount.setTextColor(0xFFAD1457.toInt())
+
+                tvBottomPlayerTurnChip.text = if (isP1Turn) "Your Turn 🎲" else "Waiting ⏳"
+                tvBottomPlayerTurnChip.setTextColor(if (isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
+
+                // Top: Partner (Sky Stars ⭐️)
+                tvTopPlayerName.text = "$partnerName ⭐️"
+                tvTopPlayerIcon.text = "★"
+                tvTopPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvTopPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvTopPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
+                tvTopPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+
+                tvTopPlayerTurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+                tvTopPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF1976D2.toInt() else 0xFF78909C.toInt())
+
+                // Respective color on bottom side for Dice
+                btnRollDice.strokeColor = 0xFFE91E63.toInt()
+                tvDiceDisplay.setTextColor(0xFFE91E63.toInt())
+                tvDiceHint.setTextColor(0xFFAD1457.toInt())
+            } else {
+                // Bottom: You (Sky Stars ⭐️)
+                tvBottomPlayerName.text = "You ($currentUserName) ⭐️"
+                tvBottomPlayerIcon.text = "★"
+                tvBottomPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvBottomPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvBottomPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
+                tvBottomPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+
+                tvBottomPlayerTurnChip.text = if (!isP1Turn) "Your Turn 🎲" else "Waiting ⏳"
+                tvBottomPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
+
+                // Top: Partner (Rose Hearts ♡)
+                tvTopPlayerName.text = "$partnerName ♡"
+                tvTopPlayerIcon.text = "♡"
+                tvTopPlayerIcon.setTextColor(0xFFE91E63.toInt())
+                tvTopPlayerIcon.setBackgroundResource(R.drawable.bg_vault_card)
+                tvTopPlayerHomeCount.text = "$p1Home/4 in Heartland 💖"
+                tvTopPlayerHomeCount.setTextColor(0xFFAD1457.toInt())
+
+                tvTopPlayerTurnChip.text = if (isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+                tvTopPlayerTurnChip.setTextColor(if (isP1Turn) 0xFFE91E63.toInt() else 0xFF78909C.toInt())
+
+                // Respective color on bottom side for Dice
+                btnRollDice.strokeColor = 0xFF1E88E5.toInt()
+                tvDiceDisplay.setTextColor(0xFF1E88E5.toInt())
+                tvDiceHint.setTextColor(0xFF1565C0.toInt())
+            }
+        } else {
+            // Pass & Play Mode
+            if (!effectiveFlipped) {
+                // Bottom is Player 1 (Rose)
+                tvBottomPlayerName.text = "Player 1 (Rose Hearts ♡)"
+                tvBottomPlayerIcon.text = "♡"
+                tvBottomPlayerIcon.setTextColor(0xFFE91E63.toInt())
+                tvBottomPlayerIcon.setBackgroundResource(R.drawable.bg_vault_card)
+                tvBottomPlayerHomeCount.text = "$p1Home/4 in Heartland 💖"
+                tvBottomPlayerHomeCount.setTextColor(0xFFAD1457.toInt())
+                tvBottomPlayerTurnChip.text = if (isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+                tvBottomPlayerTurnChip.setTextColor(if (isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
+
+                // Top is Player 2 (Sky)
+                tvTopPlayerName.text = "Player 2 (Sky Stars ⭐️)"
+                tvTopPlayerIcon.text = "★"
+                tvTopPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvTopPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvTopPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
+                tvTopPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+                tvTopPlayerTurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+                tvTopPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF1976D2.toInt() else 0xFF78909C.toInt())
+
+                val isCurrentRose = isP1Turn
+                val accentColor = if (isCurrentRose) 0xFFE91E63.toInt() else 0xFF1E88E5.toInt()
+                btnRollDice.strokeColor = accentColor
+                tvDiceDisplay.setTextColor(accentColor)
+                tvDiceHint.setTextColor(if (isCurrentRose) 0xFFAD1457.toInt() else 0xFF1565C0.toInt())
+            } else {
+                // Flipped: Bottom is Player 2 (Sky)
+                tvBottomPlayerName.text = "Player 2 (Sky Stars ⭐️)"
+                tvBottomPlayerIcon.text = "★"
+                tvBottomPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvBottomPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
+                tvBottomPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
+                tvBottomPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+                tvBottomPlayerTurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+                tvBottomPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
+
+                // Top is Player 1 (Rose)
+                tvTopPlayerName.text = "Player 1 (Rose Hearts ♡)"
+                tvTopPlayerIcon.text = "♡"
+                tvTopPlayerIcon.setTextColor(0xFFE91E63.toInt())
+                tvTopPlayerIcon.setBackgroundResource(R.drawable.bg_vault_card)
+                tvTopPlayerHomeCount.text = "$p1Home/4 in Heartland 💖"
+                tvTopPlayerHomeCount.setTextColor(0xFFAD1457.toInt())
+                tvTopPlayerTurnChip.text = if (isP1Turn) "Rolling 🎲" else "Waiting ⏳"
+                tvTopPlayerTurnChip.setTextColor(if (isP1Turn) 0xFFE91E63.toInt() else 0xFF78909C.toInt())
+
+                val isCurrentRose = isP1Turn
+                val accentColor = if (isCurrentRose) 0xFFE91E63.toInt() else 0xFF1E88E5.toInt()
+                btnRollDice.strokeColor = accentColor
+                tvDiceDisplay.setTextColor(accentColor)
+                tvDiceHint.setTextColor(if (isCurrentRose) 0xFFAD1457.toInt() else 0xFF1565C0.toInt())
+            }
+        }
 
         // Dice face
         if (state.currentDiceValue in 1..6) {
@@ -429,7 +578,8 @@ class CoupleLudoFragment : Fragment() {
         val movable = LudoLogic.getMovableTokens(currentTokens, diceValue, activePlayer)
 
         val activePlayerName = if (isOnlineMode) {
-            if (activePlayer == 1) currentUserName else partnerName
+            val activeUid = if (activePlayer == 1) currentState.player1Uid else currentState.player2Uid
+            if (activeUid == currentUserId) "You" else partnerName
         } else {
             if (activePlayer == 1) "Player 1" else "Player 2"
         }
@@ -540,7 +690,11 @@ class CoupleLudoFragment : Fragment() {
 
         if (hasWon) {
             newStatus = "FINISHED"
-            winnerUid = if (isOnlineMode) currentUserId else (if (activePlayer == 1) "Player 1" else "Player 2")
+            winnerUid = if (isOnlineMode) {
+                if (activePlayer == 1) currentState.player1Uid else currentState.player2Uid
+            } else {
+                if (activePlayer == 1) "Player 1" else "Player 2"
+            }
         }
 
         // Turn switching logic:
@@ -552,7 +706,8 @@ class CoupleLudoFragment : Fragment() {
         } else ""
 
         val activePlayerName = if (isOnlineMode) {
-            if (activePlayer == 1) currentUserName else partnerName
+            val activeUid = if (activePlayer == 1) currentState.player1Uid else currentState.player2Uid
+            if (activeUid == currentUserId) "You" else partnerName
         } else {
             if (activePlayer == 1) "Player 1" else "Player 2"
         }
@@ -597,7 +752,9 @@ class CoupleLudoFragment : Fragment() {
 
                 if (hasWon) {
                     triggerVictoryHaptic()
-                    showVictoryDialog(activePlayerName, updatedState.wager)
+                    val isMeWinner = (winnerUid == currentUserId)
+                    val winnerTitle = if (isOnlineMode) (if (isMeWinner) "You" else partnerName) else activePlayerName
+                    showVictoryDialog(winnerTitle, updatedState.wager)
                 }
             }
         )
@@ -625,6 +782,7 @@ class CoupleLudoFragment : Fragment() {
     private fun startNewOnlineGame() {
         if (coupleId.isBlank()) return
         isSubmittingMove = false
+        manualFlipOverride = null
 
         val prevP1Uid = gameState.player1Uid
         val nextP1Uid = if (prevP1Uid == currentUserId) partnerId.ifBlank { currentUserId } else currentUserId
@@ -660,6 +818,7 @@ class CoupleLudoFragment : Fragment() {
     }
 
     private fun resetLocalGame() {
+        manualFlipOverride = null
         localGameState = LudoState(
             id = "ludo",
             player1Name = "Player 1 (Rose Hearts)",

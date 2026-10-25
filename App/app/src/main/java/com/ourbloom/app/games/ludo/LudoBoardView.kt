@@ -50,6 +50,14 @@ class LudoBoardView @JvmOverloads constructor(
 
     var onTokenClickListener: ((Int) -> Unit)? = null
 
+    var isFlipped: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
     // 15x15 grid dimensions
     private var cellSize = 0f
     private val boardRect = RectF()
@@ -200,10 +208,17 @@ class LudoBoardView @JvmOverloads constructor(
         canvas.drawRect(boardRect, bgPaint)
 
         // 2. Draw Yards (6x6 corners)
-        drawYard(canvas, 9, 0, p1BasePaint, p1AccentPaint, "Rose Hearts ♡", 1) // Bottom-Left (P1)
-        drawYard(canvas, 0, 9, p2BasePaint, p2AccentPaint, "Sky Stars ⭐️", 2)   // Top-Right (P2)
-        drawDecorativeYard(canvas, 0, 0, "Our Bloom 🌸")                       // Top-Left (Deco)
-        drawDecorativeYard(canvas, 9, 9, "Love Castle 🏰")                     // Bottom-Right (Deco)
+        if (!isFlipped) {
+            drawYard(canvas, 9, 0, p1BasePaint, p1AccentPaint, "Rose Hearts ♡", 1) // Bottom-Left (P1)
+            drawYard(canvas, 0, 9, p2BasePaint, p2AccentPaint, "Sky Stars ⭐️", 2)   // Top-Right (P2)
+            drawDecorativeYard(canvas, 0, 0, "Our Bloom 🌸")                       // Top-Left (Deco)
+            drawDecorativeYard(canvas, 9, 9, "Love Castle 🏰")                     // Bottom-Right (Deco)
+        } else {
+            drawYard(canvas, 9, 0, p2BasePaint, p2AccentPaint, "Sky Stars ⭐️", 2)   // Bottom-Left (P2)
+            drawYard(canvas, 0, 9, p1BasePaint, p1AccentPaint, "Rose Hearts ♡", 1) // Top-Right (P1)
+            drawDecorativeYard(canvas, 0, 0, "Love Castle 🏰")                     // Top-Left (Deco)
+            drawDecorativeYard(canvas, 9, 9, "Our Bloom 🌸")                       // Bottom-Right (Deco)
+        }
 
         // 3. Draw Track Grid (15x15 cells)
         for (r in 0..14) {
@@ -219,15 +234,15 @@ class LudoBoardView @JvmOverloads constructor(
 
                 // Track colors: P1 Home Corridor (r=7, c=1..5), P2 Home Corridor (r=7, c=9..13)
                 if (r == 7 && c in 1..5) {
-                    canvas.drawRect(cellRect, p1AccentPaint)
+                    canvas.drawRect(cellRect, if (!isFlipped) p1AccentPaint else p2AccentPaint)
                 } else if (r == 7 && c in 9..13) {
-                    canvas.drawRect(cellRect, p2AccentPaint)
+                    canvas.drawRect(cellRect, if (!isFlipped) p2AccentPaint else p1AccentPaint)
                 } else if (r == 6 && c == 1) {
-                    // P1 Start Cell
-                    canvas.drawRect(cellRect, p1BasePaint)
+                    // Start Cell next to bottom-left yard
+                    canvas.drawRect(cellRect, if (!isFlipped) p1BasePaint else p2BasePaint)
                 } else if (r == 8 && c == 13) {
-                    // P2 Start Cell
-                    canvas.drawRect(cellRect, p2BasePaint)
+                    // Start Cell next to top-right yard
+                    canvas.drawRect(cellRect, if (!isFlipped) p2BasePaint else p1BasePaint)
                 } else {
                     canvas.drawRect(cellRect, bgPaint)
                 }
@@ -298,7 +313,7 @@ class LudoBoardView @JvmOverloads constructor(
             lineTo(left, top)
             close()
         }
-        canvas.drawPath(path1, p1AccentPaint)
+        canvas.drawPath(path1, if (!isFlipped) p1AccentPaint else p2AccentPaint)
 
         val path2 = Path().apply {
             moveTo(right, top)
@@ -306,7 +321,7 @@ class LudoBoardView @JvmOverloads constructor(
             lineTo(right, bottom)
             close()
         }
-        canvas.drawPath(path2, p2AccentPaint)
+        canvas.drawPath(path2, if (!isFlipped) p2AccentPaint else p1AccentPaint)
 
         // Center Heart / Castle emblem
         val emblemPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -413,7 +428,11 @@ class LudoBoardView @JvmOverloads constructor(
     fun getTokenPositionCoordinates(pos: Int, player: Int, tokenIndex: Int): Pair<Float, Float> {
         // In Yard
         if (pos == LudoLogic.YARD_POS) {
-            val (startRow, startCol) = if (player == 1) Pair(9, 0) else Pair(0, 9)
+            val (startRow, startCol) = if (!isFlipped) {
+                if (player == 1) Pair(9, 0) else Pair(0, 9)
+            } else {
+                if (player == 2) Pair(9, 0) else Pair(0, 9)
+            }
             val slots = getYardSlotCoordinates(startRow, startCol)
             return slots.getOrElse(tokenIndex) { Pair(0f, 0f) }
         }
@@ -422,7 +441,7 @@ class LudoBoardView @JvmOverloads constructor(
         if (pos == LudoLogic.HOME_POS) {
             val cx = 7.5f * cellSize
             val cy = 7.5f * cellSize
-            val angle = (tokenIndex * 90.0) + (if (player == 1) 0.0 else 45.0)
+            val angle = (tokenIndex * 90.0) + (if ((player == 1 && !isFlipped) || (player == 2 && isFlipped)) 0.0 else 45.0)
             val rad = Math.toRadians(angle)
             val dist = cellSize * 0.5f
             return Pair(cx + (dist * Math.cos(rad)).toFloat(), cy + (dist * Math.sin(rad)).toFloat())
@@ -431,15 +450,9 @@ class LudoBoardView @JvmOverloads constructor(
         // In Home Corridor (101..105 for P1, 201..205 for P2)
         if (pos > 100) {
             val step = pos % 100 // 1..5
-            if (player == 1) {
-                // Horizontal left-to-right into center (row 7, cols 1..5)
-                val c = step
-                return Pair((c + 0.5f) * cellSize, 7.5f * cellSize)
-            } else {
-                // Horizontal right-to-left into center (row 7, cols 13..9)
-                val c = 14 - step
-                return Pair((c + 0.5f) * cellSize, 7.5f * cellSize)
-            }
+            val isLeftCorridor = (!isFlipped && player == 1) || (isFlipped && player == 2)
+            val c = if (isLeftCorridor) step else (14 - step)
+            return Pair((c + 0.5f) * cellSize, 7.5f * cellSize)
         }
 
         // On Main Track (0..51)
@@ -456,7 +469,8 @@ class LudoBoardView @JvmOverloads constructor(
      * Map 52 track indices strictly CLOCKWISE into (row, col) on 15x15 grid.
      */
     private fun getGridCellForTrackIndex(idx: Int): Pair<Int, Int> {
-        return when (idx % 52) {
+        val effectiveIdx = if (isFlipped) (idx + 26) % 52 else idx
+        return when (effectiveIdx % 52) {
             // Left Arm (top row of left arm, moving East towards center):
             0 -> Pair(6, 0)
             1 -> Pair(6, 1) // P1 Start Cell
@@ -648,7 +662,11 @@ class LudoBoardView @JvmOverloads constructor(
         startCoord: Pair<Float, Float>,
         onComplete: () -> Unit
     ) {
-        val (startRow, startCol) = if (capturedPlayer == 1) Pair(9, 0) else Pair(0, 9)
+        val (startRow, startCol) = if (!isFlipped) {
+            if (capturedPlayer == 1) Pair(9, 0) else Pair(0, 9)
+        } else {
+            if (capturedPlayer == 2) Pair(9, 0) else Pair(0, 9)
+        }
         val yardSlots = getYardSlotCoordinates(startRow, startCol)
         val targetCoord = yardSlots.getOrElse(capturedTokenIndex) { Pair(0f, 0f) }
 
