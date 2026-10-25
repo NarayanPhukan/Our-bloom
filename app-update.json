@@ -1,8 +1,8 @@
 {
-  "versionCode": 89,
-  "versionName": "1.88",
+  "versionCode": 90,
+  "versionName": "1.89",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Wallpaper Templates: 18-photo Heart Memories Collage template with watercolor ribbons\\n• Auto-fill collage with love photos from the Gallery section\\n• Shuffle, reload, or pick photos from phone\\n• Instant partner sync and auto-apply",
+  "changelog": "• HD Wallpaper Quality Fix: Programmatic anti-aliased vector frames and 1080p ribbon background\n• Lossless high-res photo rendering without downsampling",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

@@ -23,33 +23,26 @@ object WallpaperGenerator {
         val relH: Float
     )
 
+    // High-precision normalized coordinates for 18-photo Heart Collage
     val HEART_COLLAGE_SLOTS = listOf(
-        // Centerpiece (Most prominent)
-        CollageSlot(0.2882f, 0.2871f, 0.4410f, 0.2881f), // 0: Centerpiece
-        // Left & Right Upper Wings
-        CollageSlot(0.0035f, 0.2451f, 0.2778f, 0.1289f), // 1: Big Left Wing
-        CollageSlot(0.7326f, 0.2402f, 0.2674f, 0.1309f), // 2: Big Right Wing
-        // Top Lobes
-        CollageSlot(0.1458f, 0.1826f, 0.1372f, 0.0576f), // 3: Top Left Lobe
-        CollageSlot(0.7309f, 0.1787f, 0.1372f, 0.0576f), // 4: Top Right Lobe
-        // Top Inner Cleft
-        CollageSlot(0.2934f, 0.2217f, 0.1562f, 0.0586f), // 5: Top Inner Left
-        CollageSlot(0.5625f, 0.2197f, 0.1580f, 0.0596f), // 6: Top Inner Right
-        // Mid Wings
-        CollageSlot(0.1024f, 0.3789f, 0.1753f, 0.0996f), // 7: Mid Left Box
-        CollageSlot(0.7361f, 0.3760f, 0.1823f, 0.1006f), // 8: Mid Right Box
-        // Lower Taper
-        CollageSlot(0.1719f, 0.4844f, 0.1076f, 0.0605f), // 9: Lower Left
-        CollageSlot(0.7396f, 0.4824f, 0.1094f, 0.0615f), // 10: Lower Right
-        // Bottom Point
-        CollageSlot(0.4306f, 0.5811f, 0.1597f, 0.0771f), // 11: Bottom Center
-        CollageSlot(0.3385f, 0.5811f, 0.0816f, 0.0459f), // 12: Bottom Point Left
-        CollageSlot(0.6007f, 0.5811f, 0.0816f, 0.0459f), // 13: Bottom Point Right
-        // Outer Accents
-        CollageSlot(0.0625f, 0.2041f, 0.0747f, 0.0371f), // 14: Top Outer Left Tab
-        CollageSlot(0.8802f, 0.1982f, 0.0764f, 0.0381f), // 15: Top Outer Right Tab
-        CollageSlot(0.0156f, 0.3799f, 0.0781f, 0.0439f), // 16: Mid Outer Left Tab
-        CollageSlot(0.9253f, 0.3760f, 0.0747f, 0.0439f)  // 17: Mid Outer Right Tab
+        CollageSlot(0.2907f, 0.2967f, 0.4639f, 0.2971f), // 0: Centerpiece (Most prominent)
+        CollageSlot(0.0000f, 0.2533f, 0.2972f, 0.1379f), // 1: Big Left Wing
+        CollageSlot(0.7546f, 0.2483f, 0.2454f, 0.1392f), // 2: Big Right Wing
+        CollageSlot(0.7528f, 0.3867f, 0.1991f, 0.1079f), // 3: Mid Right Box
+        CollageSlot(0.0981f, 0.3900f, 0.1944f, 0.1067f), // 4: Mid Left Box
+        CollageSlot(0.4315f, 0.5925f, 0.1769f, 0.0858f), // 5: Bottom Center
+        CollageSlot(0.5741f, 0.2275f, 0.1824f, 0.0671f), // 6: Top Inner Right
+        CollageSlot(0.2981f, 0.2292f, 0.1833f, 0.0667f), // 7: Top Inner Left
+        CollageSlot(0.7556f, 0.1837f, 0.1574f, 0.0667f), // 8: Top Right Lobe
+        CollageSlot(0.1463f, 0.1888f, 0.1546f, 0.0658f), // 9: Top Left Lobe
+        CollageSlot(0.7528f, 0.4938f, 0.1250f, 0.0692f), // 10: Lower Right
+        CollageSlot(0.1676f, 0.4954f, 0.1241f, 0.0692f), // 11: Lower Left
+        CollageSlot(0.3361f, 0.5925f, 0.0981f, 0.0537f), // 12: Bottom Left Point
+        CollageSlot(0.6065f, 0.5925f, 0.0963f, 0.0537f), // 13: Bottom Right Point
+        CollageSlot(0.0102f, 0.3904f, 0.0917f, 0.0508f), // 14: Mid Outer Left Tab
+        CollageSlot(0.9102f, 0.2046f, 0.0898f, 0.0450f), // 15: Top Outer Right Tab
+        CollageSlot(0.0583f, 0.2108f, 0.0898f, 0.0446f), // 16: Top Outer Left Tab
+        CollageSlot(0.9491f, 0.3862f, 0.0509f, 0.0517f)  // 17: Mid Outer Right Tab
     )
 
     fun generateWallpaperBitmap(
@@ -122,7 +115,7 @@ object WallpaperGenerator {
 
     /**
      * Generates a romantic Heart Memories Collage wallpaper from multiple gallery photos,
-     * framed with the vintage watercolor bows and ribbons.
+     * framed with the vintage watercolor bows and ribbons with ultra-HD vector anti-aliased frames.
      */
     fun generateHeartCollageBitmap(
         context: Context,
@@ -141,9 +134,39 @@ object WallpaperGenerator {
         val canvas = Canvas(output)
 
         // 1. Draw base soft romantic background
-        canvas.drawColor(Color.parseColor("#F5F5F7"))
+        canvas.drawColor(Color.parseColor("#F8F6F4"))
 
-        // 2. Draw the 18 photo slots
+        // 2. Draw HD Watercolor Ribbon Background (1080x2400 unwarped native asset)
+        try {
+            val bgBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.template_heart_ribbon_bg)
+            if (bgBitmap != null) {
+                val dstRect = Rect(0, 0, width, height)
+                val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+                canvas.drawBitmap(bgBitmap, null, dstRect, paint)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperGenerator", "Error loading template_heart_ribbon_bg", e)
+        }
+
+        // 3. Setup Vector Paints for razor-sharp photo frame rendering
+        val density = width / 1080f
+        val strokeW = 3.8f * density
+
+        // Crisp vector frame border (graphite charcoal)
+        val frameBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = strokeW
+            color = Color.parseColor("#3C3C3E")
+            strokeJoin = Paint.Join.ROUND
+        }
+
+        // Subtle inner highlight stroke for photo depth bevel
+        val innerHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f * density
+            color = Color.argb(55, 255, 255, 255)
+        }
+
         val fallbackColors = intArrayOf(
             Color.parseColor("#FF5E7E"), Color.parseColor("#FF8FAB"),
             Color.parseColor("#FFB3C6"), Color.parseColor("#C9184A"),
@@ -151,14 +174,16 @@ object WallpaperGenerator {
             Color.parseColor("#FFC0CB"), Color.parseColor("#FF1493")
         )
 
+        // 4. Draw the 18 photo slots with vector frames
         for (i in HEART_COLLAGE_SLOTS.indices) {
             val slot = HEART_COLLAGE_SLOTS[i]
-            val left = (slot.relX * width) - 2f
-            val top = (slot.relY * height) - 2f
-            val right = (slot.relX + slot.relW) * width + 2f
-            val bottom = (slot.relY + slot.relH) * height + 2f
+            val left = slot.relX * width
+            val top = slot.relY * height
+            val right = (slot.relX + slot.relW) * width
+            val bottom = (slot.relY + slot.relH) * height
             val rect = RectF(left, top, right, bottom)
 
+            // Draw photo content
             if (photos.isNotEmpty()) {
                 val photo = photos[i % photos.size]
                 drawCenterCropToRect(canvas, photo, rect)
@@ -168,21 +193,21 @@ object WallpaperGenerator {
                 }
                 canvas.drawRect(rect, p)
             }
+
+            // Draw razor-sharp vector frame border
+            canvas.drawRect(rect, frameBorderPaint)
+
+            // Draw subtle inner highlight
+            val innerRect = RectF(
+                left + 1.2f * density,
+                top + 1.2f * density,
+                right - 1.2f * density,
+                bottom - 1.2f * density
+            )
+            canvas.drawRect(innerRect, innerHighlightPaint)
         }
 
-        // 3. Draw the watercolor bows and frame overlay on top
-        try {
-            val frameBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.template_heart_ribbon_frame)
-            if (frameBitmap != null) {
-                val dstRect = Rect(0, 0, width, height)
-                val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-                canvas.drawBitmap(frameBitmap, null, dstRect, paint)
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("WallpaperGenerator", "Error loading template_heart_ribbon_frame", e)
-        }
-
-        // 4. Subtle bottom scrim for dock and widget readability
+        // 5. Subtle bottom scrim for lock screen / launcher widget and dock readability
         val dimAlpha = (config.dimLevel.coerceIn(0.05f, 0.6f) * 255).toInt()
         val bottomScrimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(
@@ -195,7 +220,7 @@ object WallpaperGenerator {
         }
         canvas.drawRect(0f, height * 0.70f, width.toFloat(), height.toFloat(), bottomScrimPaint)
 
-        // 5. Draw Romantic Couple Overlay Card below the heart collage at y = 0.76f
+        // 6. Draw Romantic Couple Overlay Card below the heart collage at y = 0.76f
         val badgeY = height * 0.76f
         drawCoupleCardOverlay(
             canvas = canvas,

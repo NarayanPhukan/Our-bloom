@@ -397,8 +397,8 @@ class CoupleWallpaperFragment : Fragment() {
                         val bmp = Glide.with(requireContext())
                             .asBitmap()
                             .load(url)
-                            .submit(500, 500)
-                            .get(10, TimeUnit.SECONDS)
+                            .submit(1200, 1200)
+                            .get(15, TimeUnit.SECONDS)
                         if (bmp != null) loadedBitmaps.add(bmp)
                     } catch (e: Exception) {
                         Log.w("CoupleWallpaper", "Failed loading memory photo: $url", e)
@@ -637,7 +637,7 @@ class CoupleWallpaperFragment : Fragment() {
                 // 2. If Heart Collage template is active, upload the generated custom collage composite
                 try {
                     val stream = ByteArrayOutputStream()
-                    lastGeneratedWallpaper!!.compress(Bitmap.CompressFormat.JPEG, 92, stream)
+                    lastGeneratedWallpaper!!.compress(Bitmap.CompressFormat.JPEG, 98, stream)
                     val bytes = stream.toByteArray()
                     val url = repository.uploadImageBytes(bytes, "wallpaper_heart_collage_${coupleId}_${System.currentTimeMillis()}.jpg")
                     if (!url.isNullOrBlank()) {

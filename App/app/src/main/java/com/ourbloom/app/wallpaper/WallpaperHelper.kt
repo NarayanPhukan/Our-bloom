@@ -73,7 +73,7 @@ object WallpaperHelper {
             }
 
             if (fos != null) {
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 98, fos)
                 fos.flush()
             }
             return imageUri
