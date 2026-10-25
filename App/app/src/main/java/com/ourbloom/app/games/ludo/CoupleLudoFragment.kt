@@ -246,6 +246,75 @@ class CoupleLudoFragment : Fragment() {
                 return@observeLudoState
             }
 
+            val partnerMoved = state.moveCount > gameState.moveCount && !isSubmittingMove && gameState.moveCount > 0
+            if (partnerMoved) {
+                var movingPlayer = 0
+                var movedTokenIndex = -1
+                var oldPos = -1
+                var newPos = -1
+
+                for (i in 0..3) {
+                    if (gameState.player1Tokens.getOrNull(i) != state.player1Tokens.getOrNull(i)) {
+                        movingPlayer = 1
+                        movedTokenIndex = i
+                        oldPos = gameState.player1Tokens.getOrNull(i) ?: -1
+                        newPos = state.player1Tokens.getOrNull(i) ?: -1
+                        break
+                    }
+                }
+                if (movingPlayer == 0) {
+                    for (i in 0..3) {
+                        if (gameState.player2Tokens.getOrNull(i) != state.player2Tokens.getOrNull(i)) {
+                            movingPlayer = 2
+                            movedTokenIndex = i
+                            oldPos = gameState.player2Tokens.getOrNull(i) ?: -1
+                            newPos = state.player2Tokens.getOrNull(i) ?: -1
+                            break
+                        }
+                    }
+                }
+
+                if (movingPlayer != 0 && movedTokenIndex != -1 && oldPos != -1 && newPos != -1) {
+                    val opponentPlayer = 3 - movingPlayer
+                    val oldOppTokens = if (opponentPlayer == 1) gameState.player1Tokens else gameState.player2Tokens
+                    val newOppTokens = if (opponentPlayer == 1) state.player1Tokens else state.player2Tokens
+                    var capturedTokenIdx: Int? = null
+                    for (i in 0..3) {
+                        if (oldOppTokens.getOrNull(i) != LudoLogic.YARD_POS && newOppTokens.getOrNull(i) == LudoLogic.YARD_POS) {
+                            capturedTokenIdx = i
+                            break
+                        }
+                    }
+
+                    val path = if (oldPos == LudoLogic.YARD_POS) {
+                        listOf(newPos)
+                    } else {
+                        val dist = (LudoLogic.getRelativeDistanceTraveled(newPos, movingPlayer) -
+                                   LudoLogic.getRelativeDistanceTraveled(oldPos, movingPlayer) +
+                                   LudoLogic.TRACK_SIZE) % LudoLogic.TRACK_SIZE
+                        val steps = if (dist in 1..6) dist else 1
+                        val p = LudoLogic.getMovementPath(oldPos, steps, movingPlayer)
+                        if (p.lastOrNull() == newPos) p else listOf(newPos)
+                    }
+
+                    gameState = state
+                    ludoBoardView.animateTokenMove(
+                        player = movingPlayer,
+                        tokenIndex = movedTokenIndex,
+                        path = path,
+                        capturedOpponentPlayer = if (capturedTokenIdx != null) opponentPlayer else null,
+                        capturedOpponentTokenIndex = capturedTokenIdx,
+                        onStepHop = {
+                            triggerHaptic()
+                        },
+                        onComplete = {
+                            renderState(state)
+                        }
+                    )
+                    return@observeLudoState
+                }
+            }
+
             gameState = state
             isSubmittingMove = false
             renderState(state)
@@ -446,18 +515,20 @@ class CoupleLudoFragment : Fragment() {
         val opponentTokens = if (activePlayer == 1) p2Tokens else p1Tokens
 
         val oldPos = movingTokens[tokenIndex]
-        val newPos = LudoLogic.calculateNewPosition(oldPos, diceValue, activePlayer)
+        val path = LudoLogic.getMovementPath(oldPos, diceValue, activePlayer)
+        val newPos = path.lastOrNull() ?: LudoLogic.calculateNewPosition(oldPos, diceValue, activePlayer)
         movingTokens[tokenIndex] = newPos
-
-        triggerHaptic()
 
         // Check if opponent token is captured
         var capturedOpponent = false
+        var capturedTokenIdx: Int? = null
         if (newPos in 0 until LudoLogic.TRACK_SIZE && !LudoLogic.isSafeSquare(newPos)) {
             for (i in opponentTokens.indices) {
                 if (opponentTokens[i] == newPos) {
                     opponentTokens[i] = LudoLogic.YARD_POS // Captured back to yard!
                     capturedOpponent = true
+                    capturedTokenIdx = i
+                    break
                 }
             }
         }
@@ -507,12 +578,29 @@ class CoupleLudoFragment : Fragment() {
             lastMoveTimestamp = System.currentTimeMillis()
         )
 
-        commitState(updatedState)
+        // Clear movable tokens immediately during hop animation
+        ludoBoardView.movableTokens = emptyList()
+        isSubmittingMove = true
 
-        if (hasWon) {
-            triggerVictoryHaptic()
-            showVictoryDialog(activePlayerName, updatedState.wager)
-        }
+        ludoBoardView.animateTokenMove(
+            player = activePlayer,
+            tokenIndex = tokenIndex,
+            path = path,
+            capturedOpponentPlayer = if (capturedOpponent) (3 - activePlayer) else null,
+            capturedOpponentTokenIndex = capturedTokenIdx,
+            onStepHop = {
+                triggerHaptic()
+            },
+            onComplete = {
+                isSubmittingMove = false
+                commitState(updatedState)
+
+                if (hasWon) {
+                    triggerVictoryHaptic()
+                    showVictoryDialog(activePlayerName, updatedState.wager)
+                }
+            }
+        )
     }
 
     private fun commitState(newState: LudoState) {

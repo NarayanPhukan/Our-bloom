@@ -1,8 +1,8 @@
 {
-  "versionCode": 83,
-  "versionName": "1.82",
+  "versionCode": 84,
+  "versionName": "1.83",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix crash in wallpaper dim level slider for couple wallpaper customization\\n• Harden Firestore models against obfuscation and deserialization errors\\n• Add chess flip board toggle options",
+  "changelog": "• Fix Ludo track direction: pieces now move correctly clockwise\\n• Add 3D hop and jump animation with physical parabolic arc, ground shadow, and capture retreat",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

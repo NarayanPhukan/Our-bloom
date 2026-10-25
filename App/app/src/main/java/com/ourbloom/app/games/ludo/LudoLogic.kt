@@ -112,6 +112,22 @@ object LudoLogic {
     }
 
     /**
+     * Calculates step-by-step intermediate positions along the track for hop-by-hop jump animation.
+     */
+    fun getMovementPath(startPos: Int, steps: Int, player: Int): List<Int> {
+        if (startPos == YARD_POS) {
+            return listOf(if (player == 1) P1_START else P2_START)
+        }
+        val path = mutableListOf<Int>()
+        var curr = startPos
+        for (s in 1..steps) {
+            curr = calculateNewPosition(curr, 1, player)
+            path.add(curr)
+        }
+        return path
+    }
+
+    /**
      * Checks if all 4 tokens have reached the Heartland Home (99).
      */
     fun isWin(tokens: List<Int>): Boolean {

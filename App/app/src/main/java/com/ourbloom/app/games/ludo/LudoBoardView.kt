@@ -1,5 +1,7 @@
 package com.ourbloom.app.games.ludo
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -11,6 +13,7 @@ import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.AccelerateInterpolator
 import android.view.animation.LinearInterpolator
 import kotlin.math.hypot
 import kotlin.math.min
@@ -122,6 +125,14 @@ class LudoBoardView @JvmOverloads constructor(
         textSize = 24f
     }
 
+    // Shadow Paint for jumping tokens
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#40000000") // 25% black soft shadow
+        style = Paint.Style.FILL
+    }
+    private val shadowRect = RectF()
+
+    // Pulse animation for movable token halos
     private var pulseFactor = 1f
     private val pulseAnimator = ValueAnimator.ofFloat(0.85f, 1.25f).apply {
         duration = 750
@@ -135,6 +146,30 @@ class LudoBoardView @JvmOverloads constructor(
             }
         }
     }
+
+    // Token Jump Animation States
+    var isAnimatingToken = false
+        private set
+    private var animatingPlayer = 1
+    private var animatingTokenIndex = -1
+    private var groundX = 0f
+    private var groundY = 0f
+    private var animatedX = 0f
+    private var animatedY = 0f
+    private var animatedScale = 1f
+    private var animatedShadowScale = 1f
+    private var animatedShadowAlpha = 0.35f
+    private var currentMoveAnimator: ValueAnimator? = null
+
+    // Capture Retreat Animation States
+    var isCapturingAnim = false
+        private set
+    private var capturedPlayer = 2
+    private var capturedTokenIndex = -1
+    private var capturedX = 0f
+    private var capturedY = 0f
+    private var capturedScale = 1f
+    private var currentCaptureAnimator: ValueAnimator? = null
 
     init {
         pulseAnimator.start()
@@ -187,10 +222,10 @@ class LudoBoardView @JvmOverloads constructor(
                     canvas.drawRect(cellRect, p1AccentPaint)
                 } else if (r == 7 && c in 9..13) {
                     canvas.drawRect(cellRect, p2AccentPaint)
-                } else if (r == 8 && c == 1) {
+                } else if (r == 6 && c == 1) {
                     // P1 Start Cell
                     canvas.drawRect(cellRect, p1BasePaint)
-                } else if (r == 6 && c == 13) {
+                } else if (r == 8 && c == 13) {
                     // P2 Start Cell
                     canvas.drawRect(cellRect, p2BasePaint)
                 } else {
@@ -286,22 +321,63 @@ class LudoBoardView @JvmOverloads constructor(
         // Draw Player 1 tokens
         for (i in player1Tokens.indices) {
             val pos = player1Tokens[i]
-            val (cx, cy) = getTokenPositionCoordinates(pos, 1, i)
-            val isMovable = activePlayer == 1 && movableTokens.contains(i)
-            drawSingleToken(canvas, cx, cy, 1, "♡", isMovable)
+            if (isAnimatingToken && animatingPlayer == 1 && i == animatingTokenIndex) {
+                // Draw shadow on ground
+                val shadowW = cellSize * 0.42f * animatedShadowScale
+                val shadowH = cellSize * 0.20f * animatedShadowScale
+                shadowRect.set(groundX - shadowW, groundY - shadowH, groundX + shadowW, groundY + shadowH)
+                shadowPaint.alpha = (animatedShadowAlpha * 255).toInt().coerceIn(0, 255)
+                canvas.drawOval(shadowRect, shadowPaint)
+
+                // Draw jumping token in air
+                drawSingleToken(canvas, animatedX, animatedY, 1, "♡", false, animatedScale)
+            } else if (isCapturingAnim && capturedPlayer == 1 && i == capturedTokenIndex) {
+                drawSingleToken(canvas, capturedX, capturedY, 1, "♡", false, capturedScale)
+            } else {
+                val (cx, cy) = getTokenPositionCoordinates(pos, 1, i)
+                val isMovable = !isAnimatingToken && !isCapturingAnim && activePlayer == 1 && movableTokens.contains(i)
+                drawSingleToken(canvas, cx, cy, 1, "♡", isMovable, 1f)
+            }
         }
 
         // Draw Player 2 tokens
         for (i in player2Tokens.indices) {
             val pos = player2Tokens[i]
-            val (cx, cy) = getTokenPositionCoordinates(pos, 2, i)
-            val isMovable = activePlayer == 2 && movableTokens.contains(i)
-            drawSingleToken(canvas, cx, cy, 2, "★", isMovable)
+            if (isAnimatingToken && animatingPlayer == 2 && i == animatingTokenIndex) {
+                // Draw shadow on ground
+                val shadowW = cellSize * 0.42f * animatedShadowScale
+                val shadowH = cellSize * 0.20f * animatedShadowScale
+                shadowRect.set(groundX - shadowW, groundY - shadowH, groundX + shadowW, groundY + shadowH)
+                shadowPaint.alpha = (animatedShadowAlpha * 255).toInt().coerceIn(0, 255)
+                canvas.drawOval(shadowRect, shadowPaint)
+
+                // Draw jumping token in air
+                drawSingleToken(canvas, animatedX, animatedY, 2, "★", false, animatedScale)
+            } else if (isCapturingAnim && capturedPlayer == 2 && i == capturedTokenIndex) {
+                drawSingleToken(canvas, capturedX, capturedY, 2, "★", false, capturedScale)
+            } else {
+                val (cx, cy) = getTokenPositionCoordinates(pos, 2, i)
+                val isMovable = !isAnimatingToken && !isCapturingAnim && activePlayer == 2 && movableTokens.contains(i)
+                drawSingleToken(canvas, cx, cy, 2, "★", isMovable, 1f)
+            }
         }
     }
 
-    private fun drawSingleToken(canvas: Canvas, cx: Float, cy: Float, player: Int, symbol: String, isMovable: Boolean) {
+    private fun drawSingleToken(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        player: Int,
+        symbol: String,
+        isMovable: Boolean,
+        scale: Float = 1f
+    ) {
         val radius = cellSize * 0.42f
+
+        canvas.save()
+        if (scale != 1f) {
+            canvas.scale(scale, scale, cx, cy)
+        }
 
         if (isMovable) {
             // Pulsing selection halo
@@ -316,6 +392,8 @@ class LudoBoardView @JvmOverloads constructor(
 
         val textY = cy - (tokenSymbolPaint.descent() + tokenSymbolPaint.ascent()) / 2f
         canvas.drawText(symbol, cx, textY, tokenSymbolPaint)
+
+        canvas.restore()
     }
 
     private fun getYardSlotCoordinates(startRow: Int, startCol: Int): List<Pair<Float, Float>> {
@@ -375,63 +453,87 @@ class LudoBoardView @JvmOverloads constructor(
     }
 
     /**
-     * Map 52 track indices into (row, col) on 15x15 grid.
+     * Map 52 track indices strictly CLOCKWISE into (row, col) on 15x15 grid.
      */
     private fun getGridCellForTrackIndex(idx: Int): Pair<Int, Int> {
         return when (idx % 52) {
-            0 -> Pair(8, 0)
-            1 -> Pair(8, 1) // P1 Start
-            2 -> Pair(8, 2)
-            3 -> Pair(8, 3)
-            4 -> Pair(8, 4)
-            5 -> Pair(9, 6)
-            6 -> Pair(10, 6)
-            7 -> Pair(11, 6)
-            8 -> Pair(12, 6)
-            9 -> Pair(13, 6)
-            10 -> Pair(14, 6)
-            11 -> Pair(14, 7)
-            12 -> Pair(14, 8)
-            13 -> Pair(13, 8)
-            14 -> Pair(12, 8)
-            15 -> Pair(11, 8)
-            16 -> Pair(10, 8)
-            17 -> Pair(9, 8)
-            18 -> Pair(8, 9)
-            19 -> Pair(8, 10)
-            20 -> Pair(8, 11)
-            21 -> Pair(8, 12)
-            22 -> Pair(8, 13)
-            23 -> Pair(8, 14)
-            24 -> Pair(7, 14)
-            25 -> Pair(6, 14)
-            26 -> Pair(6, 13)
-            27 -> Pair(6, 12) // P2 Start
-            28 -> Pair(6, 11)
-            29 -> Pair(6, 10)
-            30 -> Pair(6, 9)
-            31 -> Pair(5, 8)
-            32 -> Pair(4, 8)
-            33 -> Pair(3, 8)
-            34 -> Pair(2, 8)
-            35 -> Pair(1, 8)
-            36 -> Pair(0, 8)
-            37 -> Pair(0, 7)
-            38 -> Pair(0, 6)
-            39 -> Pair(1, 6)
-            40 -> Pair(2, 6)
-            41 -> Pair(3, 6)
-            42 -> Pair(4, 6)
-            43 -> Pair(5, 6)
-            44 -> Pair(6, 5)
-            45 -> Pair(6, 4)
-            46 -> Pair(6, 3)
-            47 -> Pair(6, 2)
-            48 -> Pair(6, 1)
-            49 -> Pair(6, 0)
-            50 -> Pair(7, 0)
-            51 -> Pair(7, 1)
-            else -> Pair(0, 0)
+            // Left Arm (top row of left arm, moving East towards center):
+            0 -> Pair(6, 0)
+            1 -> Pair(6, 1) // P1 Start Cell
+            2 -> Pair(6, 2)
+            3 -> Pair(6, 3)
+            4 -> Pair(6, 4)
+            5 -> Pair(6, 5)
+
+            // Top Arm (left column of top arm, moving North towards edge):
+            6 -> Pair(5, 6)
+            7 -> Pair(4, 6)
+            8 -> Pair(3, 6)
+            9 -> Pair(2, 6) // Safe square (star)
+            10 -> Pair(1, 6)
+            11 -> Pair(0, 6)
+
+            // Top edge:
+            12 -> Pair(0, 7)
+            13 -> Pair(0, 8)
+
+            // Top Arm (right column of top arm, moving South towards center):
+            14 -> Pair(1, 8) // Safe square (star)
+            15 -> Pair(2, 8)
+            16 -> Pair(3, 8)
+            17 -> Pair(4, 8)
+            18 -> Pair(5, 8)
+
+            // Right Arm (top row of right arm, moving East towards edge):
+            19 -> Pair(6, 9)
+            20 -> Pair(6, 10)
+            21 -> Pair(6, 11)
+            22 -> Pair(6, 12) // Safe square (star)
+            23 -> Pair(6, 13)
+            24 -> Pair(6, 14)
+
+            // Right edge:
+            25 -> Pair(7, 14) // P2 Pre-Home Cell
+            26 -> Pair(8, 14)
+
+            // Right Arm (bottom row of right arm, moving West towards center):
+            27 -> Pair(8, 13) // P2 Start Cell
+            28 -> Pair(8, 12)
+            29 -> Pair(8, 11)
+            30 -> Pair(8, 10)
+            31 -> Pair(8, 9)
+
+            // Bottom Arm (right column of bottom arm, moving South towards edge):
+            32 -> Pair(9, 8)
+            33 -> Pair(10, 8)
+            34 -> Pair(11, 8)
+            35 -> Pair(12, 8) // Safe square (star)
+            36 -> Pair(13, 8)
+            37 -> Pair(14, 8)
+
+            // Bottom edge:
+            38 -> Pair(14, 7)
+            39 -> Pair(14, 6)
+
+            // Bottom Arm (left column of bottom arm, moving North towards center):
+            40 -> Pair(13, 6) // Safe square (star)
+            41 -> Pair(12, 6)
+            42 -> Pair(11, 6)
+            43 -> Pair(10, 6)
+            44 -> Pair(9, 6)
+
+            // Left Arm (bottom row of left arm, moving West towards edge):
+            45 -> Pair(8, 5)
+            46 -> Pair(8, 4)
+            47 -> Pair(8, 3)
+            48 -> Pair(8, 2) // Safe square (star)
+            49 -> Pair(8, 1)
+            50 -> Pair(8, 0)
+
+            // Left edge:
+            51 -> Pair(7, 0) // P1 Pre-Home Cell
+
+            else -> Pair(6, 0)
         }
     }
 
@@ -443,7 +545,145 @@ class LudoBoardView @JvmOverloads constructor(
         return null
     }
 
+    /**
+     * Executes a step-by-step jump animation along [path] with physical bounce, 3D arc, and ground shadow.
+     */
+    fun animateTokenMove(
+        player: Int,
+        tokenIndex: Int,
+        path: List<Int>,
+        capturedOpponentPlayer: Int? = null,
+        capturedOpponentTokenIndex: Int? = null,
+        onStepHop: (() -> Unit)? = null,
+        onComplete: () -> Unit
+    ) {
+        if (path.isEmpty()) {
+            onComplete()
+            return
+        }
+
+        currentMoveAnimator?.cancel()
+        currentCaptureAnimator?.cancel()
+
+        val currentTokens = if (player == 1) player1Tokens else player2Tokens
+        val startPos = currentTokens[tokenIndex]
+
+        isAnimatingToken = true
+        animatingPlayer = player
+        this.animatingTokenIndex = tokenIndex
+
+        val totalHops = path.size
+        val hopDuration = 160L // Snappy, joyful hop
+
+        currentMoveAnimator = ValueAnimator.ofFloat(0f, totalHops.toFloat()).apply {
+            duration = totalHops * hopDuration
+            interpolator = LinearInterpolator()
+            var currentHopIndex = -1
+
+            addUpdateListener { va ->
+                val progress = va.animatedValue as Float
+                val hopIdx = progress.toInt().coerceIn(0, totalHops - 1)
+                val hopFraction = (progress - hopIdx).coerceIn(0f, 1f)
+
+                if (hopIdx != currentHopIndex) {
+                    currentHopIndex = hopIdx
+                    onStepHop?.invoke()
+                }
+
+                val fromPos = if (hopIdx == 0) startPos else path[hopIdx - 1]
+                val toPos = path[hopIdx]
+
+                val fromCoord = getTokenPositionCoordinates(fromPos, player, tokenIndex)
+                val toCoord = getTokenPositionCoordinates(toPos, player, tokenIndex)
+
+                groundX = fromCoord.first + (toCoord.first - fromCoord.first) * hopFraction
+                groundY = fromCoord.second + (toCoord.second - fromCoord.second) * hopFraction
+
+                val jumpArc = Math.sin(hopFraction * Math.PI).toFloat()
+                val jumpHeight = jumpArc * cellSize * 0.55f
+
+                animatedX = groundX
+                animatedY = groundY - jumpHeight
+                animatedScale = 1f + jumpArc * 0.32f
+                animatedShadowScale = 1f - jumpArc * 0.35f
+                animatedShadowAlpha = 0.35f - jumpArc * 0.15f
+
+                invalidate()
+            }
+
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    isAnimatingToken = false
+                    currentMoveAnimator = null
+
+                    // Final landing step tick
+                    onStepHop?.invoke()
+
+                    val finalPos = path.last()
+                    val finalCoord = getTokenPositionCoordinates(finalPos, player, tokenIndex)
+
+                    if (capturedOpponentPlayer != null && capturedOpponentTokenIndex != null) {
+                        animateCaptureRetreat(
+                            capturedPlayer = capturedOpponentPlayer,
+                            capturedTokenIndex = capturedOpponentTokenIndex,
+                            startCoord = finalCoord,
+                            onComplete = {
+                                invalidate()
+                                onComplete()
+                            }
+                        )
+                    } else {
+                        invalidate()
+                        onComplete()
+                    }
+                }
+            })
+        }
+        currentMoveAnimator?.start()
+    }
+
+    private fun animateCaptureRetreat(
+        capturedPlayer: Int,
+        capturedTokenIndex: Int,
+        startCoord: Pair<Float, Float>,
+        onComplete: () -> Unit
+    ) {
+        val (startRow, startCol) = if (capturedPlayer == 1) Pair(9, 0) else Pair(0, 9)
+        val yardSlots = getYardSlotCoordinates(startRow, startCol)
+        val targetCoord = yardSlots.getOrElse(capturedTokenIndex) { Pair(0f, 0f) }
+
+        isCapturingAnim = true
+        this.capturedPlayer = capturedPlayer
+        this.capturedTokenIndex = capturedTokenIndex
+
+        currentCaptureAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 380L
+            interpolator = AccelerateInterpolator()
+            addUpdateListener { va ->
+                val f = va.animatedValue as Float
+                capturedX = startCoord.first + (targetCoord.first - startCoord.first) * f
+                val arc = Math.sin(f * Math.PI).toFloat() * cellSize * 0.75f
+                capturedY = startCoord.second + (targetCoord.second - startCoord.second) * f - arc
+                capturedScale = 1f + Math.sin(f * Math.PI).toFloat() * 0.25f
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    isCapturingAnim = false
+                    currentCaptureAnimator = null
+                    invalidate()
+                    onComplete()
+                }
+            })
+        }
+        currentCaptureAnimator?.start()
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (isAnimatingToken || isCapturingAnim) {
+            return false
+        }
+
         if (event.action == MotionEvent.ACTION_UP && movableTokens.isNotEmpty()) {
             val touchX = event.x
             val touchY = event.y
@@ -469,5 +709,14 @@ class LudoBoardView @JvmOverloads constructor(
             }
         }
         return true
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        pulseAnimator.cancel()
+        currentMoveAnimator?.cancel()
+        currentMoveAnimator = null
+        currentCaptureAnimator?.cancel()
+        currentCaptureAnimator = null
     }
 }
