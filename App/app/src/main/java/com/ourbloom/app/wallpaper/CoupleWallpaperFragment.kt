@@ -33,6 +33,7 @@ import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
 import com.ourbloom.app.data.models.CoupleWallpaperConfig
+import com.ourbloom.app.data.models.User
 import com.ourbloom.app.fcm.DirectFcmSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,11 +51,12 @@ class CoupleWallpaperFragment : Fragment() {
     private var coupleId: String = ""
     private var currentUserId: String = ""
     private var currentUserName: String = ""
+    private var myDisplayName: String = "You"
     private var partnerName: String = "Sweetheart"
     private var coupleStartDateMs: Long = System.currentTimeMillis()
     private var daysTogether: Long = 1L
     private var anniversaryDateStr: String = ""
-    private var coupleNamesDisplay: String = "Narayan & Tanaya 🌸"
+    private var coupleNamesDisplay: String = ""
 
     private var currentConfig = CoupleWallpaperConfig()
     private var currentSourceBitmap: Bitmap? = null
@@ -113,7 +115,7 @@ class CoupleWallpaperFragment : Fragment() {
 
                 if (coupleId.isNotBlank()) {
                     val couple = repository.getCouple(coupleId)
-                    setupCoupleDetails(couple)
+                    setupCoupleDetails(couple, user)
                     startListeningToWallpaperConfig()
                 } else {
                     renderWallpaperPreview()
@@ -228,16 +230,52 @@ class CoupleWallpaperFragment : Fragment() {
         }
     }
 
-    private suspend fun setupCoupleDetails(couple: Couple?) {
+    private suspend fun setupCoupleDetails(couple: Couple?, currentUser: User?) {
         if (couple == null) return
         val partnerId = if (couple.user1 == currentUserId) couple.user2 else couple.user1
         val partnerUser = if (partnerId.isNotBlank()) repository.getUser(partnerId) else null
-        val pName = partnerUser?.name?.ifBlank { "Sweetheart" } ?: "Sweetheart"
-        partnerName = pName
 
-        val u1 = currentUserName.ifBlank { "You" }
-        val u2 = pName
-        coupleNamesDisplay = "$u1 & $u2 🌸"
+        val prefs = try {
+            requireContext().getSharedPreferences("OurBloomPrefs", Context.MODE_PRIVATE)
+        } catch (e: Exception) {
+            null
+        }
+
+        // Intimate Nicknames resolution:
+        // currentUser.nicknameForPartner = what current user calls their partner (e.g. Guxaini)
+        // partnerUser.nicknameForPartner = what partner calls the current user (e.g. Kuchupuchu)
+        val myNickFromPartner = partnerUser?.nicknameForPartner?.takeIf { it.isNotBlank() }
+            ?: prefs?.getString("my_nickname", null)?.takeIf { it.isNotBlank() }
+        val partnerNickFromMe = currentUser?.nicknameForPartner?.takeIf { it.isNotBlank() }
+            ?: prefs?.getString("partner_nickname", null)?.takeIf { it.isNotBlank() }
+
+        // User 1 & User 2 Nicknames (consistent romantic order for the couple)
+        val user1Nick: String
+        val user2Nick: String
+
+        if (couple.user1 == currentUserId) {
+            user1Nick = myNickFromPartner
+                ?: currentUser?.name?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: currentUserName.split(" ").firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: "You"
+            user2Nick = partnerNickFromMe
+                ?: partnerUser?.name?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: "Sweetheart"
+            partnerName = user2Nick
+            myDisplayName = user1Nick
+        } else {
+            user1Nick = partnerNickFromMe
+                ?: partnerUser?.name?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: "Sweetheart"
+            user2Nick = myNickFromPartner
+                ?: currentUser?.name?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: currentUserName.split(" ").firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: "You"
+            partnerName = user1Nick
+            myDisplayName = user2Nick
+        }
+
+        coupleNamesDisplay = "$user1Nick & $user2Nick 🌸"
 
         // Parse start date
         try {
@@ -290,7 +328,10 @@ class CoupleWallpaperFragment : Fragment() {
 
             val isPartnerUpdate = config.updatedByName.isNotBlank() && config.updatedByUid != currentUserId
             if (isPartnerUpdate) {
-                tvWallpaperStatusBadge.text = "Updated by ${config.updatedByName} 💕"
+                val displayName = partnerName.takeIf { it.isNotBlank() && it != "Sweetheart" }
+                    ?: config.updatedByName.takeIf { it.isNotBlank() }
+                    ?: "Sweetheart"
+                tvWallpaperStatusBadge.text = "Updated by $displayName 💕"
             } else {
                 tvWallpaperStatusBadge.text = "Synced for Both 💕"
             }
@@ -651,11 +692,14 @@ class CoupleWallpaperFragment : Fragment() {
                 }
             }
 
+            val myName = myDisplayName.takeIf { it.isNotBlank() && it != "You" }
+                ?: currentUserName.ifBlank { "Your sweetheart" }
+
             val updatedConfig = currentConfig.copy(
                 imageUrl = uploadedUrl,
                 templateId = currentConfig.templateId,
                 updatedByUid = currentUserId,
-                updatedByName = currentUserName,
+                updatedByName = myName,
                 updatedAt = System.currentTimeMillis()
             )
 
@@ -675,7 +719,6 @@ class CoupleWallpaperFragment : Fragment() {
                 // Dispatch instant high-priority FCM push notification to partner
                 val currentCoupleId = coupleId
                 val currentUid = currentUserId
-                val myName = currentUserName.ifBlank { "Your sweetheart" }
 
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {

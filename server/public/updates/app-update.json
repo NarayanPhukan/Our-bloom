@@ -1,8 +1,8 @@
 {
-  "versionCode": 93,
-  "versionName": "1.92",
+  "versionCode": 94,
+  "versionName": "1.93",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix wallpaper partner sync: Ensure 100% identical matching wallpaper delivery across devices without double badges • Fix auto-apply in background: Guaranteed completion with runBlocking and OEM lock-screen fallback resilience",
+  "changelog": "• Wallpaper: Display couple nicknames on badge • UI: Fix button text clipping and bottom scroll padding",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }

@@ -9,6 +9,7 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipToPadding="false"
         android:fillViewport="true">
 
         <LinearLayout
@@ -17,7 +18,7 @@
             android:orientation="vertical"
             android:paddingHorizontal="16dp"
             android:paddingTop="12dp"
-            android:paddingBottom="32dp">
+            android:paddingBottom="100dp">
 
             <!-- Top App Bar -->
             <RelativeLayout
@@ -136,33 +137,49 @@
                     android:id="@+id/btn_choose_template"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="44dp"
                     android:layout_marginEnd="6dp"
-                    android:layout_weight="1.2"
+                    android:layout_weight="1"
                     android:text="Templates 🖼️"
                     android:textColor="#AD1457"
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="6dp"
                     app:backgroundTint="#FCE4EC"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_photo_library_rounded"
-                    app:iconTint="#AD1457" />
+                    app:cornerRadius="16dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_pick_photo"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="44dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:text="Photo 📸"
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="6dp"
                     app:cornerRadius="16dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_theme_presets"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="44dp"
                     android:layout_weight="1"
                     android:text="Themes 🎨"
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="6dp"
                     app:cornerRadius="16dp" />
             </LinearLayout>
 
@@ -179,32 +196,47 @@
                     android:id="@+id/btn_shuffle_memories"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:text="Shuffle 🔀"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="4dp"
                     app:cornerRadius="14dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_reload_gallery"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
                     android:layout_marginEnd="6dp"
-                    android:layout_weight="1.2"
-                    android:text="Gallery Memories 📸"
+                    android:layout_weight="1"
+                    android:text="Memories 📸"
                     android:textSize="11sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="4dp"
                     app:cornerRadius="14dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_pick_device_photos"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
                     android:layout_weight="1"
                     android:text="Device 📱"
                     android:textSize="11sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="4dp"
                     app:cornerRadius="14dp" />
             </LinearLayout>
 

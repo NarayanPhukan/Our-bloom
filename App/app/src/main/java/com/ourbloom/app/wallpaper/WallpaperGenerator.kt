@@ -366,6 +366,8 @@ object WallpaperGenerator {
             else -> cardTop + (cardHeight * 0.50f)
         }
 
+        val maxTextWidth = cardWidth - 36f * density
+
         // Days Counter: Clean, tracked uppercase
         if (showDays) {
             val daysPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -378,7 +380,12 @@ object WallpaperGenerator {
                     setShadowLayer(4f, 0f, 2f, Color.argb(120, 0, 0, 0))
                 }
             }
-            canvas.drawText("$days DAYS TOGETHER", width / 2f, currentY, daysPaint)
+            val daysText = "$days DAYS TOGETHER"
+            val measuredW = daysPaint.measureText(daysText)
+            if (measuredW > maxTextWidth) {
+                daysPaint.textSize = (34f * density) * (maxTextWidth / measuredW)
+            }
+            canvas.drawText(daysText, width / 2f, currentY, daysPaint)
             currentY += 46f * density
         }
 
@@ -399,6 +406,10 @@ object WallpaperGenerator {
                 letterSpacing = 0.02f
                 typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
             }
+            val measuredW = subPaint.measureText(subtitleText)
+            if (measuredW > maxTextWidth) {
+                subPaint.textSize = (23f * density) * (maxTextWidth / measuredW)
+            }
             canvas.drawText(subtitleText, width / 2f, currentY, subPaint)
             currentY += 38f * density
         }
@@ -411,7 +422,12 @@ object WallpaperGenerator {
                 textSize = 20f * density
                 typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.ITALIC)
             }
-            canvas.drawText("“$quote”", width / 2f, currentY, quotePaint)
+            val quoteText = "“$quote”"
+            val measuredW = quotePaint.measureText(quoteText)
+            if (measuredW > maxTextWidth) {
+                quotePaint.textSize = (20f * density) * (maxTextWidth / measuredW)
+            }
+            canvas.drawText(quoteText, width / 2f, currentY, quotePaint)
         }
     }
 }
