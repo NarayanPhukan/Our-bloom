@@ -13,7 +13,6 @@ import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import android.view.animation.AccelerateInterpolator
 import android.view.animation.LinearInterpolator
 import kotlin.math.hypot
 import kotlin.math.min
@@ -62,80 +61,107 @@ class LudoBoardView @JvmOverloads constructor(
     private var cellSize = 0f
     private val boardRect = RectF()
     private val cellRect = RectF()
-    private val textBounds = Rect()
 
-    // Paints
+    // Color Palette matching authentic Ludo reference
+    companion object {
+        const val COLOR_BLUE = 0xFF008CE4.toInt()
+        const val COLOR_BLUE_DARK = 0xFF0067A8.toInt()
+        const val COLOR_BLUE_LIGHT = 0xFFE1F2FC.toInt()
+
+        const val COLOR_YELLOW = 0xFFFFCC00.toInt()
+        const val COLOR_YELLOW_DARK = 0xFFCC9900.toInt()
+        const val COLOR_YELLOW_LIGHT = 0xFFFFF9C4.toInt()
+
+        const val COLOR_GREEN = 0xFF009B48.toInt()
+        const val COLOR_GREEN_DARK = 0xFF007335.toInt()
+        const val COLOR_GREEN_LIGHT = 0xFFE8F5E9.toInt()
+
+        const val COLOR_RED = 0xFFE52521.toInt()
+        const val COLOR_RED_DARK = 0xFFB31815.toInt()
+        const val COLOR_RED_LIGHT = 0xFFFFEBEE.toInt()
+
+        const val COLOR_GRID_LINE = 0xFFCCCCCC.toInt()
+    }
+
+    // Core Board Paints
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFFBFD") // Pristine Blush White
+        color = Color.WHITE
     }
     private val gridLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E0D0D8")
+        color = COLOR_GRID_LINE
         style = Paint.Style.STROKE
-        strokeWidth = 1.5f
+        strokeWidth = 2f
     }
-    private val p1BasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFDDE5") // Soft Rose Base
+    private val innerPadBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFE0E0E0.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
     }
-    private val p1AccentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E91E63") // Vibrant Rose Coral
+
+    // Quadrant Paints
+    private val bluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_BLUE }
+    private val blueDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_BLUE_DARK }
+    private val yellowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_YELLOW }
+    private val yellowDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_YELLOW_DARK }
+    private val greenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_GREEN }
+    private val greenDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_GREEN_DARK }
+    private val redPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_RED }
+    private val redDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_RED_DARK }
+
+    // Star & Arrow Paints
+    private val starOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF616161.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f
+        strokeJoin = Paint.Join.ROUND
     }
-    private val p2BasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#D7E9FB") // Soft Sky Base
-    }
-    private val p2AccentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#1E88E5") // Royal Sky Blue
-    }
-    private val decorativeYardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#F9F0F5") // Frosted Lavender
-    }
-    private val safeSquarePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFF9C4") // Star Yellow
-    }
-    private val starTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#F57F17")
-        textAlign = Paint.Align.CENTER
-        textSize = 28f
-    }
-    private val labelTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#880E4F")
-        textAlign = Paint.Align.CENTER
-        textSize = 28f
-        isFakeBoldText = true
+    private val whiteStarPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f
+        strokeJoin = Paint.Join.ROUND
     }
     private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFD54F")
+        color = 0xFFFFD54F.toInt()
         style = Paint.Style.STROKE
         strokeWidth = 8f
     }
 
-    // Token Paints
+    // Token Paints (P1 = Red / Rose Hearts, P2 = Yellow / Golden Stars)
     private val p1TokenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E91E63")
+        color = COLOR_RED
         style = Paint.Style.FILL
     }
     private val p1TokenBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#880E4F")
+        color = COLOR_RED_DARK
         style = Paint.Style.STROKE
-        strokeWidth = 4f
+        strokeWidth = 3.5f
     }
     private val p2TokenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#1976D2")
+        color = COLOR_YELLOW
         style = Paint.Style.FILL
     }
     private val p2TokenBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#0D47A1")
+        color = COLOR_YELLOW_DARK
         style = Paint.Style.STROKE
-        strokeWidth = 4f
+        strokeWidth = 3.5f
     }
     private val tokenSymbolPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
         textSize = 24f
+        isFakeBoldText = true
+    }
+    private val p2TokenSymbolPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF5D4037.toInt() // Rich deep amber brown for crisp contrast on yellow
+        textAlign = Paint.Align.CENTER
+        textSize = 24f
+        isFakeBoldText = true
     }
 
     // Shadow Paint for jumping tokens
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#40000000") // 25% black soft shadow
+        color = 0x40000000 // 25% black soft shadow
         style = Paint.Style.FILL
     }
     private val shadowRect = RectF()
@@ -194,33 +220,104 @@ class LudoBoardView @JvmOverloads constructor(
         super.onSizeChanged(w, h, oldw, oldh)
         val size = min(w, h).toFloat()
         cellSize = size / 15f
-        starTextPaint.textSize = cellSize * 0.65f
         tokenSymbolPaint.textSize = cellSize * 0.45f
-        labelTextPaint.textSize = cellSize * 0.45f
+        p2TokenSymbolPaint.textSize = cellSize * 0.45f
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (cellSize <= 0) return
 
-        // 1. Background
+        // 1. Board Background
         boardRect.set(0f, 0f, 15 * cellSize, 15 * cellSize)
         canvas.drawRect(boardRect, bgPaint)
 
-        // 2. Draw Yards (6x6 corners)
-        if (!isFlipped) {
-            drawYard(canvas, 9, 0, p1BasePaint, p1AccentPaint, "Rose Hearts ♡", 1) // Bottom-Left (P1)
-            drawYard(canvas, 0, 9, p2BasePaint, p2AccentPaint, "Sky Stars ⭐️", 2)   // Top-Right (P2)
-            drawDecorativeYard(canvas, 0, 0, "Our Bloom 🌸")                       // Top-Left (Deco)
-            drawDecorativeYard(canvas, 9, 9, "Love Castle 🏰")                     // Bottom-Right (Deco)
-        } else {
-            drawYard(canvas, 9, 0, p2BasePaint, p2AccentPaint, "Sky Stars ⭐️", 2)   // Bottom-Left (P2)
-            drawYard(canvas, 0, 9, p1BasePaint, p1AccentPaint, "Rose Hearts ♡", 1) // Top-Right (P1)
-            drawDecorativeYard(canvas, 0, 0, "Love Castle 🏰")                     // Top-Left (Deco)
-            drawDecorativeYard(canvas, 9, 9, "Our Bloom 🌸")                       // Bottom-Right (Deco)
-        }
+        // 2. Draw 4 Corner Yards (6x6 each)
+        drawAllYards(canvas)
 
-        // 3. Draw Track Grid (15x15 cells)
+        // 3. Draw Track Grid (15x15 with home corridors, start cells, arrows, and safe stars)
+        drawTrackGrid(canvas)
+
+        // 4. Draw Center (3x3 with 4 meeting triangles)
+        drawCenterTriangles(canvas)
+
+        // 5. Draw Active Tokens (P1 = Red, P2 = Yellow)
+        drawTokens(canvas)
+    }
+
+    /**
+     * Draws the 4 authentic Ludo corner bases:
+     * Top-Left: Blue, Top-Right: Yellow, Bottom-Right: Green, Bottom-Left: Red.
+     * When flipped 180°: Top-Left becomes Green, Top-Right becomes Red, Bottom-Right becomes Blue, Bottom-Left becomes Yellow.
+     */
+    private fun drawAllYards(canvas: Canvas) {
+        if (!isFlipped) {
+            // Standard perspective: Red (P1) at Bottom-Left, Yellow (P2) at Top-Right
+            drawSingleYard(canvas, 0, 0, bluePaint, blueDarkPaint)     // Top-Left (Blue)
+            drawSingleYard(canvas, 0, 9, yellowPaint, yellowDarkPaint) // Top-Right (Yellow - P2)
+            drawSingleYard(canvas, 9, 9, greenPaint, greenDarkPaint)   // Bottom-Right (Green)
+            drawSingleYard(canvas, 9, 0, redPaint, redDarkPaint)       // Bottom-Left (Red - P1)
+        } else {
+            // 180° Rotated perspective: Yellow (P2) at Bottom-Left, Red (P1) at Top-Right
+            drawSingleYard(canvas, 0, 0, greenPaint, greenDarkPaint)   // Top-Left (Green)
+            drawSingleYard(canvas, 0, 9, redPaint, redDarkPaint)       // Top-Right (Red - P1)
+            drawSingleYard(canvas, 9, 9, bluePaint, blueDarkPaint)     // Bottom-Right (Blue)
+            drawSingleYard(canvas, 9, 0, yellowPaint, yellowDarkPaint) // Bottom-Left (Yellow - P2)
+        }
+    }
+
+    private fun drawSingleYard(
+        canvas: Canvas,
+        startRow: Int,
+        startCol: Int,
+        framePaint: Paint,
+        pocketBorderPaint: Paint
+    ) {
+        val left = startCol * cellSize
+        val top = startRow * cellSize
+        val right = left + 6 * cellSize
+        val bottom = top + 6 * cellSize
+
+        // Outer colored yard frame (6x6)
+        canvas.drawRoundRect(left + 2f, top + 2f, right - 2f, bottom - 2f, 16f, 16f, framePaint)
+
+        // Inner white pad (4x4)
+        val padL = left + cellSize
+        val padT = top + cellSize
+        val padR = right - cellSize
+        val padB = bottom - cellSize
+        canvas.drawRoundRect(padL, padT, padR, padB, 18f, 18f, bgPaint)
+        canvas.drawRoundRect(padL, padT, padR, padB, 18f, 18f, innerPadBorderPaint)
+
+        // 4 circular token pockets
+        val yardSlots = getYardSlotCoordinates(startRow, startCol)
+        for ((cx, cy) in yardSlots) {
+            // Shadow / dark bevel ring
+            canvas.drawCircle(cx, cy, cellSize * 0.58f, pocketBorderPaint)
+            // Raised color spot
+            canvas.drawCircle(cx, cy, cellSize * 0.50f, framePaint)
+        }
+    }
+
+    /**
+     * Draws the main 15x15 grid tracks, authentic home corridors, start tiles, arrows, and stars.
+     */
+    private fun drawTrackGrid(canvas: Canvas) {
+        // Safe square positions in standard (r, c)
+        // 1: (6, 1) Blue start
+        // 9: (2, 6) Top arm
+        // 14: (1, 8) Yellow start
+        // 22: (6, 12) Right arm
+        // 27: (8, 13) Green start
+        // 35: (12, 8) Bottom arm
+        // 40: (13, 6) Red start
+        // 48: (8, 2) Left arm
+
+        val pBlue = if (!isFlipped) bluePaint else greenPaint
+        val pYellow = if (!isFlipped) yellowPaint else redPaint
+        val pGreen = if (!isFlipped) greenPaint else bluePaint
+        val pRed = if (!isFlipped) redPaint else yellowPaint
+
         for (r in 0..14) {
             for (c in 0..14) {
                 // Skip yard corners (6x6) and center (3x3)
@@ -231,74 +328,59 @@ class LudoBoardView @JvmOverloads constructor(
                 val left = c * cellSize
                 val top = r * cellSize
                 cellRect.set(left, top, left + cellSize, top + cellSize)
+                val cx = left + cellSize / 2f
+                val cy = top + cellSize / 2f
 
-                // Track colors: P1 Home Corridor (r=7, c=1..5), P2 Home Corridor (r=7, c=9..13)
-                if (r == 7 && c in 1..5) {
-                    canvas.drawRect(cellRect, if (!isFlipped) p1AccentPaint else p2AccentPaint)
-                } else if (r == 7 && c in 9..13) {
-                    canvas.drawRect(cellRect, if (!isFlipped) p2AccentPaint else p1AccentPaint)
-                } else if (r == 6 && c == 1) {
-                    // Start Cell next to bottom-left yard
-                    canvas.drawRect(cellRect, if (!isFlipped) p1BasePaint else p2BasePaint)
-                } else if (r == 8 && c == 13) {
-                    // Start Cell next to top-right yard
-                    canvas.drawRect(cellRect, if (!isFlipped) p2BasePaint else p1BasePaint)
-                } else {
-                    canvas.drawRect(cellRect, bgPaint)
+                // Cell background coloring:
+                when {
+                    // Left Arm Home Corridor (Blue in normal, Green in flipped)
+                    r == 7 && c in 1..5 -> canvas.drawRect(cellRect, pBlue)
+                    // Top Arm Home Corridor (Yellow in normal, Red in flipped)
+                    c == 7 && r in 1..5 -> canvas.drawRect(cellRect, pYellow)
+                    // Right Arm Home Corridor (Green in normal, Blue in flipped)
+                    r == 7 && c in 9..13 -> canvas.drawRect(cellRect, pGreen)
+                    // Bottom Arm Home Corridor (Red in normal, Yellow in flipped)
+                    c == 7 && r in 9..13 -> canvas.drawRect(cellRect, pRed)
+
+                    // Start Squares
+                    r == 6 && c == 1 -> canvas.drawRect(cellRect, pBlue)    // Blue start
+                    r == 1 && c == 8 -> canvas.drawRect(cellRect, pYellow)  // Yellow start
+                    r == 8 && c == 13 -> canvas.drawRect(cellRect, pGreen)  // Green start
+                    r == 13 && c == 6 -> canvas.drawRect(cellRect, pRed)    // Red start
+
+                    else -> canvas.drawRect(cellRect, bgPaint)
                 }
 
-                // Grid border
+                // Cell Border
                 canvas.drawRect(cellRect, gridLinePaint)
 
-                // Safe star markers
-                val trackIndex = getTrackIndexForGridCell(r, c)
-                if (trackIndex != null && LudoLogic.isSafeSquare(trackIndex)) {
-                    val cx = left + cellSize / 2f
-                    val cy = top + cellSize / 2f - (starTextPaint.descent() + starTextPaint.ascent()) / 2f
-                    canvas.drawText("⭐️", cx, cy, starTextPaint)
+                // Entry Directional Arrows at the entry of each home corridor
+                when {
+                    r == 7 && c == 0 -> drawArrow(canvas, cx, cy, 0, pBlue)    // → pointing East
+                    r == 0 && c == 7 -> drawArrow(canvas, cx, cy, 1, pYellow)  // ↓ pointing South
+                    r == 7 && c == 14 -> drawArrow(canvas, cx, cy, 2, pGreen)  // ← pointing West
+                    r == 14 && c == 7 -> drawArrow(canvas, cx, cy, 3, pRed)    // ↑ pointing North
+                }
+
+                // 8 Authentic Safe Star Squares (outlined star)
+                val isSafeCell = (r == 6 && c == 1) || (r == 2 && c == 6) ||
+                                 (r == 1 && c == 8) || (r == 6 && c == 12) ||
+                                 (r == 8 && c == 13) || (r == 12 && c == 8) ||
+                                 (r == 13 && c == 6) || (r == 8 && c == 2)
+
+                if (isSafeCell) {
+                    val isStartColored = (r == 6 && c == 1) || (r == 1 && c == 8) ||
+                                         (r == 8 && c == 13) || (r == 13 && c == 6)
+                    drawOutlinedStar(canvas, cx, cy, cellSize * 0.38f, isWhite = isStartColored)
                 }
             }
         }
-
-        // 4. Draw Center Castle (Heartland)
-        drawCenterHeartland(canvas)
-
-        // 5. Draw Tokens
-        drawTokens(canvas)
     }
 
-    private fun drawYard(canvas: Canvas, startRow: Int, startCol: Int, basePaint: Paint, accentPaint: Paint, title: String, player: Int) {
-        val left = startCol * cellSize
-        val top = startRow * cellSize
-        val right = left + 6 * cellSize
-        val bottom = top + 6 * cellSize
-
-        // Outer base
-        canvas.drawRoundRect(left + 6f, top + 6f, right - 6f, bottom - 6f, 24f, 24f, basePaint)
-        // Inner white pad
-        canvas.drawRoundRect(left + cellSize, top + cellSize, right - cellSize, bottom - cellSize, 20f, 20f, bgPaint)
-
-        // 4 token slots inside yard
-        val yardSlots = getYardSlotCoordinates(startRow, startCol)
-        for ((cx, cy) in yardSlots) {
-            canvas.drawCircle(cx, cy, cellSize * 0.7f, basePaint)
-            canvas.drawCircle(cx, cy, cellSize * 0.65f, accentPaint)
-        }
-    }
-
-    private fun drawDecorativeYard(canvas: Canvas, startRow: Int, startCol: Int, label: String) {
-        val left = startCol * cellSize
-        val top = startRow * cellSize
-        val right = left + 6 * cellSize
-        val bottom = top + 6 * cellSize
-
-        canvas.drawRoundRect(left + 6f, top + 6f, right - 6f, bottom - 6f, 24f, 24f, decorativeYardPaint)
-        val cx = left + 3 * cellSize
-        val cy = top + 3 * cellSize
-        canvas.drawText(label, cx, cy, labelTextPaint)
-    }
-
-    private fun drawCenterHeartland(canvas: Canvas) {
+    /**
+     * Draws the 4 classic Ludo triangles meeting at the center point (7.5, 7.5).
+     */
+    private fun drawCenterTriangles(canvas: Canvas) {
         val left = 6 * cellSize
         val top = 6 * cellSize
         val right = 9 * cellSize
@@ -306,34 +388,105 @@ class LudoBoardView @JvmOverloads constructor(
         val cx = (left + right) / 2f
         val cy = (top + bottom) / 2f
 
-        // 4 triangles meeting at center
-        val path1 = Path().apply {
-            moveTo(left, bottom)
+        val pBlue = if (!isFlipped) bluePaint else greenPaint
+        val pYellow = if (!isFlipped) yellowPaint else redPaint
+        val pGreen = if (!isFlipped) greenPaint else bluePaint
+        val pRed = if (!isFlipped) redPaint else yellowPaint
+
+        // Left Triangle (Blue)
+        val pathLeft = Path().apply {
+            moveTo(left, top)
             lineTo(cx, cy)
-            lineTo(left, top)
+            lineTo(left, bottom)
             close()
         }
-        canvas.drawPath(path1, if (!isFlipped) p1AccentPaint else p2AccentPaint)
+        canvas.drawPath(pathLeft, pBlue)
 
-        val path2 = Path().apply {
+        // Top Triangle (Yellow)
+        val pathTop = Path().apply {
+            moveTo(left, top)
+            lineTo(right, top)
+            lineTo(cx, cy)
+            close()
+        }
+        canvas.drawPath(pathTop, pYellow)
+
+        // Right Triangle (Green)
+        val pathRight = Path().apply {
             moveTo(right, top)
+            lineTo(right, bottom)
+            lineTo(cx, cy)
+            close()
+        }
+        canvas.drawPath(pathRight, pGreen)
+
+        // Bottom Triangle (Red)
+        val pathBottom = Path().apply {
+            moveTo(left, bottom)
             lineTo(cx, cy)
             lineTo(right, bottom)
             close()
         }
-        canvas.drawPath(path2, if (!isFlipped) p2AccentPaint else p1AccentPaint)
+        canvas.drawPath(pathBottom, pRed)
 
-        // Center Heart / Castle emblem
+        // Triangle separating borders
+        canvas.drawLine(left, top, right, bottom, gridLinePaint)
+        canvas.drawLine(left, bottom, right, top, gridLinePaint)
+        canvas.drawRect(left, top, right, bottom, gridLinePaint)
+
+        // Center Heartland Emblem (Our Bloom Romantic Sparkle)
         val emblemPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
             textAlign = Paint.Align.CENTER
-            textSize = cellSize * 0.9f
+            textSize = cellSize * 0.75f
         }
         canvas.drawText("💖", cx, cy - (emblemPaint.descent() + emblemPaint.ascent()) / 2f, emblemPaint)
     }
 
+    /**
+     * Draws an outlined 5-pointed star matching the reference image.
+     */
+    private fun drawOutlinedStar(canvas: Canvas, cx: Float, cy: Float, radius: Float, isWhite: Boolean) {
+        val path = Path()
+        val innerRadius = radius * 0.44f
+        for (i in 0 until 10) {
+            val r = if (i % 2 == 0) radius else innerRadius
+            val angle = Math.toRadians((i * 36.0) - 90.0)
+            val x = cx + (r * Math.cos(angle)).toFloat()
+            val y = cy + (r * Math.sin(angle)).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+
+        val paint = if (isWhite) whiteStarPaint else starOutlinePaint
+        canvas.drawPath(path, paint)
+    }
+
+    /**
+     * Draws a clean directional arrow vector pointing towards home.
+     * direction: 0 = East (→), 1 = South (↓), 2 = West (←), 3 = North (↑)
+     */
+    private fun drawArrow(canvas: Canvas, cx: Float, cy: Float, direction: Int, paint: Paint) {
+        canvas.save()
+        canvas.translate(cx, cy)
+        canvas.rotate(direction * 90f)
+        val s = cellSize * 0.36f
+        val path = Path().apply {
+            // Arrow pointing East (0°)
+            moveTo(s * 0.85f, 0f)
+            lineTo(-s * 0.3f, -s * 0.65f)
+            lineTo(-s * 0.1f, -s * 0.22f)
+            lineTo(-s * 0.75f, -s * 0.22f)
+            lineTo(-s * 0.75f, s * 0.22f)
+            lineTo(-s * 0.1f, s * 0.22f)
+            lineTo(-s * 0.3f, s * 0.65f)
+            close()
+        }
+        canvas.drawPath(path, paint)
+        canvas.restore()
+    }
+
     private fun drawTokens(canvas: Canvas) {
-        // Draw Player 1 tokens
+        // Draw Player 1 tokens (Red / Rose Hearts ♡)
         for (i in player1Tokens.indices) {
             val pos = player1Tokens[i]
             if (isAnimatingToken && animatingPlayer == 1 && i == animatingTokenIndex) {
@@ -355,7 +508,7 @@ class LudoBoardView @JvmOverloads constructor(
             }
         }
 
-        // Draw Player 2 tokens
+        // Draw Player 2 tokens (Yellow / Golden Stars ⭐️)
         for (i in player2Tokens.indices) {
             val pos = player2Tokens[i]
             if (isAnimatingToken && animatingPlayer == 2 && i == animatingTokenIndex) {
@@ -396,17 +549,31 @@ class LudoBoardView @JvmOverloads constructor(
 
         if (isMovable) {
             // Pulsing selection halo
-            canvas.drawCircle(cx, cy, radius * pulseFactor * 1.3f, haloPaint)
+            canvas.drawCircle(cx, cy, radius * pulseFactor * 1.35f, haloPaint)
         }
 
         val fillPaint = if (player == 1) p1TokenPaint else p2TokenPaint
         val borderPaint = if (player == 1) p1TokenBorderPaint else p2TokenBorderPaint
+        val symPaint = if (player == 1) tokenSymbolPaint else p2TokenSymbolPaint
 
+        // Subtle 3D bottom bevel/shadow
+        shadowRect.set(cx - radius * 0.95f, cy - radius * 0.7f, cx + radius * 0.95f, cy + radius * 1.15f)
+        canvas.drawOval(shadowRect, shadowPaint)
+
+        // Main token body
         canvas.drawCircle(cx, cy, radius, fillPaint)
         canvas.drawCircle(cx, cy, radius, borderPaint)
 
-        val textY = cy - (tokenSymbolPaint.descent() + tokenSymbolPaint.ascent()) / 2f
-        canvas.drawText(symbol, cx, textY, tokenSymbolPaint)
+        // Inner circular highlight ring for tactile 3D look
+        val innerHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1.5f
+            color = if (player == 1) 0x60FFFFFF else 0x40FFFFFF
+        }
+        canvas.drawCircle(cx, cy, radius * 0.75f, innerHighlight)
+
+        val textY = cy - (symPaint.descent() + symPaint.ascent()) / 2f
+        canvas.drawText(symbol, cx, textY, symPaint)
 
         canvas.restore()
     }
@@ -424,6 +591,8 @@ class LudoBoardView @JvmOverloads constructor(
 
     /**
      * Converts a token's position (in yard, on track, in corridor, or in home) into canvas (x, y).
+     * Player 1 = Red (Bottom-Left: yard (9, 0), start 40, home corridor bottom vertical).
+     * Player 2 = Yellow (Top-Right: yard (0, 9), start 14, home corridor top vertical).
      */
     fun getTokenPositionCoordinates(pos: Int, player: Int, tokenIndex: Int): Pair<Float, Float> {
         // In Yard
@@ -441,18 +610,30 @@ class LudoBoardView @JvmOverloads constructor(
         if (pos == LudoLogic.HOME_POS) {
             val cx = 7.5f * cellSize
             val cy = 7.5f * cellSize
-            val angle = (tokenIndex * 90.0) + (if ((player == 1 && !isFlipped) || (player == 2 && isFlipped)) 0.0 else 45.0)
-            val rad = Math.toRadians(angle)
-            val dist = cellSize * 0.5f
-            return Pair(cx + (dist * Math.cos(rad)).toFloat(), cy + (dist * Math.sin(rad)).toFloat())
+            val isBottom = (!isFlipped && player == 1) || (isFlipped && player == 2)
+            val baseCy = if (isBottom) (cy + cellSize * 0.55f) else (cy - cellSize * 0.55f)
+
+            // Cluster the 4 tokens comfortably inside their colored triangle
+            val offsetX = when (tokenIndex) {
+                0 -> -cellSize * 0.35f
+                1 -> cellSize * 0.35f
+                2 -> -cellSize * 0.18f
+                else -> cellSize * 0.18f
+            }
+            val offsetY = when (tokenIndex) {
+                0, 1 -> if (isBottom) cellSize * 0.25f else -cellSize * 0.25f
+                else -> if (isBottom) -cellSize * 0.15f else cellSize * 0.15f
+            }
+            return Pair(cx + offsetX, baseCy + offsetY)
         }
 
-        // In Home Corridor (101..105 for P1, 201..205 for P2)
+        // In Home Corridor (101..105 for P1 Red, 201..205 for P2 Yellow)
         if (pos > 100) {
             val step = pos % 100 // 1..5
-            val isLeftCorridor = (!isFlipped && player == 1) || (isFlipped && player == 2)
-            val c = if (isLeftCorridor) step else (14 - step)
-            return Pair((c + 0.5f) * cellSize, 7.5f * cellSize)
+            val isBottomCorridor = (!isFlipped && player == 1) || (isFlipped && player == 2)
+            val row = if (isBottomCorridor) (14 - step) else step
+            val col = 7
+            return Pair((col + 0.5f) * cellSize, (row + 0.5f) * cellSize)
         }
 
         // On Main Track (0..51)
@@ -473,7 +654,7 @@ class LudoBoardView @JvmOverloads constructor(
         return when (effectiveIdx % 52) {
             // Left Arm (top row of left arm, moving East towards center):
             0 -> Pair(6, 0)
-            1 -> Pair(6, 1) // P1 Start Cell
+            1 -> Pair(6, 1) // Blue Start
             2 -> Pair(6, 2)
             3 -> Pair(6, 3)
             4 -> Pair(6, 4)
@@ -488,11 +669,11 @@ class LudoBoardView @JvmOverloads constructor(
             11 -> Pair(0, 6)
 
             // Top edge:
-            12 -> Pair(0, 7)
+            12 -> Pair(0, 7) // Yellow Pre-Home / Arrow ↓
             13 -> Pair(0, 8)
 
             // Top Arm (right column of top arm, moving South towards center):
-            14 -> Pair(1, 8) // Safe square (star)
+            14 -> Pair(1, 8) // Yellow Start (Safe square / star)
             15 -> Pair(2, 8)
             16 -> Pair(3, 8)
             17 -> Pair(4, 8)
@@ -507,11 +688,11 @@ class LudoBoardView @JvmOverloads constructor(
             24 -> Pair(6, 14)
 
             // Right edge:
-            25 -> Pair(7, 14) // P2 Pre-Home Cell
+            25 -> Pair(7, 14) // Green Pre-Home / Arrow ←
             26 -> Pair(8, 14)
 
             // Right Arm (bottom row of right arm, moving West towards center):
-            27 -> Pair(8, 13) // P2 Start Cell
+            27 -> Pair(8, 13) // Green Start (Safe square / star)
             28 -> Pair(8, 12)
             29 -> Pair(8, 11)
             30 -> Pair(8, 10)
@@ -526,11 +707,11 @@ class LudoBoardView @JvmOverloads constructor(
             37 -> Pair(14, 8)
 
             // Bottom edge:
-            38 -> Pair(14, 7)
+            38 -> Pair(14, 7) // Red Pre-Home / Arrow ↑
             39 -> Pair(14, 6)
 
             // Bottom Arm (left column of bottom arm, moving North towards center):
-            40 -> Pair(13, 6) // Safe square (star)
+            40 -> Pair(13, 6) // Red Start (Safe square / star)
             41 -> Pair(12, 6)
             42 -> Pair(11, 6)
             43 -> Pair(10, 6)
@@ -545,18 +726,10 @@ class LudoBoardView @JvmOverloads constructor(
             50 -> Pair(8, 0)
 
             // Left edge:
-            51 -> Pair(7, 0) // P1 Pre-Home Cell
+            51 -> Pair(7, 0) // Blue Pre-Home / Arrow →
 
             else -> Pair(6, 0)
         }
-    }
-
-    private fun getTrackIndexForGridCell(r: Int, c: Int): Int? {
-        for (i in 0..51) {
-            val cell = getGridCellForTrackIndex(i)
-            if (cell.first == r && cell.second == c) return i
-        }
-        return null
     }
 
     /**
@@ -675,12 +848,12 @@ class LudoBoardView @JvmOverloads constructor(
         this.capturedTokenIndex = capturedTokenIndex
 
         currentCaptureAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 380L
-            interpolator = AccelerateInterpolator()
+            duration = 450L
+            interpolator = android.view.animation.AccelerateInterpolator()
             addUpdateListener { va ->
                 val f = va.animatedValue as Float
+                val arc = Math.sin(f * Math.PI).toFloat() * cellSize * 1.5f
                 capturedX = startCoord.first + (targetCoord.first - startCoord.first) * f
-                val arc = Math.sin(f * Math.PI).toFloat() * cellSize * 0.75f
                 capturedY = startCoord.second + (targetCoord.second - startCoord.second) * f - arc
                 capturedScale = 1f + Math.sin(f * Math.PI).toFloat() * 0.25f
                 invalidate()

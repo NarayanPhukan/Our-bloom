@@ -7,14 +7,14 @@ object LudoLogic {
     const val HOME_POS = 99
     const val YARD_POS = -1
 
-    // Player 1 (Rose Hearts): Starts at 1, runs to 51, enters 101..105, then 99
-    const val P1_START = 1
-    const val P1_PRE_HOME = 51
+    // Player 1 (Rose Hearts - Red): Starts at 40 (row 13, col 6), runs 40..51, 0..38, enters 101..105, then 99
+    const val P1_START = 40
+    const val P1_PRE_HOME = 38
     const val P1_HOME_CORRIDOR_BASE = 100 // 101..105
 
-    // Player 2 (Sky Stars): Starts at 27, runs 27..51, then 0..25, enters 201..205, then 99
-    const val P2_START = 27
-    const val P2_PRE_HOME = 25
+    // Player 2 (Golden Stars - Yellow): Starts at 14 (row 1, col 8), runs 14..51, 0..12, enters 201..205, then 99
+    const val P2_START = 14
+    const val P2_PRE_HOME = 12
     const val P2_HOME_CORRIDOR_BASE = 200 // 201..205
 
     // Safe Squares on standard Ludo track (where tokens cannot be captured)

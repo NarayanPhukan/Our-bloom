@@ -159,7 +159,7 @@ class CoupleLudoFragment : Fragment() {
             triggerHaptic()
             Toast.makeText(
                 requireContext(),
-                if (ludoBoardView.isFlipped) "Board flipped (Sky team at bottom) 🔄" else "Board flipped (Rose team at bottom) 🔄",
+                if (ludoBoardView.isFlipped) "Board flipped (Golden team at bottom) 🔄" else "Board flipped (Rose team at bottom) 🔄",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -393,29 +393,29 @@ class CoupleLudoFragment : Fragment() {
                 tvBottomPlayerTurnChip.text = if (isP1Turn) "Your Turn 🎲" else "Waiting ⏳"
                 tvBottomPlayerTurnChip.setTextColor(if (isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
 
-                // Top: Partner (Sky Stars ⭐️)
+                // Top: Partner (Golden Stars ⭐️)
                 tvTopPlayerName.text = "$partnerName ⭐️"
                 tvTopPlayerIcon.text = "★"
-                tvTopPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvTopPlayerIcon.setTextColor(0xFFF57F17.toInt())
                 tvTopPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
                 tvTopPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
-                tvTopPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+                tvTopPlayerHomeCount.setTextColor(0xFFE65100.toInt())
 
                 tvTopPlayerTurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
-                tvTopPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF1976D2.toInt() else 0xFF78909C.toInt())
+                tvTopPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFFE65100.toInt() else 0xFF78909C.toInt())
 
                 // Respective color on bottom side for Dice
                 btnRollDice.strokeColor = 0xFFE91E63.toInt()
                 tvDiceDisplay.setTextColor(0xFFE91E63.toInt())
                 tvDiceHint.setTextColor(0xFFAD1457.toInt())
             } else {
-                // Bottom: You (Sky Stars ⭐️)
+                // Bottom: You (Golden Stars ⭐️)
                 tvBottomPlayerName.text = "You ($currentUserName) ⭐️"
                 tvBottomPlayerIcon.text = "★"
-                tvBottomPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvBottomPlayerIcon.setTextColor(0xFFF57F17.toInt())
                 tvBottomPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
                 tvBottomPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
-                tvBottomPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+                tvBottomPlayerHomeCount.setTextColor(0xFFE65100.toInt())
 
                 tvBottomPlayerTurnChip.text = if (!isP1Turn) "Your Turn 🎲" else "Waiting ⏳"
                 tvBottomPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
@@ -432,9 +432,9 @@ class CoupleLudoFragment : Fragment() {
                 tvTopPlayerTurnChip.setTextColor(if (isP1Turn) 0xFFE91E63.toInt() else 0xFF78909C.toInt())
 
                 // Respective color on bottom side for Dice
-                btnRollDice.strokeColor = 0xFF1E88E5.toInt()
-                tvDiceDisplay.setTextColor(0xFF1E88E5.toInt())
-                tvDiceHint.setTextColor(0xFF1565C0.toInt())
+                btnRollDice.strokeColor = 0xFFF57F17.toInt()
+                tvDiceDisplay.setTextColor(0xFFF57F17.toInt())
+                tvDiceHint.setTextColor(0xFFE65100.toInt())
             }
         } else {
             // Pass & Play Mode
@@ -449,29 +449,29 @@ class CoupleLudoFragment : Fragment() {
                 tvBottomPlayerTurnChip.text = if (isP1Turn) "Rolling 🎲" else "Waiting ⏳"
                 tvBottomPlayerTurnChip.setTextColor(if (isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
 
-                // Top is Player 2 (Sky)
-                tvTopPlayerName.text = "Player 2 (Sky Stars ⭐️)"
+                // Top is Player 2 (Golden)
+                tvTopPlayerName.text = "Player 2 (Golden Stars ⭐️)"
                 tvTopPlayerIcon.text = "★"
-                tvTopPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvTopPlayerIcon.setTextColor(0xFFF57F17.toInt())
                 tvTopPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
                 tvTopPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
-                tvTopPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+                tvTopPlayerHomeCount.setTextColor(0xFFE65100.toInt())
                 tvTopPlayerTurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
-                tvTopPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF1976D2.toInt() else 0xFF78909C.toInt())
+                tvTopPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFFE65100.toInt() else 0xFF78909C.toInt())
 
                 val isCurrentRose = isP1Turn
-                val accentColor = if (isCurrentRose) 0xFFE91E63.toInt() else 0xFF1E88E5.toInt()
+                val accentColor = if (isCurrentRose) 0xFFE91E63.toInt() else 0xFFF57F17.toInt()
                 btnRollDice.strokeColor = accentColor
                 tvDiceDisplay.setTextColor(accentColor)
-                tvDiceHint.setTextColor(if (isCurrentRose) 0xFFAD1457.toInt() else 0xFF1565C0.toInt())
+                tvDiceHint.setTextColor(if (isCurrentRose) 0xFFAD1457.toInt() else 0xFFE65100.toInt())
             } else {
-                // Flipped: Bottom is Player 2 (Sky)
-                tvBottomPlayerName.text = "Player 2 (Sky Stars ⭐️)"
+                // Flipped: Bottom is Player 2 (Golden)
+                tvBottomPlayerName.text = "Player 2 (Golden Stars ⭐️)"
                 tvBottomPlayerIcon.text = "★"
-                tvBottomPlayerIcon.setTextColor(0xFF1E88E5.toInt())
+                tvBottomPlayerIcon.setTextColor(0xFFF57F17.toInt())
                 tvBottomPlayerIcon.setBackgroundResource(R.drawable.bg_pill_dark)
                 tvBottomPlayerHomeCount.text = "$p2Home/4 in Heartland 💖"
-                tvBottomPlayerHomeCount.setTextColor(0xFF1976D2.toInt())
+                tvBottomPlayerHomeCount.setTextColor(0xFFE65100.toInt())
                 tvBottomPlayerTurnChip.text = if (!isP1Turn) "Rolling 🎲" else "Waiting ⏳"
                 tvBottomPlayerTurnChip.setTextColor(if (!isP1Turn) 0xFF2E7D32.toInt() else 0xFF78909C.toInt())
 
@@ -486,10 +486,10 @@ class CoupleLudoFragment : Fragment() {
                 tvTopPlayerTurnChip.setTextColor(if (isP1Turn) 0xFFE91E63.toInt() else 0xFF78909C.toInt())
 
                 val isCurrentRose = isP1Turn
-                val accentColor = if (isCurrentRose) 0xFFE91E63.toInt() else 0xFF1E88E5.toInt()
+                val accentColor = if (isCurrentRose) 0xFFE91E63.toInt() else 0xFFF57F17.toInt()
                 btnRollDice.strokeColor = accentColor
                 tvDiceDisplay.setTextColor(accentColor)
-                tvDiceHint.setTextColor(if (isCurrentRose) 0xFFAD1457.toInt() else 0xFF1565C0.toInt())
+                tvDiceHint.setTextColor(if (isCurrentRose) 0xFFAD1457.toInt() else 0xFFE65100.toInt())
             }
         }
 
@@ -822,7 +822,7 @@ class CoupleLudoFragment : Fragment() {
         localGameState = LudoState(
             id = "ludo",
             player1Name = "Player 1 (Rose Hearts)",
-            player2Name = "Player 2 (Sky Stars)",
+            player2Name = "Player 2 (Golden Stars)",
             player1Tokens = listOf(-1, -1, -1, -1),
             player2Tokens = listOf(-1, -1, -1, -1),
             turnPlayer = 1,

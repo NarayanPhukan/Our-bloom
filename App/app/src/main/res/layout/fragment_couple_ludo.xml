@@ -171,7 +171,7 @@
                     android:background="@drawable/bg_pill_dark"
                     android:gravity="center"
                     android:text="★"
-                    android:textColor="#1E88E5"
+                    android:textColor="#F57F17"
                     android:textSize="20sp" />
 
                 <LinearLayout
@@ -185,7 +185,7 @@
                         android:id="@+id/tv_top_player_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Partner (Sky Team)"
+                        android:text="Partner (Golden Team)"
                         android:textAppearance="?attr/textAppearanceTitleSmall"
                         android:textColor="?attr/colorOnSurface"
                         android:textStyle="bold" />

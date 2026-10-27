@@ -1,8 +1,8 @@
 {
-  "versionCode": 97,
-  "versionName": "1.96",
+  "versionCode": 98,
+  "versionName": "1.97",
   "title": "New Bloom Update Available! 🌸",
-  "changelog": "• Fix: Resolved couple wallpaper crash & enhanced background rendering stability • Faster wallpaper preview & sync",
+  "changelog": "• Heartland Ludo: Redesigned board to authentic 4-color classic layout • Fixed color paths, start tiles & arrows for 2-player match",
   "apkUrl": "https://our-bloom-gamma.vercel.app/OurBloom.apk",
   "forceUpdate": false
 }
