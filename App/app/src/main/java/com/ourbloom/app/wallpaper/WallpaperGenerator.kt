@@ -83,7 +83,11 @@ object WallpaperGenerator {
         val width = if (targetWidth > 0) targetWidth else 1080
         val height = if (targetHeight > 0) targetHeight else 2400
 
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val output = try {
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        } catch (t: Throwable) {
+            Bitmap.createBitmap(width.coerceAtMost(720), height.coerceAtMost(1600), Bitmap.Config.RGB_565)
+        }
         val canvas = Canvas(output)
 
         // 1. Draw Background (Source Photo or Preset Gradient)
@@ -158,7 +162,11 @@ object WallpaperGenerator {
         val width = if (targetWidth > 0) targetWidth else 1080
         val height = if (targetHeight > 0) targetHeight else 2400
 
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val output = try {
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        } catch (t: Throwable) {
+            Bitmap.createBitmap(width.coerceAtMost(720), height.coerceAtMost(1600), Bitmap.Config.RGB_565)
+        }
         val canvas = Canvas(output)
 
         // 1. Draw base soft romantic background
@@ -172,8 +180,8 @@ object WallpaperGenerator {
                 val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
                 canvas.drawBitmap(bgBitmap, null, dstRect, paint)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("WallpaperGenerator", "Error loading template_heart_ribbon_bg", e)
+        } catch (t: Throwable) {
+            android.util.Log.e("WallpaperGenerator", "Error loading template_heart_ribbon_bg", t)
         }
 
         // 3. Setup Vector Paints for razor-sharp photo frame rendering
@@ -284,7 +292,11 @@ object WallpaperGenerator {
         val width = if (targetWidth > 0) targetWidth else 1080
         val height = if (targetHeight > 0) targetHeight else 2400
 
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val output = try {
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        } catch (t: Throwable) {
+            Bitmap.createBitmap(width.coerceAtMost(720), height.coerceAtMost(1600), Bitmap.Config.RGB_565)
+        }
         val canvas = Canvas(output)
 
         // 1. Soft natural paper tone
@@ -303,7 +315,11 @@ object WallpaperGenerator {
         val photoToDraw = if (sourceBitmap != null && !sourceBitmap.isRecycled) {
             sourceBitmap
         } else {
-            BitmapFactory.decodeResource(context.resources, R.drawable.sample_couple_portrait)
+            try {
+                BitmapFactory.decodeResource(context.resources, R.drawable.sample_couple_portrait)
+            } catch (t: Throwable) {
+                null
+            }
         }
 
         if (photoToDraw != null && !photoToDraw.isRecycled) {
@@ -317,7 +333,7 @@ object WallpaperGenerator {
                 val framePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
                 canvas.drawBitmap(frameBitmap, null, RectF(0f, 0f, width.toFloat(), height.toFloat()), framePaint)
             }
-        } catch (e: Exception) {
+        } catch (t: Throwable) {
             // Frame rendering fallback
         }
 

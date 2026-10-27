@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
-import android.util.DisplayMetrics
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -32,6 +31,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.firebase.firestore.ListenerRegistration
+import com.ourbloom.app.OurBloomApp
 import com.ourbloom.app.R
 import com.ourbloom.app.data.FirestoreRepository
 import com.ourbloom.app.data.models.Couple
@@ -79,6 +79,21 @@ class CoupleWallpaperFragment : Fragment() {
     private lateinit var sliderDimLevel: Slider
     private lateinit var llCollageControls: LinearLayout
 
+    private val safeAppContext: Context
+        get() = context?.applicationContext ?: OurBloomApp.instance.applicationContext
+
+    private fun showToastSafely(message: String, duration: Int = Toast.LENGTH_SHORT) {
+        val ctx = context ?: activity ?: OurBloomApp.instance
+        Toast.makeText(ctx, message, duration).show()
+    }
+
+    private fun getScreenDimensions(): Pair<Int, Int> {
+        val dm = context?.resources?.displayMetrics ?: OurBloomApp.instance.resources.displayMetrics
+        val width = if (dm.widthPixels > 0) dm.widthPixels else 1080
+        val height = if (dm.heightPixels > 0) dm.heightPixels else 2400
+        return Pair(width, height)
+    }
+
     private val pickPhotoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             selectedLocalUri = uri
@@ -112,6 +127,7 @@ class CoupleWallpaperFragment : Fragment() {
 
         lifecycleScope.launch {
             val user = repository.getCurrentUser()
+            if (!isAdded) return@launch
             if (user != null) {
                 currentUserId = user.uid
                 currentUserName = user.name
@@ -119,6 +135,7 @@ class CoupleWallpaperFragment : Fragment() {
 
                 if (coupleId.isNotBlank()) {
                     val couple = repository.getCouple(coupleId)
+                    if (!isAdded) return@launch
                     setupCoupleDetails(couple, user)
                     startListeningToWallpaperConfig()
                 } else {
@@ -141,13 +158,13 @@ class CoupleWallpaperFragment : Fragment() {
         sliderDimLevel = view.findViewById(R.id.slider_dim_level)
         llCollageControls = view.findViewById(R.id.ll_collage_controls)
 
-        val wallpaperPrefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
+        val wallpaperPrefs = safeAppContext.getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
         switchAutoApply.isChecked = wallpaperPrefs.getBoolean("auto_apply_partner_wallpaper", true)
         switchAutoApply.setOnCheckedChangeListener { _, isChecked ->
             wallpaperPrefs.edit().putBoolean("auto_apply_partner_wallpaper", isChecked).apply()
             val msg = if (isChecked) "Auto-apply enabled! Sweetheart's updates will set automatically 💕"
                       else "Auto-apply off. You'll receive alerts to apply manually ✨"
-            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+            showToastSafely(msg)
         }
 
         view.findViewById<ImageButton>(R.id.btn_back_wallpaper).setOnClickListener {
@@ -238,9 +255,10 @@ class CoupleWallpaperFragment : Fragment() {
         if (couple == null) return
         val partnerId = if (couple.user1 == currentUserId) couple.user2 else couple.user1
         val partnerUser = if (partnerId.isNotBlank()) repository.getUser(partnerId) else null
+        if (!isAdded) return
 
         val prefs = try {
-            requireContext().getSharedPreferences("OurBloomPrefs", Context.MODE_PRIVATE)
+            safeAppContext.getSharedPreferences("OurBloomPrefs", Context.MODE_PRIVATE)
         } catch (e: Exception) {
             null
         }
@@ -354,7 +372,8 @@ class CoupleWallpaperFragment : Fragment() {
     }
 
     private fun showTemplatesDialog() {
-        val bottomSheet = BottomSheetDialog(requireContext())
+        val ctx = context ?: return
+        val bottomSheet = BottomSheetDialog(ctx)
         val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_wallpaper_templates, null)
         bottomSheet.setContentView(sheetView)
 
@@ -402,12 +421,12 @@ class CoupleWallpaperFragment : Fragment() {
                     showThemePresetsDialog()
                 }
                 else -> {
-                    Toast.makeText(requireContext(), "${template.title} selected!", Toast.LENGTH_SHORT).show()
+                    showToastSafely("${template.title} selected!")
                 }
             }
         }
 
-        rvTemplates.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        rvTemplates.layoutManager = LinearLayoutManager(ctx, LinearLayoutManager.HORIZONTAL, false)
         rvTemplates.adapter = adapter
 
         bottomSheet.show()
@@ -415,12 +434,14 @@ class CoupleWallpaperFragment : Fragment() {
 
     private fun loadPhotosFromMemoriesGallery() {
         if (coupleId.isBlank()) {
-            Toast.makeText(requireContext(), "Pair with your partner first! 🌸", Toast.LENGTH_SHORT).show()
+            showToastSafely("Pair with your partner first! 🌸")
             return
         }
 
         pbWallpaperLoading.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Fetching photos from your Love Gallery... 📸", Toast.LENGTH_SHORT).show()
+        showToastSafely("Fetching photos from your Love Gallery... 📸")
+
+        val appContext = safeAppContext
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -429,15 +450,19 @@ class CoupleWallpaperFragment : Fragment() {
 
                 if (validUrls.isEmpty()) {
                     withContext(Dispatchers.Main) {
-                        pbWallpaperLoading.visibility = View.GONE
-                        MaterialAlertDialogBuilder(requireContext())
-                            .setTitle("No Photos in Gallery Yet 🌸")
-                            .setMessage("Your couple gallery doesn't have photos yet. Would you like to select photos from your device to prepare your Heart Collage?")
-                            .setPositiveButton("Choose Photos 📱") { _, _ ->
-                                pickMultiplePhotosLauncher.launch("image/*")
+                        if (isAdded) {
+                            pbWallpaperLoading.visibility = View.GONE
+                            context?.let { ctx ->
+                                MaterialAlertDialogBuilder(ctx)
+                                    .setTitle("No Photos in Gallery Yet 🌸")
+                                    .setMessage("Your couple gallery doesn't have photos yet. Would you like to select photos from your device to prepare your Heart Collage?")
+                                    .setPositiveButton("Choose Photos 📱") { _, _ ->
+                                        pickMultiplePhotosLauncher.launch("image/*")
+                                    }
+                                    .setNegativeButton("Cancel", null)
+                                    .show()
                             }
-                            .setNegativeButton("Cancel", null)
-                            .show()
+                        }
                     }
                     return@launch
                 }
@@ -445,7 +470,7 @@ class CoupleWallpaperFragment : Fragment() {
                 val loadedBitmaps = mutableListOf<Bitmap>()
                 for (url in validUrls.take(18)) {
                     try {
-                        val bmp = Glide.with(requireContext())
+                        val bmp = Glide.with(appContext)
                             .asBitmap()
                             .load(url)
                             .submit(1200, 1200)
@@ -457,26 +482,30 @@ class CoupleWallpaperFragment : Fragment() {
                 }
 
                 withContext(Dispatchers.Main) {
-                    pbWallpaperLoading.visibility = View.GONE
-                    if (loadedBitmaps.isNotEmpty()) {
-                        currentSlotBitmaps.clear()
-                        currentSlotBitmaps.addAll(loadedBitmaps)
-                        selectedLocalUri = null
-                        currentConfig = currentConfig.copy(
-                            templateId = "HEART_MEMORIES",
-                            presetTheme = "CUSTOM",
-                            memoryPhotoUrls = validUrls
-                        )
-                        renderHeartCollage()
-                        Toast.makeText(requireContext(), "Heart Collage created with ${loadedBitmaps.size} gallery photos! 💖", Toast.LENGTH_LONG).show()
-                    } else {
-                        Toast.makeText(requireContext(), "Could not download gallery photos. Please check internet connection.", Toast.LENGTH_SHORT).show()
+                    if (isAdded) {
+                        pbWallpaperLoading.visibility = View.GONE
+                        if (loadedBitmaps.isNotEmpty()) {
+                            currentSlotBitmaps.clear()
+                            currentSlotBitmaps.addAll(loadedBitmaps)
+                            selectedLocalUri = null
+                            currentConfig = currentConfig.copy(
+                                templateId = "HEART_MEMORIES",
+                                presetTheme = "CUSTOM",
+                                memoryPhotoUrls = validUrls
+                            )
+                            renderHeartCollage()
+                            showToastSafely("Heart Collage created with ${loadedBitmaps.size} gallery photos! 💖", Toast.LENGTH_LONG)
+                        } else {
+                            showToastSafely("Could not download gallery photos. Please check internet connection.")
+                        }
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    pbWallpaperLoading.visibility = View.GONE
-                    Toast.makeText(requireContext(), "Failed loading gallery: ${e.message}", Toast.LENGTH_SHORT).show()
+                    if (isAdded) {
+                        pbWallpaperLoading.visibility = View.GONE
+                        showToastSafely("Failed loading gallery: ${e.message}")
+                    }
                 }
             }
         }
@@ -485,11 +514,13 @@ class CoupleWallpaperFragment : Fragment() {
     private fun loadBitmapsFromUris(uris: List<Uri>) {
         if (uris.isEmpty()) return
         pbWallpaperLoading.visibility = View.VISIBLE
+        val appContext = safeAppContext
+
         lifecycleScope.launch(Dispatchers.IO) {
             val bitmaps = mutableListOf<Bitmap>()
             for (uri in uris.take(18)) {
                 try {
-                    val input = requireContext().contentResolver.openInputStream(uri)
+                    val input = appContext.contentResolver.openInputStream(uri)
                     val bmp = BitmapFactory.decodeStream(input)
                     input?.close()
                     if (bmp != null) bitmaps.add(bmp)
@@ -498,14 +529,16 @@ class CoupleWallpaperFragment : Fragment() {
                 }
             }
             withContext(Dispatchers.Main) {
-                pbWallpaperLoading.visibility = View.GONE
-                if (bitmaps.isNotEmpty()) {
-                    currentSlotBitmaps.clear()
-                    currentSlotBitmaps.addAll(bitmaps)
-                    selectedLocalUri = null
-                    currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES", presetTheme = "CUSTOM")
-                    renderHeartCollage()
-                    Toast.makeText(requireContext(), "Heart collage updated with ${bitmaps.size} photos! 💖", Toast.LENGTH_SHORT).show()
+                if (isAdded) {
+                    pbWallpaperLoading.visibility = View.GONE
+                    if (bitmaps.isNotEmpty()) {
+                        currentSlotBitmaps.clear()
+                        currentSlotBitmaps.addAll(bitmaps)
+                        selectedLocalUri = null
+                        currentConfig = currentConfig.copy(templateId = "HEART_MEMORIES", presetTheme = "CUSTOM")
+                        renderHeartCollage()
+                        showToastSafely("Heart collage updated with ${bitmaps.size} photos! 💖")
+                    }
                 }
             }
         }
@@ -518,18 +551,18 @@ class CoupleWallpaperFragment : Fragment() {
         }
         currentSlotBitmaps.shuffle()
         renderHeartCollage()
-        Toast.makeText(requireContext(), "Collage photos shuffled! 🔀", Toast.LENGTH_SHORT).show()
+        showToastSafely("Collage photos shuffled! 🔀")
     }
 
     private fun renderHeartCollage() {
-        val displayMetrics = resources.displayMetrics
-        val screenW = if (displayMetrics.widthPixels > 0) displayMetrics.widthPixels else 1080
-        val screenH = if (displayMetrics.heightPixels > 0) displayMetrics.heightPixels else 2400
+        if (!isAdded || context == null) return
+        val (screenW, screenH) = getScreenDimensions()
+        val appContext = safeAppContext
 
         pbWallpaperLoading.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.Default) {
             val collage = WallpaperGenerator.generateHeartCollageBitmap(
-                context = requireContext().applicationContext,
+                context = appContext,
                 photos = currentSlotBitmaps,
                 config = currentConfig,
                 daysTogether = daysTogether,
@@ -542,8 +575,8 @@ class CoupleWallpaperFragment : Fragment() {
             lastGeneratedWallpaper = collage
 
             withContext(Dispatchers.Main) {
-                pbWallpaperLoading.visibility = View.GONE
                 if (isAdded) {
+                    pbWallpaperLoading.visibility = View.GONE
                     ivWallpaperPreview.setImageBitmap(collage)
                     llCollageControls.visibility = View.VISIBLE
                 }
@@ -553,23 +586,29 @@ class CoupleWallpaperFragment : Fragment() {
 
     private fun loadBitmapFromUri(uri: Uri) {
         pbWallpaperLoading.visibility = View.VISIBLE
+        val appContext = safeAppContext
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val inputStream = requireContext().contentResolver.openInputStream(uri)
+                val inputStream = appContext.contentResolver.openInputStream(uri)
                 val bmp = BitmapFactory.decodeStream(inputStream)
                 inputStream?.close()
 
                 withContext(Dispatchers.Main) {
-                    currentSourceBitmap = bmp
-                    val targetTemplateId = if (currentConfig.templateId == "VINTAGE_SCRAPBOOK") "VINTAGE_SCRAPBOOK" else "CLASSIC"
-                    currentConfig = currentConfig.copy(presetTheme = "CUSTOM", templateId = targetTemplateId)
-                    pbWallpaperLoading.visibility = View.GONE
-                    renderWallpaperPreview()
+                    if (isAdded) {
+                        currentSourceBitmap = bmp
+                        val targetTemplateId = if (currentConfig.templateId == "VINTAGE_SCRAPBOOK") "VINTAGE_SCRAPBOOK" else "CLASSIC"
+                        currentConfig = currentConfig.copy(presetTheme = "CUSTOM", templateId = targetTemplateId)
+                        pbWallpaperLoading.visibility = View.GONE
+                        renderWallpaperPreview()
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    pbWallpaperLoading.visibility = View.GONE
-                    Toast.makeText(requireContext(), "Could not load image", Toast.LENGTH_SHORT).show()
+                    if (isAdded) {
+                        pbWallpaperLoading.visibility = View.GONE
+                        showToastSafely("Could not load image")
+                    }
                 }
             }
         }
@@ -581,32 +620,35 @@ class CoupleWallpaperFragment : Fragment() {
         updatedAt: Long = 0L,
         partnerName: String = ""
     ) {
+        val appContext = safeAppContext
         pbWallpaperLoading.visibility = View.VISIBLE
-        Glide.with(this)
+
+        Glide.with(appContext)
             .asBitmap()
             .load(url)
             .into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                     currentSourceBitmap = resource
                     lastGeneratedWallpaper = resource
-                    pbWallpaperLoading.visibility = View.GONE
+
                     if (isAdded) {
+                        pbWallpaperLoading.visibility = View.GONE
                         ivWallpaperPreview.setImageBitmap(resource)
                     }
 
-                    if (isPartnerUpdate && isAdded) {
-                        val prefs = requireContext().getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
+                    if (isPartnerUpdate) {
+                        val prefs = appContext.getSharedPreferences("ourbloom_wallpaper_prefs", Context.MODE_PRIVATE)
                         val autoApply = prefs.getBoolean("auto_apply_partner_wallpaper", true)
                         val lastAppliedAt = prefs.getLong("last_applied_wallpaper_ts", 0L)
                         if (autoApply && updatedAt > lastAppliedAt) {
                             prefs.edit().putLong("last_applied_wallpaper_ts", updatedAt).apply()
                             lifecycleScope.launch(Dispatchers.IO) {
-                                val applied = WallpaperHelper.applyWallpaper(requireContext(), resource, WallpaperTarget.BOTH)
+                                val applied = WallpaperHelper.applyWallpaper(appContext, resource, WallpaperTarget.BOTH)
                                 if (applied) {
                                     withContext(Dispatchers.Main) {
                                         if (isAdded) {
                                             val name = partnerName.ifBlank { "Sweetheart" }
-                                            Toast.makeText(requireContext(), "Matching wallpaper updated by $name applied! 💕", Toast.LENGTH_SHORT).show()
+                                            showToastSafely("Matching wallpaper updated by $name applied! 💕")
                                         }
                                     }
                                 }
@@ -616,24 +658,28 @@ class CoupleWallpaperFragment : Fragment() {
                 }
 
                 override fun onLoadCleared(placeholder: Drawable?) {
-                    pbWallpaperLoading.visibility = View.GONE
+                    if (isAdded) {
+                        pbWallpaperLoading.visibility = View.GONE
+                    }
                 }
 
                 override fun onLoadFailed(errorDrawable: Drawable?) {
-                    pbWallpaperLoading.visibility = View.GONE
-                    renderWallpaperPreview()
+                    if (isAdded) {
+                        pbWallpaperLoading.visibility = View.GONE
+                        renderWallpaperPreview()
+                    }
                 }
             })
     }
 
     private fun renderWallpaperPreview() {
-        val displayMetrics = resources.displayMetrics
-        val screenW = displayMetrics.widthPixels
-        val screenH = displayMetrics.heightPixels
+        if (!isAdded || context == null) return
+        val (screenW, screenH) = getScreenDimensions()
+        val appContext = safeAppContext
 
         lifecycleScope.launch(Dispatchers.Default) {
             val wallpaper = WallpaperGenerator.generateWallpaperBitmap(
-                context = context,
+                context = appContext,
                 sourceBitmap = currentSourceBitmap,
                 config = currentConfig,
                 daysTogether = daysTogether,
@@ -655,24 +701,28 @@ class CoupleWallpaperFragment : Fragment() {
     private fun applyWallpaperToDevice(target: WallpaperTarget) {
         val wallpaper = lastGeneratedWallpaper
         if (wallpaper == null) {
-            Toast.makeText(requireContext(), "Please wait for wallpaper to generate...", Toast.LENGTH_SHORT).show()
+            showToastSafely("Please wait for wallpaper to generate...")
             return
         }
 
+        val appContext = safeAppContext
         pbWallpaperLoading.visibility = View.VISIBLE
+
         lifecycleScope.launch(Dispatchers.IO) {
-            val success = WallpaperHelper.applyWallpaper(requireContext(), wallpaper, target)
+            val success = WallpaperHelper.applyWallpaper(appContext, wallpaper, target)
             withContext(Dispatchers.Main) {
-                pbWallpaperLoading.visibility = View.GONE
-                if (success) {
-                    val targetName = when (target) {
-                        WallpaperTarget.LOCK_SCREEN -> "Lock Screen 🔒"
-                        WallpaperTarget.HOME_SCREEN -> "Home Screen 📱"
-                        WallpaperTarget.BOTH -> "Lock & Home Screen ✨"
+                if (isAdded) {
+                    pbWallpaperLoading.visibility = View.GONE
+                    if (success) {
+                        val targetName = when (target) {
+                            WallpaperTarget.LOCK_SCREEN -> "Lock Screen 🔒"
+                            WallpaperTarget.HOME_SCREEN -> "Home Screen 📱"
+                            WallpaperTarget.BOTH -> "Lock & Home Screen ✨"
+                        }
+                        showToastSafely("Wallpaper applied to $targetName! 🌸", Toast.LENGTH_LONG)
+                    } else {
+                        showToastSafely("Failed to apply wallpaper. Check permissions.")
                     }
-                    Toast.makeText(requireContext(), "Wallpaper applied to $targetName! 🌸", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(requireContext(), "Failed to apply wallpaper. Check permissions.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -680,16 +730,19 @@ class CoupleWallpaperFragment : Fragment() {
 
     private fun saveWallpaperToGallery() {
         val wallpaper = lastGeneratedWallpaper ?: return
+        val appContext = safeAppContext
         pbWallpaperLoading.visibility = View.VISIBLE
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val uri = WallpaperHelper.saveToGallery(requireContext(), wallpaper)
+            val uri = WallpaperHelper.saveToGallery(appContext, wallpaper)
             withContext(Dispatchers.Main) {
-                pbWallpaperLoading.visibility = View.GONE
-                if (uri != null) {
-                    Toast.makeText(requireContext(), "Saved to Photos / Gallery! 💾", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(requireContext(), "Failed saving image", Toast.LENGTH_SHORT).show()
+                if (isAdded) {
+                    pbWallpaperLoading.visibility = View.GONE
+                    if (uri != null) {
+                        showToastSafely("Saved to Photos / Gallery! 💾")
+                    } else {
+                        showToastSafely("Failed saving image")
+                    }
                 }
             }
         }
@@ -697,12 +750,13 @@ class CoupleWallpaperFragment : Fragment() {
 
     private fun syncWallpaperWithPartner() {
         if (coupleId.isBlank()) {
-            Toast.makeText(requireContext(), "Pair with your partner first! 🌸", Toast.LENGTH_SHORT).show()
+            showToastSafely("Pair with your partner first! 🌸")
             return
         }
 
+        val appContext = safeAppContext
         pbWallpaperLoading.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Syncing couple wallpaper with partner... 💕", Toast.LENGTH_SHORT).show()
+        showToastSafely("Syncing couple wallpaper with partner... 💕")
 
         lifecycleScope.launch {
             var uploadedUrl = currentConfig.imageUrl
@@ -736,6 +790,8 @@ class CoupleWallpaperFragment : Fragment() {
             )
 
             val success = repository.updateCoupleWallpaper(coupleId, updatedConfig)
+
+            if (!isAdded) return@launch
             pbWallpaperLoading.visibility = View.GONE
 
             if (success) {
@@ -744,9 +800,9 @@ class CoupleWallpaperFragment : Fragment() {
 
                 // Automatically apply locally too so both sweethearts match instantly
                 if (wallpaperToUpload != null && !wallpaperToUpload.isRecycled) {
-                    WallpaperHelper.applyWallpaper(requireContext(), wallpaperToUpload, WallpaperTarget.BOTH)
+                    WallpaperHelper.applyWallpaper(appContext, wallpaperToUpload, WallpaperTarget.BOTH)
                 }
-                Toast.makeText(requireContext(), "Wallpaper synchronized with $partnerName! 💕", Toast.LENGTH_LONG).show()
+                showToastSafely("Wallpaper synchronized with $partnerName! 💕", Toast.LENGTH_LONG)
 
                 // Dispatch instant high-priority FCM push notification to partner
                 val currentCoupleId = coupleId
@@ -789,7 +845,7 @@ class CoupleWallpaperFragment : Fragment() {
                             "anniversaryDateStr" to anniversaryDateStr
                         )
                         DirectFcmSender.sendPush(
-                            context = requireContext().applicationContext,
+                            context = appContext,
                             token = partnerFcmToken,
                             title = notifTitle,
                             body = notifBody,
@@ -800,7 +856,7 @@ class CoupleWallpaperFragment : Fragment() {
                     }
                 }
             } else {
-                Toast.makeText(requireContext(), "Failed to sync wallpaper. Check internet connection.", Toast.LENGTH_SHORT).show()
+                showToastSafely("Failed to sync wallpaper. Check internet connection.")
             }
         }
     }
@@ -814,17 +870,21 @@ class CoupleWallpaperFragment : Fragment() {
         )
         val presetKeys = arrayOf(
             "ROSE_SUNSET",
-            "STARRY_LOVE",
+            "STARRY_NIGHT",
             "CHERRY_BLOSSOM",
             "GOLDEN_HOUR"
         )
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Choose Color Theme 🎨")
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("Select Romantic Color Theme ✨")
             .setItems(presets) { _, which ->
-                currentSourceBitmap = null
                 selectedLocalUri = null
-                currentConfig = currentConfig.copy(presetTheme = presetKeys[which], templateId = "CLASSIC")
+                currentSourceBitmap = null
+                currentConfig = currentConfig.copy(
+                    presetTheme = presetKeys[which],
+                    templateId = "CLASSIC"
+                )
                 renderWallpaperPreview()
             }
             .setNegativeButton("Cancel", null)

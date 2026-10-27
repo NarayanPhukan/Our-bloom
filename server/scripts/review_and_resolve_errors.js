@@ -22,6 +22,8 @@ async function resolveErrors() {
     '95c6e3b3-400a-4100-a2fa-97eb308c7617': 'Resolved: Added model persistence and Proguard keep rules for Firestore generic List types.',
     'f613a21b-eddf-4fb3-9506-7ebee8ae9d6e': 'Resolved: Added model persistence and Proguard keep rules for Firestore generic List types.',
     '026bf4a8-f687-4891-a493-45552f39df73': 'Resolved: User.fcmToken nullability handled and @Keep annotation added to User model.',
+    '092aba1a-ed74-47f2-9df1-669b307b9370': 'Fixed in v1.96: Prevented IllegalStateException by removing unsafe requireContext() and resources calls, using safeAppContext and verifying fragment attachment in coroutines.',
+    'ef949a2d-3cf2-49c4-8dea-94999223dd18': 'Fixed in v1.96: Prevented IllegalStateException by removing unsafe requireContext() and resources calls, using safeAppContext and verifying fragment attachment in coroutines.',
     'd17ebd37-60b6-480c-8bf7-dab852c50ed1': 'Tracked: Feature request for video call PiP/minimize and notification.'
   };
 
